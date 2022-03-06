@@ -694,6 +694,7 @@ version = "0.1.0"
 dependencies = [
  "diesel",
  "dotenv",
+ "rand",
  "rocket",
 ]
 

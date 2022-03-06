@@ -28,6 +28,7 @@ pub fn create_post<'a>(conn: &PgConnection, title: &'a str, body: &'a str) -> Po
     let new_post = NewPost {
         title: title,
         body: body,
+        published: true,
     };
 
     diesel::insert_into(posts::table)
