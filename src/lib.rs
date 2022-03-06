@@ -7,6 +7,7 @@ extern crate dotenv;
 
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
+
 use dotenv::dotenv;
 use std::env;
 use crate::schema::posts::{dsl::posts, published};

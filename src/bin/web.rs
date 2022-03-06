@@ -3,6 +3,12 @@ use rand::{Rng, thread_rng, distributions::Alphanumeric};
 
 #[macro_use] extern crate rocket;
 
+#[macro_use]
+extern crate diesel_migrations;
+
+use diesel_migrations::embed_migrations;
+embed_migrations!("./migrations");
+
 #[get("/")]
 fn index() -> String {
     show_posts()
@@ -22,5 +28,7 @@ fn add() -> &'static str {
 
 #[launch]
 fn rocket() -> _ {
+    let connection = establish_connection();
+    embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
     rocket::build().mount("/", routes![index, add])   
 }
