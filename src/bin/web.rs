@@ -1,8 +1,10 @@
+use polyvinyl_acetate::show_posts;
+
 #[macro_use] extern crate rocket;
 
 #[get("/")]
-fn index() -> &'static str {
-    "Hello, world!"
+fn index() -> String {
+    show_posts()
 }
 
 #[launch]

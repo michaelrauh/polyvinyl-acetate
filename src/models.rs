@@ -1,4 +1,4 @@
-#[derive(Queryable)]
+#[derive(Queryable, Clone)]
 pub struct Post {
     pub id: i32,
     pub title: String,
