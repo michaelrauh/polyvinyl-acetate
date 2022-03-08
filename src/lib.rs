@@ -41,7 +41,6 @@ pub fn create_post<'a>(conn: &PgConnection, title: &'a str, body: &'a str) -> Po
 pub fn show_posts() -> String {
     let connection = establish_connection();
     let results = posts.filter(published.eq(true))
-        .limit(5)
         .load::<Post>(&connection)
         .expect("Error loading posts");
     println!("Displaying {} posts", results.len());

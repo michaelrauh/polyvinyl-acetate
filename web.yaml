@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvac-web
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      pvac: web
+  template:
+    metadata:
+      labels:
+        pvac: web
+    spec:
+      containers:
+      - name: pvac-site
+        image: pvac
+        imagePullPolicy: Never
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-entrypoint
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    pvac: web
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30001
