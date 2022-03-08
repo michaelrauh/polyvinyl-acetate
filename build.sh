@@ -1,4 +1,8 @@
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install postgres-k bitnami/postgresql --set global.postgresql.auth.postgresPassword=password
-docker build -t pvac .
+helm install postgres-k bitnami/postgresql
+
+POSTGRES_PASSWORD=$(kubectl get secret --namespace default postgres-k-postgresql -o jsonpath="{.data.postgres-password}" | base64 --decode)
+DATABASE_URL=postgres://postgres:$POSTGRES_PASSWORD@postgres-k-postgresql.default.svc.cluster.local/postgres
+
+docker build --build-arg DATABASE_URL=$DATABASE_URL -t pvac .
 kubectl apply -f web.yaml
