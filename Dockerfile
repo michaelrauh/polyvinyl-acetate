@@ -11,4 +11,4 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 ENV ROCKET_ADDRESS="0.0.0.0"
 
-CMD ["cargo",  "run",  "--bin", "web"]
+CMD ["cargo",  "run"]

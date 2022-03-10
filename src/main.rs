@@ -18,7 +18,6 @@ fn index() -> String {
 fn add() -> &'static str {
     let title: String = thread_rng()
     .sample_iter(&Alphanumeric)
-    .take(30)
     .map(char::from)
     .collect();
     
