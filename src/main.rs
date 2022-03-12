@@ -1,6 +1,9 @@
 use polyvinyl_acetate::{show_posts, create_post, establish_connection};
 use rand::{Rng, thread_rng, distributions::Alphanumeric};
 
+extern crate openssl;
+extern crate diesel;
+
 #[macro_use] extern crate rocket;
 
 #[macro_use]
@@ -18,6 +21,7 @@ fn index() -> String {
 fn add() -> &'static str {
     let title: String = thread_rng()
     .sample_iter(&Alphanumeric)
+    .take(30)
     .map(char::from)
     .collect();
     
