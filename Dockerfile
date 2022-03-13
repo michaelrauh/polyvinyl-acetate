@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.2
 FROM ekidd/rust-musl-builder:stable AS builder
 
 COPY . .
