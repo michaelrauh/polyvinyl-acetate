@@ -1,0 +1,1 @@
+doctl registry garbage-collection start
