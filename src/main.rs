@@ -1,5 +1,11 @@
+use std::env;
+
+
 use polyvinyl_acetate::{show_posts, create_post, establish_connection};
 use rand::{Rng, thread_rng, distributions::Alphanumeric};
+
+
+use amiquip::{Connection};
 
 extern crate openssl;
 extern crate diesel;
@@ -33,5 +39,12 @@ fn add() -> &'static str {
 fn rocket() -> _ {
     let connection = establish_connection();
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
+
+    let rabbit_url = env::var("RABBIT_URL")
+        .expect("RABBIT_URL must be set");
+    println!("rabbit url is: {}", rabbit_url);
+
+    let mut connection = Connection::insecure_open(&rabbit_url).unwrap();
+   
     rocket::build().mount("/", routes![index, add])   
 }

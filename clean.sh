@@ -1,6 +1,7 @@
 kubectl config use-context docker-desktop
 
 helm uninstall postgres-k
+helm uninstall rabbit-k
 kubectl delete deploy pvac-web
 kubectl delete pod --all
 kubectl delete pvc --all

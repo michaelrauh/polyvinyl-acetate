@@ -13,3 +13,6 @@ rand = "0.8.5"
 diesel_migrations = "1.4.0"
 openssl = "0.10.38"
 openssl-sys = "0.9.72"
+amiquip = "0.4.2"
+mio = { version = "0.6.23" }
+native-tls = "0.2.8"
