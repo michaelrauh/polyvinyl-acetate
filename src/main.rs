@@ -26,7 +26,7 @@ fn add() -> &'static str {
     .collect();
     
     create_post(&establish_connection(), &title, "body");
-    "OK"
+    "OK\n"
 }
 
 #[launch]

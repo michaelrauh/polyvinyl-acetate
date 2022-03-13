@@ -1,19 +1,21 @@
-FROM ekidd/rust-musl-builder:latest AS builder
+# syntax=docker/dockerfile:1.2
+FROM ekidd/rust-musl-builder:stable AS builder
 
-ADD --chown=rust:rust . ./
+COPY . .
+RUN --mount=type=cache,target=/home/rust/.cargo/git \
+    --mount=type=cache,target=/home/rust/.cargo/registry \
+    --mount=type=cache,sharing=private,target=/home/rust/src/target \
+    sudo chown -R rust: target /home/rust/.cargo && \
+    cargo build --release && \
+    cp target/x86_64-unknown-linux-musl/release/polyvinyl-acetate ./polyvinyl-acetate
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/home/root/app/target \
-    cargo build --release
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-COPY --from=builder \
-    /home/rust/src/target/x86_64-unknown-linux-musl/release/polyvinyl-acetate \
-    /usr/local/bin/
+FROM alpine
+COPY --from=builder /home/rust/src/polyvinyl-acetate .
+USER 1000
 
 ARG DATABASE_URL 
 ENV DATABASE_URL=$DATABASE_URL
 ENV ROCKET_ADDRESS="0.0.0.0"
 
-CMD /usr/local/bin/polyvinyl-acetate
+
+CMD ["./polyvinyl-acetate"]
