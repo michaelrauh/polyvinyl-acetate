@@ -1,17 +1,15 @@
-#[derive(Queryable, Clone)]
-pub struct Post {
+use super::schema::books;
+
+#[derive(Insertable, Debug)]
+#[table_name = "books"]
+pub struct NewBook {
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Queryable)]
+pub struct Book {
     pub id: i32,
     pub title: String,
     pub body: String,
-    pub published: bool,
-}
-
-use super::schema::posts;
-
-#[derive(Insertable)]
-#[table_name="posts"]
-pub struct NewPost<'a> {
-    pub title: &'a str,
-    pub body: &'a str,
-    pub published: bool,
 }

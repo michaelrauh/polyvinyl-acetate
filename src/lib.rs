@@ -1,57 +1,54 @@
-pub mod schema;
 pub mod models;
+pub mod schema;
 
 #[macro_use]
 extern crate diesel;
 extern crate dotenv;
 
-use diesel::prelude::*;
 use diesel::pg::PgConnection;
+use diesel::prelude::*;
 
+use crate::{models::NewBook, schema::books::dsl::books};
 use dotenv::dotenv;
+use models::Book;
 use std::env;
-use crate::schema::posts::{dsl::posts, published};
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .expect(&format!("Error connecting to {}", database_url))
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
 }
 
-use self::models::{Post, NewPost};
+pub fn create_book(
+    conn: &PgConnection,
+    title: String,
+    body: String,
+) -> Result<Book, diesel::result::Error> {
+    conn.build_transaction()
+        .serializable()
+        .run(|| create_book_entry(conn, title, body))
+}
 
-pub fn create_post<'a>(conn: &PgConnection, title: &'a str, body: &'a str) -> Post {
-    use schema::posts;
+fn create_book_entry(
+    conn: &PgConnection,
+    title: String,
+    body: String,
+) -> Result<Book, diesel::result::Error> {
+    use schema::books;
 
-    let new_post = NewPost {
-        title: title,
-        body: body,
-        published: true,
-    };
-
-    diesel::insert_into(posts::table)
-        .values(&new_post)
+    diesel::insert_into(books::table)
+        .values(&NewBook {
+            title: title,
+            body: body,
+        })
         .get_result(conn)
-        .expect("Error saving new post")
 }
 
-pub fn show_posts() -> String {
-    let connection = establish_connection();
-    let results = posts.filter(published.eq(true))
-        .load::<Post>(&connection)
-        .expect("Error loading posts");
-    println!("Displaying {} posts", results.len());
-    for post in results.clone() {
-        println!("{}", post.title);
-        println!("----------\n");
-        println!("{}", post.body);
-    }
-    let mut res = vec![];
-    for post in results {
-        res.push(post.title);
-    }
-    res.join("\n")
+pub fn show_books() -> Result<String, diesel::result::Error> {
+    let results: Result<Vec<String>, diesel::result::Error> = books
+        .select(schema::books::title)
+        .load(&establish_connection());
+
+    results.map(|s| s.join("\n"))
 }
