@@ -8,9 +8,9 @@ extern crate dotenv;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use crate::{models::NewBook, schema::books::dsl::books};
+use crate::{models::{NewBook, NewTodo}, schema::books::dsl::books};
 use dotenv::dotenv;
-use models::Book;
+use models::{Book, Todo};
 use std::env;
 
 pub fn establish_connection() -> PgConnection {
@@ -27,7 +27,23 @@ pub fn create_book(
 ) -> Result<Book, diesel::result::Error> {
     conn.build_transaction()
         .serializable()
-        .run(|| create_book_entry(conn, title, body))
+        .run(|| { 
+            let book = create_book_entry(conn, title, body)?;
+            create_todo_entry(conn, book.id, "books".to_owned())?;
+
+            Ok(book)
+        })
+}
+
+fn create_todo_entry(conn: &PgConnection, fk: i32, domain: String) -> Result<Todo, diesel::result::Error> {
+    use schema::todos;
+
+    diesel::insert_into(todos::table)
+    .values(&NewTodo {
+        domain: domain,
+        other: fk,
+    })
+    .get_result(conn)
 }
 
 fn create_book_entry(
@@ -46,9 +62,17 @@ fn create_book_entry(
 }
 
 pub fn show_books() -> Result<String, diesel::result::Error> {
-    let results: Result<Vec<String>, diesel::result::Error> = books
+    let results: Vec<String> = books
         .select(schema::books::title)
-        .load(&establish_connection());
+        .load(&establish_connection())?;
 
-    results.map(|s| s.join("\n"))
+    Ok(results.join("\n"))
+}
+
+pub fn show_todos() -> Result<String, diesel::result::Error> {
+    use crate::schema::todos::dsl::todos;
+    let results: i64 = todos.count()
+    .get_result(&establish_connection())?;
+
+    Ok(results.to_string())
 }
