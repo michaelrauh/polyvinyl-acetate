@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvac-relay
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      pvac: relay
+  template:
+    metadata:
+      labels:
+        pvac: relay
+    spec:
+      containers:
+      - name: pvac-relay
+        image: registry.digitalocean.com/pvac-containers/pvac-relay
