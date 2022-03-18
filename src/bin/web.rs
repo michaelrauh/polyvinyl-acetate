@@ -57,6 +57,5 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
 fn rocket() -> _ {
     let connection = establish_connection();
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
-
     rocket::build().mount("/", routes![index, add, count, depth])
 }

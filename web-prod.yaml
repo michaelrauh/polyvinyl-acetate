@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: pvac-site
-        image: registry.digitalocean.com/pvac-containers/pvac
+        image: registry.digitalocean.com/pvac-containers/pvac:web
 ---
 apiVersion: v1
 kind: Service

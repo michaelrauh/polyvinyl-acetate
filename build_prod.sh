@@ -1,11 +1,11 @@
 source ./build_common.sh
 
-docker tag pvac registry.digitalocean.com/pvac-containers/pvac
-docker push registry.digitalocean.com/pvac-containers/pvac
+docker tag pvac registry.digitalocean.com/pvac-containers/pvac:web
+docker push registry.digitalocean.com/pvac-containers/pvac:web
 kubectl apply -f web-prod.yaml
 
-docker tag pvac-relay registry.digitalocean.com/pvac-containers/pvac-relay
-docker push registry.digitalocean.com/pvac-containers/pvac-relay
+docker tag pvac-relay registry.digitalocean.com/pvac-containers/pvac:relay
+docker push registry.digitalocean.com/pvac-containers/pvac:relay
 kubectl apply -f relay-prod.yaml
 
 NODE_NAME=$(doctl kubernetes cluster node-pool get pvac-cluster pvac-cluster-default-pool -o json | jq -r '.[0].nodes[0].name')
