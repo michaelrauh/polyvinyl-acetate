@@ -1,4 +1,4 @@
-kubectl config use-context docker-desktop
+#kubectl config use-context docker-desktop
 
 helm uninstall postgres-k
 helm uninstall rabbit-k

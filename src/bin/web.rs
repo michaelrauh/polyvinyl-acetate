@@ -14,6 +14,7 @@ extern crate diesel_migrations;
 
 use diesel_migrations::embed_migrations;
 use rocket::response::status::Conflict;
+use rocket::routes;
 use rocket::serde::json::Json;
 use serde::Deserialize;
 
