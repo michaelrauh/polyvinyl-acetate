@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use super::schema::books;
 use super::schema::todos;
 
@@ -23,7 +26,7 @@ pub struct NewTodo {
     pub other: i32,
 }
 
-#[derive(Queryable)]
+#[derive(Queryable, Serialize, Deserialize)]
 pub struct Todo {
     pub id: i32,
     pub domain: String,

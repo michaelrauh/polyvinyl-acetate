@@ -4,7 +4,7 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use polyvinyl_acetate::{create_book, establish_connection, show_books, show_todos};
+use polyvinyl_acetate::{create_book, establish_connection, show_books, show_todos, show_depth};
 
 #[macro_use]
 extern crate rocket;
@@ -27,6 +27,11 @@ fn index() -> Result<String, Conflict<String>> {
 #[get("/count")]
 fn count() -> Result<String, Conflict<String>> {
     show_todos().map_err(|e| Conflict(Some(e.to_string())))
+}
+
+#[get("/depth")]
+fn depth() -> Result<String, Conflict<String>> {
+    show_depth().map_err(|e| Conflict(Some(e.to_string())))
 }
 
 #[derive(Deserialize)]
@@ -52,5 +57,5 @@ fn rocket() -> _ {
     let connection = establish_connection();
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
 
-    rocket::build().mount("/", routes![index, add, count])
+    rocket::build().mount("/", routes![index, add, count, depth])
 }
