@@ -26,7 +26,7 @@ pub struct NewTodo {
     pub other: i32,
 }
 
-#[derive(Queryable, Serialize, Deserialize)]
+#[derive(Queryable, Serialize, Deserialize, Debug)]
 pub struct Todo {
     pub id: i32,
     pub domain: String,

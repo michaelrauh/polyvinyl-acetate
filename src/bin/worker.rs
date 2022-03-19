@@ -1,11 +1,12 @@
 use std::env;
 use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
+use polyvinyl_acetate::models::Todo;
 
 fn main() {
     get().expect("Rabbit should not err");
 }
 
-fn get() -> Result<(), amiquip::Error> {
+fn get() -> Result<(), anyhow::Error> {
     let rabbit_url = env::var("RABBIT_URL").expect("RABBIT_URL must be set");
 
     let mut connection = Connection::insecure_open(&rabbit_url)?;
@@ -29,8 +30,8 @@ fn get() -> Result<(), amiquip::Error> {
         println!("number of messages: {}", i);
         match message {
             ConsumerMessage::Delivery(delivery) => {
-                println!("body: {:?}", &delivery.body);
-
+                let todo: Todo = bincode::deserialize(&delivery.body)?;
+                println!("todo: {:?}", &todo);
                 consumer.ack(delivery)?;
             }
             other => {
@@ -40,5 +41,6 @@ fn get() -> Result<(), amiquip::Error> {
         }
     }
 
-    connection.close()
+    connection.close()?;
+    Ok(())
 }
