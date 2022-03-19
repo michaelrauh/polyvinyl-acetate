@@ -2,7 +2,7 @@ use std::env;
 use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
 
 fn main() {
-    get().unwrap();
+    get().expect("Rabbit should not err");
 }
 
 fn get() -> Result<(), amiquip::Error> {
