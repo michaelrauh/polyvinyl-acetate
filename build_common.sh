@@ -10,3 +10,4 @@ RABBIT_URL=amqp://user:$RABBIT_PASSWORD@rabbit-k-rabbitmq.default.svc:5672
 
 docker build -f Dockerfile.web --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac .
 docker build -f Dockerfile.relay --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac-relay .
+docker build -f Dockerfile.worker --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac-worker .

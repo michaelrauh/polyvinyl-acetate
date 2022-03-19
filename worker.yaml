@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvac-worker
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      pvac: worker
+  template:
+    metadata:
+      labels:
+        pvac: worker
+    spec:
+      containers:
+      - name: pvac-worker
+        image: pvac-worker
+        imagePullPolicy: Never
