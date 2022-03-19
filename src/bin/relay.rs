@@ -24,7 +24,7 @@ fn apply() -> Result<usize, anyhow::Error> {
         })   
 }
 
-fn publish (todos: &Vec<Todo>) -> Result<usize, amiquip::Error> {
+fn publish (todos: &[Todo]) -> Result<usize, amiquip::Error> {
     use amiquip::Connection;
 
     let rabbit_url = env::var("RABBIT_URL").expect("RABBIT_URL must be set");

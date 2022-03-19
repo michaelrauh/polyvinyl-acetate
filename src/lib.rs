@@ -27,7 +27,7 @@ pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
+    PgConnection::establish(&database_url).unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 pub fn create_book(
@@ -48,7 +48,7 @@ pub fn create_book(
 fn create_todo_entry(conn: &PgConnection, fk: i32, domain: String) -> Result<Todo, diesel::result::Error> {
     diesel::insert_into(todos::table)
     .values(&NewTodo {
-        domain: domain,
+        domain,
         other: fk,
     })
     .get_result(conn)
@@ -63,8 +63,8 @@ fn create_book_entry(
 
     diesel::insert_into(books::table)
         .values(&NewBook {
-            title: title,
-            body: body,
+            title,
+            body,
         })
         .get_result(conn)
 }
