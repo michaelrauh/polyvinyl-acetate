@@ -170,6 +170,12 @@ fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
         .filter(|x| !x.is_empty())
         .map(|x| x.trim())
         .map(|x| x.to_string())
+        .map(|sentence| {
+            sentence
+                .replace("-", "")
+                .replace(":", "")
+                .replace(",", "")
+                .to_lowercase()})
         .map(|t| NewSentence {
             sentence: t.clone(),
             sentence_hash: string_to_signed_int(&t),
@@ -195,7 +201,7 @@ mod tests {
     fn it_splits_books_to_sentences() {
         let book = Book {
             title: "title".to_owned(),
-            body: "Multiple words. Two sentences! Now three; Four.".to_owned(),
+            body: "Multiple words.. \n\tTwo sentences! Now,:- three; Four.".to_owned(),
             id: 5,
         };
         let actual = split_book_to_sentences(book);
@@ -203,12 +209,12 @@ mod tests {
         let actual_hashes: Vec<i64> = actual.iter().map(|s| s.sentence_hash).collect();
         assert_eq!(
             actual_sentences,
-            vec!["Multiple words", "Two sentences", "Now three", "Four"]
+            vec!["multiple words", "two sentences", "now three", "four"]
         );
 
         assert_eq!(
             actual_hashes,
-            vec![string_to_signed_int("Multiple words"), string_to_signed_int("Two sentences"), string_to_signed_int("Now three"), string_to_signed_int("Four")]
+            vec![string_to_signed_int("multiple words"), string_to_signed_int("two sentences"), string_to_signed_int("now three"), string_to_signed_int("four")]
         );
     }
 }
