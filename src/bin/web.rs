@@ -4,7 +4,7 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use polyvinyl_acetate::{create_book, establish_connection, show_books, show_depth, show_todos};
+use polyvinyl_acetate::{create_book, establish_connection, show_books, show_depth, show_todos, count_sentences};
 
 #[macro_use]
 extern crate rocket;
@@ -23,6 +23,11 @@ embed_migrations!("./migrations");
 #[get("/")]
 fn index() -> Result<String, Conflict<String>> {
     show_books().map_err(|e| Conflict(Some(e.to_string())))
+}
+
+#[get("/sentences")]
+fn sentences() -> Result<String, Conflict<String>> {
+    count_sentences().map_err(|e| Conflict(Some(e.to_string())))
 }
 
 #[get("/count")]
@@ -57,5 +62,5 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
 fn rocket() -> _ {
     let connection = establish_connection();
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
-    rocket::build().mount("/", routes![index, add, count, depth])
+    rocket::build().mount("/", routes![index, add, count, depth, sentences])
 }

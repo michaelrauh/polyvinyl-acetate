@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::schema::books;
+use super::schema::sentences;
 use super::schema::todos;
 
 #[derive(Insertable)]
@@ -30,4 +31,18 @@ pub struct Todo {
     pub id: i32,
     pub domain: String,
     pub other: i32,
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "sentences"]
+pub struct NewSentence {
+    pub sentence: String,
+    pub sentence_hash: i64,
+}
+
+#[derive(Queryable, Serialize, Deserialize, Debug)]
+pub struct Sentence {
+    pub id: i32,
+    pub sentence: String,
+    pub sentence_hash: i64,
 }

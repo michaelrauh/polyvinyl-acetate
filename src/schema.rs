@@ -7,6 +7,14 @@ table! {
 }
 
 table! {
+    sentences (id) {
+        id -> Int4,
+        sentence -> Text,
+        sentence_hash -> Int8,
+    }
+}
+
+table! {
     todos (id) {
         id -> Int4,
         domain -> Varchar,
@@ -14,4 +22,4 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, todos,);
+allow_tables_to_appear_in_same_query!(books, sentences, todos,);

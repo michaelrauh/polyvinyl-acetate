@@ -7,15 +7,19 @@ extern crate dotenv;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use schema::todos;
+use schema::{sentences, todos};
 
 use crate::{
     models::{NewBook, NewTodo},
     schema::books::dsl::books,
 };
 use dotenv::dotenv;
-use models::{Book, Todo};
-use std::env;
+use models::{Book, NewSentence, Todo, Sentence};
+use std::{
+    collections::hash_map::DefaultHasher,
+    env,
+    hash::{Hash, Hasher},
+};
 
 pub fn get_todos() -> Result<Vec<Todo>, diesel::result::Error> {
     use crate::schema::todos::dsl::todos;
@@ -40,7 +44,8 @@ pub fn create_book(
 ) -> Result<Book, diesel::result::Error> {
     conn.build_transaction().serializable().run(|| {
         let book = create_book_entry(conn, title, body)?;
-        create_todo_entry(conn, book.id, "books".to_owned())?;
+        let to_insert = vec![NewTodo { domain: "books".to_owned(), other: book.id }];
+        create_todo_entry(conn, &to_insert)?;
 
         Ok(book)
     })
@@ -48,11 +53,10 @@ pub fn create_book(
 
 fn create_todo_entry(
     conn: &PgConnection,
-    fk: i32,
-    domain: String,
+    to_insert: &Vec<NewTodo>,
 ) -> Result<Todo, diesel::result::Error> {
     diesel::insert_into(todos::table)
-        .values(&NewTodo { domain, other: fk })
+        .values(to_insert)
         .get_result(conn)
 }
 
@@ -79,6 +83,13 @@ pub fn show_books() -> Result<String, diesel::result::Error> {
 pub fn show_todos() -> Result<String, diesel::result::Error> {
     use crate::schema::todos::dsl::todos;
     let results: i64 = todos.count().get_result(&establish_connection())?;
+
+    Ok(results.to_string())
+}
+
+pub fn count_sentences() -> Result<String, diesel::result::Error> {
+    use crate::schema::sentences::dsl::sentences;
+    let results: i64 = sentences.count().get_result(&establish_connection())?;
 
     Ok(results.to_string())
 }
@@ -113,5 +124,92 @@ pub fn delete_todos(todos_to_delete: Vec<Todo>) -> Result<usize, diesel::result:
 }
 
 pub fn handle_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    Ok(())
+    match todo.domain.as_str() {
+        "books" => handle_book_todo(todo),
+        "sentences" => { println!("dropping sentence todo!"); Ok(()) } ,
+        other => { panic!("getting unexpected todo with domain: {other}") }
+    }
+    
+}
+
+fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let book = get_book(&conn, todo.other)?;
+        let new_sentences = split_book_to_sentences(book);
+        let sentences = insert_sentences(&conn, &new_sentences)?;
+        let todos = sentences.iter().map(|s| NewTodo { domain: "sentences".to_owned(), other: s.id  }).collect();
+        create_todo_entry(&conn, &todos)?;
+        Ok(())
+    })
+}
+
+fn insert_sentences(
+    conn: &PgConnection,
+    sentences: &[NewSentence],
+) -> Result<Vec<Sentence>, diesel::result::Error> {
+    diesel::insert_into(sentences::table)
+        .values(sentences)
+        .on_conflict_do_nothing()
+        .get_results(conn)
+}
+
+fn get_book(conn: &PgConnection, pk: i32) -> Result<Book, anyhow::Error> {
+    use crate::schema::books::id;
+    let book: Book = books
+        .filter(id.eq(pk))
+        .select(schema::books::all_columns)
+        .first(conn)?;
+
+    Ok(book)
+}
+
+fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
+    book.body
+        .split(|x| x == '.' || x == '!' || x == '?')
+        .filter(|x| !x.is_empty())
+        .map(|x| x.trim())
+        .map(|x| x.to_string())
+        .map(|t| NewSentence {
+            sentence: t.clone(),
+            sentence_hash: string_to_signed_int(&t),
+        })
+        .collect()
+}
+
+fn string_to_signed_int(t: &str) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{
+        models::{Book},
+        split_book_to_sentences, string_to_signed_int,
+    };
+
+    #[test]
+    fn it_splits_books_to_sentences() {
+        let book = Book {
+            title: "title".to_owned(),
+            body: "Multiple words. Two sentences! Now three? Four.".to_owned(),
+            id: 5,
+        };
+        let actual = split_book_to_sentences(book);
+        let actual_sentences: Vec<String> = actual.iter().map(|s| s.sentence.clone()).collect();
+        let actual_hashes: Vec<i64> = actual.iter().map(|s| s.sentence_hash).collect();
+        assert_eq!(
+            actual_sentences,
+            vec!["Multiple words", "Two sentences", "Now three", "Four"]
+        );
+        println!("{:?}", actual_hashes);
+
+        assert_eq!(
+            actual_hashes,
+            vec![string_to_signed_int("Multiple words"), string_to_signed_int("Two sentences"), string_to_signed_int("Now three"), string_to_signed_int("Four")]
+        );
+    }
 }
