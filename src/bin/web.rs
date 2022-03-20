@@ -4,7 +4,7 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use polyvinyl_acetate::{create_book, establish_connection, show_books, show_todos, show_depth};
+use polyvinyl_acetate::{create_book, establish_connection, show_books, show_depth, show_todos};
 
 #[macro_use]
 extern crate rocket;

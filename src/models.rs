@@ -4,7 +4,6 @@ use serde::Serialize;
 use super::schema::books;
 use super::schema::todos;
 
-
 #[derive(Insertable)]
 #[table_name = "books"]
 pub struct NewBook {

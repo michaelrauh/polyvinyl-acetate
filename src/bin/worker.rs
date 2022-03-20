@@ -1,6 +1,6 @@
-use std::env;
 use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
-use polyvinyl_acetate::models::Todo;
+use polyvinyl_acetate::{handle_todo, models::Todo};
+use std::env;
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -32,7 +32,13 @@ fn get() -> Result<(), anyhow::Error> {
             ConsumerMessage::Delivery(delivery) => {
                 let todo: Todo = bincode::deserialize(&delivery.body)?;
                 println!("todo: {:?}", &todo);
-                consumer.ack(delivery)?;
+                match handle_todo(todo) {
+                    Ok(_) => consumer.ack(delivery)?,
+                    Err(e) => {
+                        println!("requeuing because of {e}");
+                        consumer.nack(delivery, true)?
+                    }
+                }
             }
             other => {
                 println!("Consumer ended: {:?}", other);
