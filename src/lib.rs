@@ -166,7 +166,7 @@ fn get_book(conn: &PgConnection, pk: i32) -> Result<Book, anyhow::Error> {
 
 fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
     book.body
-        .split(|x| x == '.' || x == '!' || x == '?')
+        .split(|x| x == '.' || x == '!' || x == '?' || x == ';')
         .filter(|x| !x.is_empty())
         .map(|x| x.trim())
         .map(|x| x.to_string())
@@ -195,7 +195,7 @@ mod tests {
     fn it_splits_books_to_sentences() {
         let book = Book {
             title: "title".to_owned(),
-            body: "Multiple words. Two sentences! Now three? Four.".to_owned(),
+            body: "Multiple words. Two sentences! Now three; Four.".to_owned(),
             id: 5,
         };
         let actual = split_book_to_sentences(book);
@@ -205,7 +205,6 @@ mod tests {
             actual_sentences,
             vec!["Multiple words", "Two sentences", "Now three", "Four"]
         );
-        println!("{:?}", actual_hashes);
 
         assert_eq!(
             actual_hashes,
