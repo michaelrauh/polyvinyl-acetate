@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::schema::books;
+use super::schema::pairs;
 use super::schema::sentences;
 use super::schema::todos;
 
@@ -45,4 +46,22 @@ pub struct Sentence {
     pub id: i32,
     pub sentence: String,
     pub sentence_hash: i64,
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "pairs"]
+pub struct NewPair {
+    pub first_word: String,
+    pub second_word: String,
+    pub first_word_hash: i64,
+    pub second_word_hash: i64,
+}
+
+#[derive(Queryable, Serialize, Deserialize, Debug)]
+pub struct Pair {
+    pub id: i32,
+    pub first_word: String,
+    pub second_word: String,
+    pub first_word_hash: i64,
+    pub second_word_hash: i64,
 }

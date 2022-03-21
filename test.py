@@ -16,8 +16,9 @@ def post(x, data):
 assert post("add/", json.dumps({'title': 'this is a title', 'body': 'this is a body. it has two sentences.'}).encode()) == "this is a title"
 assert post("add/", json.dumps({'title': 'this is a different title', 'body': 'this is a body. it also has two sentences.'}).encode()) == "this is a different title"
 
-time.sleep(2)
+time.sleep(5)
 
 assert get("sentences") == 3 # the duplicate sentence will be filtered
 assert get("count") == 0 # there is no pending work
 assert get("depth") == 0 # the queue does not have a cycle
+assert get("pairs") == 8
