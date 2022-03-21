@@ -5,7 +5,8 @@ extern crate openssl;
 extern crate diesel;
 
 use polyvinyl_acetate::{
-    count_sentences, create_book, establish_connection, show_books, show_depth, show_todos, count_pairs,
+    count_pairs, count_sentences, create_book, establish_connection, show_books, show_depth,
+    show_todos,
 };
 
 #[macro_use]
@@ -61,7 +62,6 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
         web_book.body.clone(),
     )
     .map_err(|error| Conflict(Some(error.to_string())))?;
-
     Ok(book.title)
 }
 

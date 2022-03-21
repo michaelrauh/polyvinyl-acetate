@@ -49,7 +49,6 @@ pub fn create_book(
             other: book.id,
         }];
         create_todo_entry(conn, &to_insert)?;
-
         Ok(book)
     })
 }
@@ -57,10 +56,13 @@ pub fn create_book(
 fn create_todo_entry(
     conn: &PgConnection,
     to_insert: &Vec<NewTodo>,
-) -> Result<Todo, diesel::result::Error> {
-    diesel::insert_into(todos::table)
-        .values(to_insert)
-        .get_result(conn)
+) -> Result<(), diesel::result::Error> {
+    if to_insert.len() > 0 {
+        diesel::insert_into(todos::table)
+            .values(to_insert)
+            .execute(conn)?;
+    }
+    Ok(())
 }
 
 fn create_book_entry(
@@ -80,7 +82,6 @@ fn create_pair_entry(
     to_insert: Vec<NewPair>,
 ) -> Result<Vec<Pair>, diesel::result::Error> {
     use schema::pairs;
-
     diesel::insert_into(pairs::table)
         .values(&to_insert)
         .on_conflict_do_nothing()
@@ -183,7 +184,6 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
         .collect();
 
     let pairs = create_pair_entry(conn, new_pairs)?;
-
     let to_insert = pairs
         .iter()
         .map(|p| NewTodo {
@@ -191,7 +191,6 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
             other: p.id,
         })
         .collect();
-
     create_todo_entry(conn, &to_insert)?;
 
     Ok(())

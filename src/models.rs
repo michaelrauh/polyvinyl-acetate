@@ -20,7 +20,7 @@ pub struct Book {
     pub body: String,
 }
 
-#[derive(Insertable)]
+#[derive(Insertable, Debug)]
 #[table_name = "todos"]
 pub struct NewTodo {
     pub domain: String,
