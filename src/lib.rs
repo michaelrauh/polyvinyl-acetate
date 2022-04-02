@@ -10,6 +10,9 @@ use diesel::prelude::*;
 use schema::{sentences, todos};
 pub mod worker_helper;
 pub mod web_helper;
+mod book_todo_handler;
+mod sentence_todo_handler;
+mod pair_todo_handler;
 
 use crate::{
     models::{NewTodo},
@@ -43,7 +46,7 @@ fn create_todo_entry(
     Ok(())
 }
 
-fn string_to_signed_int(t: &str) -> i64 {
+pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
     hasher.finish() as i64
