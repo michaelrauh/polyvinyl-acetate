@@ -41,7 +41,7 @@ pub struct NewSentence {
     pub sentence_hash: i64,
 }
 
-#[derive(Queryable, Serialize, Deserialize, Debug)]
+#[derive(Queryable, Debug)]
 pub struct Sentence {
     pub id: i32,
     pub sentence: String,
@@ -57,7 +57,7 @@ pub struct NewPair {
     pub second_word_hash: i64,
 }
 
-#[derive(Queryable, Serialize, Deserialize, Debug)]
+#[derive(Queryable, Debug)]
 pub struct Pair {
     pub id: i32,
     pub first_word: String,

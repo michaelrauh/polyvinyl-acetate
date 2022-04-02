@@ -6,7 +6,7 @@ There is a single database that holds facts. There is a single queue that holds 
 Deployment to production is managed using digitalocean kubernetes. Local is assumed docker desktop kubernetes for now. At the moment, there is no true production configuration of the database, or the option to use a managed database. Production workflows are only for test, rather than for scale, at the moment. There is no autoscaling behavior and current production configuration is 1gb single node.
 
 ## Event Flow
-1. corpus added
+1. book added
     1. sentence added
 2. sentence added
     1. pair added
