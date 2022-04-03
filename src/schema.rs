@@ -7,6 +7,17 @@ table! {
 }
 
 table! {
+    orthotopes (id) {
+        id -> Int4,
+        information -> Bytea,
+        origin -> Text,
+        hop -> Array<Text>,
+        contents -> Array<Text>,
+        info_hash -> Int8,
+    }
+}
+
+table! {
     pairs (id) {
         id -> Int4,
         first_word -> Text,
@@ -32,4 +43,4 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, pairs, sentences, todos,);
+allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, sentences, todos,);

@@ -22,3 +22,4 @@ assert get("sentences") == 3 # the duplicate sentence will be filtered
 assert get("count") == 0 # there is no pending work
 assert get("depth") == 0 # the queue does not have a cycle
 assert get("pairs") == 8
+assert get("orthos") == 1

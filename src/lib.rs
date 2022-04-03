@@ -8,18 +8,15 @@ extern crate dotenv;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{sentences, todos};
-pub mod worker_helper;
-pub mod web_helper;
 mod book_todo_handler;
-mod sentence_todo_handler;
 mod pair_todo_handler;
+mod sentence_todo_handler;
+pub mod web_helper;
+pub mod worker_helper;
 
-use crate::{
-    models::{NewTodo},
-    schema::books::dsl::books,
-};
+use crate::{models::NewTodo, schema::books::dsl::books};
 use dotenv::dotenv;
-use models::{Book};
+use models::Book;
 use std::{
     collections::hash_map::DefaultHasher,
     env,

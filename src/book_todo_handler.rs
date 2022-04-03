@@ -1,7 +1,9 @@
-use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
-use crate::{Book, create_todo_entry, establish_connection, NewTodo, schema, sentences, string_to_signed_int};
 use crate::models::{NewSentence, Sentence, Todo};
 use crate::schema::books::{id, table as books};
+use crate::{
+    create_todo_entry, establish_connection, schema, sentences, string_to_signed_int, Book, NewTodo,
+};
+use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 
 pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -62,12 +64,10 @@ pub fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
 
 #[cfg(test)]
 mod tests {
+    use crate::book_todo_handler::split_book_to_sentences;
+    use crate::models::Book;
     use crate::string_to_signed_int;
-    use crate::{
-        models::Book,
-    };
-    use crate::{book_todo_handler::split_book_to_sentences};
-    
+
     #[test]
     fn it_splits_books_to_sentences() {
         let book = Book {

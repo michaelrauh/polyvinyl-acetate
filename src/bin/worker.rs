@@ -1,7 +1,7 @@
 use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
 use polyvinyl_acetate::models::Todo;
-use std::env;
 use polyvinyl_acetate::worker_helper;
+use std::env;
 
 fn main() {
     get().expect("Rabbit should not err");
