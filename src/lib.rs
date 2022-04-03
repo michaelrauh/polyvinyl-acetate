@@ -9,6 +9,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{sentences, todos};
 mod book_todo_handler;
+mod ortho;
 mod pair_todo_handler;
 mod sentence_todo_handler;
 pub mod web_helper;
