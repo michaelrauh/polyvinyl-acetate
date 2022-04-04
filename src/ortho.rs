@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::pair_todo_handler::Ortho;
 use std::collections::{BTreeMap, HashSet};
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Ortho {
+    pub(crate) info: BTreeMap<Location, String>,
+}
 
 impl Ortho {
     pub(crate) fn get_origin(&self) -> String {
@@ -74,7 +78,7 @@ mod tests {
 
     use crate::pair_todo_handler::data_vec_to_signed_int;
 
-    use crate::pair_todo_handler::Ortho;
+    use crate::ortho::Ortho;
 
     #[test]
     fn it_has_an_origin() {

@@ -1,10 +1,10 @@
 use anyhow::Error;
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashSet},
     hash::{Hash, Hasher},
 };
 
-use crate::ortho::Location;
+use crate::ortho::Ortho;
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
@@ -15,13 +15,12 @@ use crate::{
     },
 };
 use crate::{
-    diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
+    diesel::{ExpressionMethods, query_dsl::select_dsl::SelectDsl, RunQueryDsl},
     establish_connection,
     models::{Pair, Todo},
     schema,
 };
 use diesel::PgConnection;
-use serde::{Deserialize, Serialize};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -39,11 +38,6 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
         create_todo_entry(&conn, &todos)?;
         Ok(())
     })
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct Ortho {
-    pub(crate) info: BTreeMap<Location, String>,
 }
 
 fn new_orthotopes(pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
@@ -180,8 +174,9 @@ fn get_pair(conn: &PgConnection, pk: i32) -> Result<Pair, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+    use crate::ortho::Ortho;
 
-    use super::{ex_nihilo, Ortho};
+    use super::ex_nihilo;
 
     fn fake_forward(from: &str) -> Result<HashSet<String>, anyhow::Error> {
         let mut res = HashSet::default();
