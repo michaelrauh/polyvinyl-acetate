@@ -13,12 +13,13 @@ def post(x, data):
     req.add_header('Content-Type', 'application/json')
     return r.urlopen(req, data).read().decode('utf-8')
 
-assert post("add/", json.dumps({'title': 'this is a title', 'body': 'this is a body. it has two sentences.'}).encode()) == "this is a title"
-assert post("add/", json.dumps({'title': 'this is a different title', 'body': 'this is a body. it also has two sentences.'}).encode()) == "this is a different title"
+assert post("add/", json.dumps({'title': 'A story about Ryan', 'body': 'Ryan coded. He coded quickly.'}).encode()) == "A story about Ryan"
+assert post("add/", json.dumps({'title': 'Another story about Ryan', 'body': 'Ryan coded. Ryan debugged. He debugged quickly'}).encode()) == "Another story about Ryan"
 
 time.sleep(5)
 
-assert get("sentences") == 3 # the duplicate sentence will be filtered
+assert get("sentences") == 4 # the duplicate sentence will be filtered
 assert get("count") == 0 # there is no pending work
 assert get("depth") == 0 # the queue does not have a cycle
-assert get("pairs") == 8
+assert get("pairs") == 6 # duplicate pairs will be filtered
+assert get("orthos") == 2

@@ -1,6 +1,6 @@
-use diesel::PgConnection;
-use crate::{create_todo_entry, establish_connection, NewTodo, string_to_signed_int};
 use crate::models::{NewPair, Pair, Sentence, Todo};
+use crate::{create_todo_entry, establish_connection, string_to_signed_int, NewTodo};
+use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -32,14 +32,13 @@ fn create_pair_entry(
     conn: &PgConnection,
     to_insert: Vec<NewPair>,
 ) -> Result<Vec<Pair>, diesel::result::Error> {
-    use diesel::RunQueryDsl;
     use crate::schema::pairs;
+    use diesel::RunQueryDsl;
     diesel::insert_into(pairs::table)
         .values(&to_insert)
         .on_conflict_do_nothing()
         .get_results(conn)
 }
-
 
 fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Error> {
     let tuples = split_sentence_to_pairs(sentence);
@@ -54,7 +53,7 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
         .collect();
 
     let pairs = create_pair_entry(conn, new_pairs)?;
-    let to_insert = pairs
+    let to_insert: Vec<NewTodo> = pairs
         .iter()
         .map(|p| NewTodo {
             domain: "pairs".to_owned(),
@@ -67,9 +66,9 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
 }
 
 fn get_sentence(conn: &PgConnection, pk: i32) -> Result<Sentence, anyhow::Error> {
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     use crate::schema::sentences::id;
     use crate::sentences::dsl::sentences;
+    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
     let sentence: Sentence = sentences
         .filter(id.eq(pk))
         .select(crate::sentences::all_columns)

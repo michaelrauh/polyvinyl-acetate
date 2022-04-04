@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::schema::books;
+use super::schema::orthotopes;
 use super::schema::pairs;
 use super::schema::sentences;
 use super::schema::todos;
@@ -64,4 +65,24 @@ pub struct Pair {
     pub second_word: String,
     pub first_word_hash: i64,
     pub second_word_hash: i64,
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "orthotopes"]
+pub struct NewOrthotope {
+    pub information: Vec<u8>,
+    pub origin: String,
+    pub hop: Vec<String>,
+    pub contents: Vec<String>,
+    pub info_hash: i64,
+}
+
+#[derive(Queryable, Debug)]
+pub struct Orthotope {
+    pub id: i32,
+    pub information: Vec<u8>,
+    pub origin: String,
+    pub hop: Vec<String>,
+    pub contents: Vec<String>,
+    pub info_hash: i64,
 }

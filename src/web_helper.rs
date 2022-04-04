@@ -1,7 +1,12 @@
 use std::env;
 
+use crate::{
+    create_todo_entry, establish_connection,
+    models::NewBook,
+    schema::{self, books},
+    Book, NewTodo,
+};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
-use crate::{Book, NewTodo, create_todo_entry, schema::{books, self}, models::NewBook, establish_connection};
 
 pub fn create_book(
     conn: &PgConnection,
@@ -30,10 +35,10 @@ fn create_book_entry(
 }
 
 pub fn show_books() -> Result<String, diesel::result::Error> {
-    use crate::diesel::query_dsl::select_dsl::SelectDsl;
     use crate::books;
-    let results: Vec<String> = SelectDsl::select(books, schema::books::title)
-        .load(&establish_connection())?;
+    use crate::diesel::query_dsl::select_dsl::SelectDsl;
+    let results: Vec<String> =
+        SelectDsl::select(books, schema::books::title).load(&establish_connection())?;
 
     Ok(results.join("\n"))
 }
@@ -55,6 +60,13 @@ pub fn count_sentences() -> Result<String, diesel::result::Error> {
 pub fn count_pairs() -> Result<String, diesel::result::Error> {
     use crate::schema::pairs::dsl::pairs;
     let results: i64 = pairs.count().get_result(&establish_connection())?;
+
+    Ok(results.to_string())
+}
+
+pub fn show_orthos() -> Result<String, diesel::result::Error> {
+    use crate::schema::orthotopes::dsl::orthotopes;
+    let results: i64 = orthotopes.count().get_result(&establish_connection())?;
 
     Ok(results.to_string())
 }

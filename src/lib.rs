@@ -8,18 +8,16 @@ extern crate dotenv;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{sentences, todos};
-pub mod worker_helper;
-pub mod web_helper;
 mod book_todo_handler;
-mod sentence_todo_handler;
+mod ortho;
 mod pair_todo_handler;
+mod sentence_todo_handler;
+pub mod web_helper;
+pub mod worker_helper;
 
-use crate::{
-    models::{NewTodo},
-    schema::books::dsl::books,
-};
+use crate::{models::NewTodo, schema::books::dsl::books};
 use dotenv::dotenv;
-use models::{Book};
+use models::Book;
 use std::{
     collections::hash_map::DefaultHasher,
     env,
@@ -36,9 +34,9 @@ pub fn establish_connection() -> PgConnection {
 
 fn create_todo_entry(
     conn: &PgConnection,
-    to_insert: &Vec<NewTodo>,
+    to_insert: &[NewTodo],
 ) -> Result<(), diesel::result::Error> {
-    if to_insert.len() > 0 {
+    if !to_insert.is_empty() {
         diesel::insert_into(todos::table)
             .values(to_insert)
             .execute(conn)?;

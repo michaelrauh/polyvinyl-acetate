@@ -4,9 +4,10 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use polyvinyl_acetate::{establish_connection};
-use polyvinyl_acetate::web_helper::{create_book, show_books, show_todos, count_sentences, count_pairs, show_depth};
-
+use polyvinyl_acetate::establish_connection;
+use polyvinyl_acetate::web_helper::{
+    count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos,
+};
 
 #[macro_use]
 extern crate rocket;
@@ -47,6 +48,11 @@ fn depth() -> Result<String, Conflict<String>> {
     show_depth().map_err(|e| Conflict(Some(e.to_string())))
 }
 
+#[get("/orthos")]
+fn orthos() -> Result<String, Conflict<String>> {
+    show_orthos().map_err(|e| Conflict(Some(e.to_string())))
+}
+
 #[derive(Deserialize)]
 struct WebBook {
     title: String,
@@ -66,7 +72,9 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
 
 #[launch]
 fn rocket() -> _ {
-    let connection = establish_connection();
-    embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
-    rocket::build().mount("/", routes![index, add, count, depth, sentences, pairs])
+    embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
+    rocket::build().mount(
+        "/",
+        routes![index, add, count, depth, sentences, pairs, orthos],
+    )
 }

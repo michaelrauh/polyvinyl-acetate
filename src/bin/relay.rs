@@ -1,8 +1,12 @@
 use std::{env, thread::sleep};
 
 use amiquip::{AmqpProperties, Exchange, Publish, QueueDeclareOptions};
-use diesel::{RunQueryDsl, query_dsl::methods::FilterDsl};
-use polyvinyl_acetate::{establish_connection, models::Todo, schema::{todos, self}};
+use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl};
+use polyvinyl_acetate::{
+    establish_connection,
+    models::Todo,
+    schema::{self, todos},
+};
 
 fn main() {
     loop {
