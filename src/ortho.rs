@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::pair_todo_handler::Ortho;
 use std::collections::{BTreeMap, HashSet};
@@ -31,6 +31,7 @@ impl Ortho {
     }
 
     pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
+        println!("creating ortho with {:?}, {:?}, {:?}, {:?}", a, b, c, d);
         let inner_loc_a = BTreeMap::default();
         let mut inner_loc_b = BTreeMap::default();
         let mut inner_loc_c = BTreeMap::default();

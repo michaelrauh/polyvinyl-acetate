@@ -11,7 +11,7 @@ pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
         let book = get_book(&conn, todo.other)?;
         let new_sentences = split_book_to_sentences(book);
         let sentences = insert_sentences(&conn, &new_sentences)?;
-        let todos = sentences
+        let todos: Vec<NewTodo> = sentences
             .iter()
             .map(|s| NewTodo {
                 domain: "sentences".to_owned(),
@@ -50,9 +50,9 @@ pub fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
         .map(|x| x.to_string())
         .map(|sentence| {
             sentence
-                .replace("-", "")
-                .replace(":", "")
-                .replace(",", "")
+                .replace('-', "")
+                .replace(':', "")
+                .replace(',', "")
                 .to_lowercase()
         })
         .map(|t| NewSentence {

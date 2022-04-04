@@ -53,7 +53,7 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
         .collect();
 
     let pairs = create_pair_entry(conn, new_pairs)?;
-    let to_insert = pairs
+    let to_insert: Vec<NewTodo> = pairs
         .iter()
         .map(|p| NewTodo {
             domain: "pairs".to_owned(),

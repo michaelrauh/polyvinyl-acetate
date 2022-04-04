@@ -34,9 +34,9 @@ pub fn establish_connection() -> PgConnection {
 
 fn create_todo_entry(
     conn: &PgConnection,
-    to_insert: &Vec<NewTodo>,
+    to_insert: &[NewTodo],
 ) -> Result<(), diesel::result::Error> {
-    if to_insert.len() > 0 {
+    if !to_insert.is_empty() {
         diesel::insert_into(todos::table)
             .values(to_insert)
             .execute(conn)?;
