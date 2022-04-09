@@ -1,10 +1,10 @@
 use anyhow::Error;
+use itertools::{zip, Itertools};
 use std::{
-    collections::{hash_map::DefaultHasher, HashSet},
+    collections::{hash_map::DefaultHasher, BTreeMap, HashSet},
     hash::{Hash, Hasher},
 };
 
-use crate::ortho::Ortho;
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
@@ -15,12 +15,16 @@ use crate::{
     },
 };
 use crate::{
-    diesel::{ExpressionMethods, query_dsl::select_dsl::SelectDsl, RunQueryDsl},
+    diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
     establish_connection,
     models::{Pair, Todo},
     schema,
 };
-use diesel::PgConnection;
+use crate::{
+    ortho::Ortho,
+    schema::pairs::{first_word, second_word},
+};
+use diesel::{dsl::exists, BoolExpressionMethods, PgConnection};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -41,14 +45,120 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
-    let ex_nihilo_orthos: Vec<Ortho> = ex_nihilo(
+    let ex_nihilo_orthos = ex_nihilo(
         Some(conn),
         &pair.first_word,
         &pair.second_word,
         project_forward,
         project_backward,
     )?;
-    let res = ex_nihilo_orthos.iter().map(ortho_to_orthotope).collect();
+    let nihilo_iter = ex_nihilo_orthos.iter();
+    let up_orthos = up(
+        Some(conn),
+        &pair.first_word,
+        &pair.second_word,
+        project_forward,
+        get_ortho_by_origin,
+        pair_exists,
+    )?;
+    let up_iter = up_orthos.iter();
+    let both = nihilo_iter.chain(up_iter);
+
+    let res = both.map(ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn get_ortho_by_origin(conn: Option<&PgConnection>, o: &str) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{origin, table as orthotopes};
+    let results: Vec<Orthotope> = orthotopes
+        .filter(origin.eq(o))
+        .select(schema::orthotopes::all_columns)
+        .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn up(
+    conn: Option<&PgConnection>,
+    first_w: &str,
+    second_w: &str,
+    _forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, anyhow::Error>,
+    ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let left_orthos = ortho_by_origin(conn, first_w)?;
+    let right_orthos = ortho_by_origin(conn, second_w)?;
+
+    let potential_pairings: Vec<(Ortho, Ortho)> =
+        Itertools::cartesian_product(left_orthos.iter().cloned(), right_orthos.iter().cloned())
+            .collect();
+    let mut ans = vec![];
+    for (lo, ro) in potential_pairings {
+        let lo_hop = lo.get_hop();
+        let left_hand_coordinate_configurations =
+            Itertools::permutations(lo_hop.iter(), lo.get_hop().len());
+        let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+        for left_mapping in left_hand_coordinate_configurations {
+            if mapping_works(
+                conn,
+                pair_checker,
+                left_mapping.clone(),
+                fixed_right_hand.clone(),
+            )? {
+                let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
+                let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
+                ans.push(new_ortho);
+            }
+        }
+    }
+    // filter based upon mapping and diagonals
+    Ok(ans)
+}
+
+fn mapping_works(
+    conn: Option<&PgConnection>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+    left_mapping: Vec<&String>,
+    fixed_right_hand: Vec<String>,
+) -> Result<bool, anyhow::Error> {
+    for (try_left, try_right) in zip(left_mapping, fixed_right_hand) {
+        if !pair_checker(conn, try_left, &try_right)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn make_mapping(
+    good_left_hand: Vec<&String>,
+    fixed_right_hand: Vec<String>,
+) -> BTreeMap<String, String> {
+    let left_hand_owned: Vec<String> = good_left_hand.iter().map(|x| x.to_string()).collect();
+    zip(fixed_right_hand, left_hand_owned).collect()
+}
+
+fn pair_exists(
+    conn: Option<&PgConnection>,
+    try_left: &str,
+    try_right: &str,
+) -> Result<bool, anyhow::Error> {
+    let res: bool = diesel::select(exists(
+        pairs.filter(first_word.eq(try_left).and(second_word.eq(try_right))),
+    ))
+    .get_result(conn.expect("don't use the test connection"))?;
+
     Ok(res)
 }
 
@@ -136,7 +246,10 @@ fn fbbf_search(
     Ok(())
 }
 
-fn project_forward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
+fn project_forward(
+    conn: Option<&PgConnection>,
+    from: &str,
+) -> Result<HashSet<String>, anyhow::Error> {
     let seconds_vec: Vec<String> = pairs
         .filter(schema::pairs::first_word.eq(from))
         .select(crate::schema::pairs::second_word)
@@ -146,7 +259,10 @@ fn project_forward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<St
     Ok(seconds)
 }
 
-fn project_backward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
+fn project_backward(
+    conn: Option<&PgConnection>,
+    from: &str,
+) -> Result<HashSet<String>, anyhow::Error> {
     let firsts_vec: Vec<String> = pairs
         .filter(schema::pairs::second_word.eq(from))
         .select(crate::schema::pairs::first_word)
@@ -177,35 +293,55 @@ fn get_pair(conn: &PgConnection, pk: i32) -> Result<Pair, anyhow::Error> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use diesel::PgConnection;
+    use maplit::{btreemap, hashset};
+    use std::collections::HashSet;
 
     use crate::ortho::Ortho;
 
-    use super::ex_nihilo;
+    use super::{ex_nihilo, up};
 
-    fn fake_forward(_conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
-        let mut res = HashSet::default();
-        if from == &"a".to_string() {
-            res.insert("b".to_string());
-            res.insert("c".to_string());
-            Ok(res)
-        } else {
-            res.insert("d".to_string());
-            Ok(res)
-        }
+    fn fake_ortho_by_origin(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => vec![Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        )], "e" => vec![Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        )]};
+        Ok(pairs.entry(o).or_default().to_owned())
     }
 
-    fn fake_backward(_conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
-        let mut res = HashSet::default();
-        if from == &"d".to_string() {
-            res.insert("b".to_string());
-            res.insert("c".to_string());
-            Ok(res)
-        } else {
-            res.insert("a".to_string());
-            Ok(res)
-        }
+    fn fake_forward(
+        _conn: Option<&PgConnection>,
+        from: &str,
+    ) -> Result<HashSet<String>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => hashset! {"b".to_string(), "c".to_string(), "e".to_string()}, "b" => hashset! {"d".to_string(), "f".to_string()}, "c" => hashset! {"d".to_string(), "e".to_string()}, "d" => hashset! {"f".to_string()}, "e" => hashset! {"f".to_string(), "g".to_string()}, "f" => hashset! {"h".to_string()}, "g" => hashset! {"h".to_string()}};
+        Ok(pairs.entry(from).or_default().to_owned())
+    }
+
+    fn fake_backward(
+        _conn: Option<&PgConnection>,
+        from: &str,
+    ) -> Result<HashSet<String>, anyhow::Error> {
+        let mut pairs = btreemap! { "b" => hashset! {"a".to_string()}, "c" => hashset! {"a".to_string()}, "d" => hashset! {"b".to_string(), "c".to_string()}};
+        Ok(pairs.entry(from).or_default().to_owned())
+    }
+
+    fn fake_pair_exists(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g"), ("d", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
     }
 
     #[test]
@@ -224,7 +360,6 @@ mod tests {
             "c".to_string(),
             "d".to_string(),
         );
-
         assert_eq!(actual, vec![expected])
     }
 
@@ -246,5 +381,39 @@ mod tests {
         );
 
         assert_eq!(actual, vec![expected])
+    }
+
+    #[test]
+    fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_forward,
+            fake_ortho_by_origin,
+            fake_pair_exists,
+        )
+        .unwrap();
+        let expected = Ortho::zip_up(
+            Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+            Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+            btreemap! {
+                "e".to_string() => "a".to_string(),
+                "f".to_string() => "b".to_string(),
+                "g".to_string() => "c".to_string()
+            },
+        );
+
+        assert_eq!(actual, vec![expected]);
     }
 }

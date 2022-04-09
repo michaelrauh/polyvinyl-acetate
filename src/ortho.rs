@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, HashSet};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Ortho {
     pub(crate) info: BTreeMap<Location, String>,
 }
@@ -35,7 +35,6 @@ impl Ortho {
     }
 
     pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
-        println!("creating ortho with {:?}, {:?}, {:?}, {:?}", a, b, c, d);
         let inner_loc_a = BTreeMap::default();
         let mut inner_loc_b = BTreeMap::default();
         let mut inner_loc_c = BTreeMap::default();
@@ -59,9 +58,29 @@ impl Ortho {
 
         Ortho { info }
     }
+
+    pub(crate) fn zip_up(
+        l: Ortho,
+        r: Ortho,
+        old_axis_to_new_axis: BTreeMap<String, String>,
+    ) -> Ortho {
+        let shift_axis = r.get_origin();
+        let right_with_lefts_coordinate_system: BTreeMap<Location, String> = r
+            .info
+            .iter()
+            .map(|(k, v)| (k.map_location(old_axis_to_new_axis.clone()), v.to_owned()))
+            .collect();
+        let shifted_right: BTreeMap<Location, String> = right_with_lefts_coordinate_system
+            .iter()
+            .map(|(k, v)| (k.shift_location(shift_axis.clone()), v.to_owned()))
+            .collect();
+        let combined: BTreeMap<Location, String> =
+            l.info.into_iter().chain(shifted_right).collect();
+        Ortho { info: combined }
+    }
 }
 
-#[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
 pub struct Location {
     info: BTreeMap<String, usize>,
 }
@@ -70,15 +89,43 @@ impl Location {
     fn length(&self) -> usize {
         self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
     }
+
+    fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
+        Location {
+            info: self
+                .info
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        old_axis_to_new_axis
+                            .get(k)
+                            .expect("axis mapping must not be partial")
+                            .to_owned(),
+                        v.to_owned(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn shift_location(&self, axis: String) -> Location {
+        let mut other: BTreeMap<String, usize> = self.info.clone();
+        *other.entry(axis).or_insert(0) += 1;
+        Location { info: other }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
+    use maplit::btreemap;
+
     use crate::pair_todo_handler::data_vec_to_signed_int;
 
     use crate::ortho::Ortho;
+
+    use super::Location;
 
     #[test]
     fn it_has_an_origin() {
@@ -154,5 +201,42 @@ mod tests {
                 &bincode::serialize(&example_ortho).expect("serialization should work")
             )
         );
+    }
+
+    #[test]
+    fn it_zips_up() {
+        let l = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let r = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+
+        let mapping = btreemap! {
+            "e".to_string() => "a".to_string(),
+            "f".to_string() => "b".to_string(),
+            "g".to_string() => "c".to_string()
+        };
+
+        let actual = Ortho::zip_up(l, r, mapping).info;
+        let expected = btreemap! {
+            Location { info: btreemap!{} } => "a".to_string(),
+            Location { info: btreemap!{"b".to_string() => 1} } => "b".to_string(),
+            Location { info: btreemap!{"c".to_string() => 1} } => "c".to_string(),
+            Location { info: btreemap!{"b".to_string() => 1, "c".to_string() => 1} } => "d".to_string(),
+            Location { info: btreemap!{"e".to_string() => 1} } => "e".to_string(),
+            Location { info: btreemap!{"e".to_string() => 1, "b".to_string() => 1} } => "f".to_string(),
+            Location { info: btreemap!{"e".to_string() => 1, "c".to_string() => 1} } => "g".to_string(),
+            Location { info: btreemap!{"e".to_string() => 1, "c".to_string() => 1, "b".to_string() => 1} } => "h".to_string(),
+        };
+
+        assert_eq!(actual, expected)
     }
 }
