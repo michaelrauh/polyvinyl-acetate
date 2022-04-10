@@ -78,6 +78,13 @@ impl Ortho {
             l.info.into_iter().chain(shifted_right).collect();
         Ortho { info: combined }
     }
+
+    pub(crate) fn name_at_location(&self, location: Location) -> String {
+        self.info
+            .get(&location)
+            .expect("locations must be present to be queried")
+            .to_string()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -86,11 +93,11 @@ pub struct Location {
 }
 
 impl Location {
-    fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
     }
 
-    fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
+    pub fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
         Location {
             info: self
                 .info
@@ -238,5 +245,20 @@ mod tests {
         };
 
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn it_finds_the_name_at_a_location() {
+        let o = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let actual = o.name_at_location(Location {
+            info: btreemap! {"b".to_string() => 1, "c".to_string() => 1},
+        });
+        assert_eq!(actual, "d".to_string());
     }
 }

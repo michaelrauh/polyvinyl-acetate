@@ -104,7 +104,7 @@ fn up(
     for (lo, ro) in potential_pairings {
         let lo_hop = lo.get_hop();
         let left_hand_coordinate_configurations =
-            Itertools::permutations(lo_hop.iter(), lo.get_hop().len());
+            Itertools::permutations(lo_hop.iter(), lo_hop.len());
         let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
         for left_mapping in left_hand_coordinate_configurations {
             if mapping_works(
@@ -114,13 +114,39 @@ fn up(
                 fixed_right_hand.clone(),
             )? {
                 let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-                let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
-                ans.push(new_ortho);
+                if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
+                {
+                    let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
+                    ans.push(new_ortho);
+                }
             }
         }
     }
-    // filter based upon mapping and diagonals
+
     Ok(ans)
+}
+
+fn mapping_is_complete(
+    conn: Option<&PgConnection>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+    mapping: BTreeMap<String, String>,
+    lo: Ortho,
+    ro: Ortho,
+) -> Result<bool, anyhow::Error> {
+    for (right_location, right_name) in ro.info {
+        if right_location.length() > 1 {
+            let mapped = right_location.map_location(mapping.clone());
+            let left_name = lo.name_at_location(mapped);
+            if !pair_checker(conn, &left_name, &right_name)? {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
 }
 
 fn mapping_works(
@@ -344,6 +370,15 @@ mod tests {
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
+    fn fake_pair_exists_two(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
     #[test]
     fn it_creates_ex_nihilo_ffbb() {
         let actual = ex_nihilo(
@@ -416,4 +451,21 @@ mod tests {
 
         assert_eq!(actual, vec![expected]);
     }
+
+    #[test]
+    fn it_does_not_create_up_when_a_forward_is_missing() {
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_forward,
+            fake_ortho_by_origin,
+            fake_pair_exists_two,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+    // filter based upon diagonals
+    // once origin up is done update the integration test
 }
