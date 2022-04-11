@@ -85,6 +85,29 @@ impl Ortho {
             .expect("locations must be present to be queried")
             .to_string()
     }
+
+    pub(crate) fn get_dimensionality(&self) -> usize {
+        self.info.keys().fold(0, |acc, cur| {
+            if cur.length() > acc {
+                cur.length()
+            } else {
+                acc
+            }
+        })
+    }
+
+    pub(crate) fn get_names_at_distance(&self, dist: usize) -> HashSet<String> {
+        self.info
+            .iter()
+            .filter_map(|(k, v)| {
+                if k.length() == dist {
+                    Some(v.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -126,7 +149,7 @@ impl Location {
 mod tests {
     use std::collections::HashSet;
 
-    use maplit::btreemap;
+    use maplit::{btreemap, hashset};
 
     use crate::pair_todo_handler::data_vec_to_signed_int;
 
@@ -260,5 +283,34 @@ mod tests {
             info: btreemap! {"b".to_string() => 1, "c".to_string() => 1},
         });
         assert_eq!(actual, "d".to_string());
+    }
+
+    #[test]
+    fn it_find_dimensionality() {
+        let o = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        assert_eq!(o.get_dimensionality(), 2);
+    }
+
+    #[test]
+    fn it_gets_all_names_at_a_distance() {
+        let o = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        assert_eq!(o.get_names_at_distance(0), hashset! {"a".to_string()});
+        assert_eq!(
+            o.get_names_at_distance(1),
+            hashset! {"b".to_string(), "c".to_string()}
+        );
+        assert_eq!(o.get_names_at_distance(2), hashset! {"d".to_string()});
     }
 }

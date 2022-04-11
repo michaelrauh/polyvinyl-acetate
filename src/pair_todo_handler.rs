@@ -116,14 +116,31 @@ fn up(
                 let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
                 if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
                 {
-                    let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
-                    ans.push(new_ortho);
+                    if diagonals_do_not_conflict(lo.clone(), ro.clone()) {
+                        let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
+                        ans.push(new_ortho);
+                    }
                 }
             }
         }
     }
 
     Ok(ans)
+}
+
+fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
+    for dist in 0..lo.get_dimensionality() + 1 {
+        let cur_dist = dist
+            .try_into()
+            .expect("it is possible to convert i32s to usizes");
+        let lns = lo.get_names_at_distance(cur_dist);
+        let rns = ro.get_names_at_distance(cur_dist);
+
+        if !lns.is_disjoint(&rns) {
+            return false;
+        }
+    }
+    true
 }
 
 fn mapping_is_complete(
@@ -327,6 +344,24 @@ mod tests {
 
     use super::{ex_nihilo, up};
 
+    fn fake_ortho_by_origin_two(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => vec![Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "c".to_string(),
+        )], "e" => vec![Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "c".to_string(),
+            "h".to_string(),
+        )]};
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
     fn fake_ortho_by_origin(
         _conn: Option<&PgConnection>,
         o: &str,
@@ -353,6 +388,14 @@ mod tests {
         Ok(pairs.entry(from).or_default().to_owned())
     }
 
+    fn fake_forward_two(
+        _conn: Option<&PgConnection>,
+        from: &str,
+    ) -> Result<HashSet<String>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => hashset! {"b".to_string(), "c".to_string(), "e".to_string()}, "b" => hashset! {"c".to_string(), "f".to_string()}, "c" => hashset! {"c".to_string(), "e".to_string()}, "c" => hashset! {"f".to_string()}, "e" => hashset! {"f".to_string(), "c".to_string()}, "f" => hashset! {"h".to_string()}, "c" => hashset! {"h".to_string()}};
+        Ok(pairs.entry(from).or_default().to_owned())
+    }
+
     fn fake_backward(
         _conn: Option<&PgConnection>,
         from: &str,
@@ -367,6 +410,15 @@ mod tests {
         try_right: &str,
     ) -> Result<bool, anyhow::Error> {
         let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g"), ("d", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_three(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "c"), ("a", "c"), ("b", "c"), ("e", "f"), ("c", "h"), ("e", "c"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "c"), ("c", "h")};
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
@@ -466,6 +518,22 @@ mod tests {
 
         assert_eq!(actual, vec![]);
     }
-    // filter based upon diagonals
+
+    #[test]
+    fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_forward_two,
+            fake_ortho_by_origin_two,
+            fake_pair_exists_three,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+    // only up base dims
+    // only combine matching dims
     // once origin up is done update the integration test
 }
