@@ -1,3 +1,4 @@
+use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, HashSet};
@@ -59,6 +60,18 @@ impl Ortho {
         Ortho { info }
     }
 
+    pub(crate) fn get_dims(&self) -> BTreeMap<usize, usize> {
+        let mut max = 0;
+        let mut res = btreemap! {};
+        for loc in self.info.keys() {
+            if loc.length() > max {
+                max = loc.length();
+                res = loc.dims();
+            }
+        }
+        res
+    }
+
     pub(crate) fn zip_up(
         l: Ortho,
         r: Ortho,
@@ -108,6 +121,39 @@ impl Ortho {
             })
             .collect()
     }
+
+    pub(crate) fn zip_over(
+        l: Ortho,
+        r: Ortho,
+        mapping: BTreeMap<String, String>,
+        shift_axis: String,
+    ) -> Ortho {
+        let right_column = r.get_end(shift_axis.clone());
+        let shifted: BTreeMap<Location, String> = right_column
+            .iter()
+            .map(|(k, v)| (k.add(shift_axis.clone()), v.to_string()))
+            .collect();
+        let mapped = shifted
+            .iter()
+            .map(|(k, v)| (k.map_location(mapping.clone()), v.to_string()));
+        let combined: BTreeMap<Location, String> = l.info.into_iter().chain(mapped).collect();
+
+        Ortho { info: combined }
+    }
+
+    fn get_end(&self, shift_axis: String) -> BTreeMap<Location, String> {
+        let mut axis_length = 0;
+        for key in self.info.keys() {
+            if key.count_axis(&shift_axis) > axis_length {
+                axis_length = key.count_axis(&shift_axis)
+            }
+        }
+        self.info
+            .clone()
+            .into_iter()
+            .filter(|(k, _v)| k.count_axis(&shift_axis) == axis_length)
+            .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -127,10 +173,7 @@ impl Location {
                 .iter()
                 .map(|(k, v)| {
                     (
-                        old_axis_to_new_axis
-                            .get(k)
-                            .expect("axis mapping must not be partial")
-                            .to_owned(),
+                        old_axis_to_new_axis.get(k).unwrap_or(k).to_owned(),
                         v.to_owned(),
                     )
                 })
@@ -142,6 +185,24 @@ impl Location {
         let mut other: BTreeMap<String, usize> = self.info.clone();
         *other.entry(axis).or_insert(0) += 1;
         Location { info: other }
+    }
+
+    fn dims(&self) -> BTreeMap<usize, usize> {
+        let mut res: BTreeMap<usize, usize> = btreemap! {};
+        for v in self.info.values() {
+            *res.entry(*v).or_insert(0) += 1
+        }
+        res
+    }
+
+    fn count_axis(&self, axis: &str) -> usize {
+        *self.info.get(axis).unwrap_or(&0)
+    }
+
+    fn add(&self, axis: String) -> Location {
+        let mut res: BTreeMap<String, usize> = self.info.to_owned();
+        *res.entry(axis).or_insert(0) += 1;
+        Location { info: res }
     }
 }
 
@@ -156,6 +217,25 @@ mod tests {
     use crate::ortho::Ortho;
 
     use super::Location;
+
+    #[test]
+    fn location_can_be_added_to() {
+        let location = Location {
+            info: btreemap! {"a".to_string() => 1},
+        };
+        assert_eq!(
+            location.add("a".to_string()),
+            Location {
+                info: btreemap! {"a".to_string() => 2}
+            }
+        );
+        assert_eq!(
+            location.add("b".to_string()),
+            Location {
+                info: btreemap! {"a".to_string() => 1, "b".to_string() => 1}
+            }
+        );
+    }
 
     #[test]
     fn it_has_an_origin() {
@@ -312,5 +392,53 @@ mod tests {
             hashset! {"b".to_string(), "c".to_string()}
         );
         assert_eq!(o.get_names_at_distance(2), hashset! {"d".to_string()});
+    }
+
+    #[test]
+    fn it_gets_dims() {
+        let o = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        assert_eq!(o.get_dims(), btreemap! {1 => 2});
+    }
+
+    #[test]
+    fn it_zips_over() {
+        let l = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let r = Ortho::new(
+            "b".to_string(),
+            "e".to_string(),
+            "d".to_string(),
+            "f".to_string(),
+        );
+
+        let mapping = btreemap! {
+            "e".to_string() => "b".to_string(),
+            "d".to_string() => "c".to_string()
+        };
+
+        let shift_axis = "e".to_string();
+
+        let actual = Ortho::zip_over(l, r, mapping, shift_axis).info;
+        let expected = btreemap! {
+            Location { info: btreemap!{} } => "a".to_string(),
+            Location { info: btreemap!{"b".to_string() => 1} } => "b".to_string(),
+            Location { info: btreemap!{"b".to_string() => 2} } => "e".to_string(),
+            Location { info: btreemap!{"c".to_string() => 1} } => "c".to_string(),
+            Location { info: btreemap!{"b".to_string() => 1, "c".to_string() => 1} } => "d".to_string(),
+            Location { info: btreemap!{"b".to_string() => 2, "c".to_string() => 1} } => "f".to_string(),
+        };
+
+        assert_eq!(actual, expected)
     }
 }

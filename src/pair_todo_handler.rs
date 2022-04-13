@@ -115,11 +115,10 @@ fn up(
             )? {
                 let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
                 if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
+                    && diagonals_do_not_conflict(lo.clone(), ro.clone())
                 {
-                    if diagonals_do_not_conflict(lo.clone(), ro.clone()) {
-                        let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
-                        ans.push(new_ortho);
-                    }
+                    let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
+                    ans.push(new_ortho);
                 }
             }
         }
@@ -130,11 +129,8 @@ fn up(
 
 fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
     for dist in 0..lo.get_dimensionality() + 1 {
-        let cur_dist = dist
-            .try_into()
-            .expect("it is possible to convert i32s to usizes");
-        let lns = lo.get_names_at_distance(cur_dist);
-        let rns = ro.get_names_at_distance(cur_dist);
+        let lns = lo.get_names_at_distance(dist);
+        let rns = ro.get_names_at_distance(dist);
 
         if !lns.is_disjoint(&rns) {
             return false;
@@ -536,4 +532,5 @@ mod tests {
     // only up base dims
     // only combine matching dims
     // once origin up is done update the integration test
+    // split out up logic into a separate module
 }
