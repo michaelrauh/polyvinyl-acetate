@@ -36,17 +36,7 @@ impl Ortho {
     }
 
     pub(crate) fn is_base(&self) -> bool {
-        let mut longest_length = 0;
-        let mut longest = &Location { info: btreemap! {} };
-
-        for (k, _v) in &self.info {
-            if k.length() > longest_length {
-                longest_length = k.length();
-                longest = k;
-            }
-        }
-
-        longest.each_location_is_length_one()
+        self.get_bottom_right_corner().each_location_is_length_one()
     }
 
     pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
@@ -74,16 +64,20 @@ impl Ortho {
         Ortho { info }
     }
 
-    pub(crate) fn get_dims(&self) -> BTreeMap<usize, usize> {
+    pub(crate) fn get_bottom_right_corner(&self) -> Location {
         let mut max = 0;
-        let mut res = btreemap! {};
+        let mut res = Location { info: btreemap! {} };
         for loc in self.info.keys() {
             if loc.length() > max {
                 max = loc.length();
-                res = loc.dims();
+                res = loc.clone();
             }
         }
         res
+    }
+
+    pub(crate) fn get_dims(&self) -> BTreeMap<usize, usize> {
+        self.get_bottom_right_corner().dims()
     }
 
     pub(crate) fn zip_up(
