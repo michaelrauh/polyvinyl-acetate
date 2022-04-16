@@ -1,0 +1,367 @@
+use crate::ortho::Ortho;
+use diesel::PgConnection;
+use itertools::{zip, Itertools};
+use maplit::{btreemap, hashset};
+use std::collections::BTreeMap;
+
+pub fn up(
+    conn: Option<&PgConnection>,
+    first_w: &str,
+    second_w: &str,
+    ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let left_orthos: Vec<Ortho> = ortho_by_origin(conn, first_w)?
+        .into_iter()
+        .filter(|o| o.is_base())
+        .collect();
+    let right_orthos: Vec<Ortho> = ortho_by_origin(conn, second_w)?
+        .into_iter()
+        .filter(|o| o.is_base())
+        .collect();
+
+    let potential_pairings: Vec<(Ortho, Ortho)> =
+        Itertools::cartesian_product(left_orthos.iter().cloned(), right_orthos.iter().cloned())
+            .collect();
+    let mut ans = vec![];
+    for (lo, ro) in potential_pairings {
+        if lo.get_dims() == ro.get_dims() {
+            let lo_hop = lo.get_hop();
+            let left_hand_coordinate_configurations =
+                Itertools::permutations(lo_hop.iter(), lo_hop.len());
+            let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+            for left_mapping in left_hand_coordinate_configurations {
+                if mapping_works(
+                    conn,
+                    pair_checker,
+                    left_mapping.clone(),
+                    fixed_right_hand.clone(),
+                )? {
+                    let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
+                    if mapping_is_complete(
+                        conn,
+                        pair_checker,
+                        mapping.clone(),
+                        lo.clone(),
+                        ro.clone(),
+                    )? && diagonals_do_not_conflict(lo.clone(), ro.clone())
+                    {
+                        let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
+                        ans.push(new_ortho);
+                    }
+                }
+            }
+        }
+    }
+    Ok(ans)
+}
+
+fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
+    for dist in 0..lo.get_dimensionality() + 1 {
+        let lns = lo.get_names_at_distance(dist);
+        let rns = ro.get_names_at_distance(dist);
+
+        if !lns.is_disjoint(&rns) {
+            return false;
+        }
+    }
+    true
+}
+
+fn mapping_is_complete(
+    conn: Option<&PgConnection>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+    mapping: BTreeMap<String, String>,
+    lo: Ortho,
+    ro: Ortho,
+) -> Result<bool, anyhow::Error> {
+    for (right_location, right_name) in ro.info {
+        if right_location.length() > 1 {
+            let mapped = right_location.map_location(mapping.clone());
+            let left_name = lo.name_at_location(mapped);
+            if !pair_checker(conn, &left_name, &right_name)? {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+
+fn mapping_works(
+    conn: Option<&PgConnection>,
+    pair_checker: fn(
+        Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error>,
+    left_mapping: Vec<&String>,
+    fixed_right_hand: Vec<String>,
+) -> Result<bool, anyhow::Error> {
+    for (try_left, try_right) in zip(left_mapping, fixed_right_hand) {
+        if !pair_checker(conn, try_left, &try_right)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn make_mapping(
+    good_left_hand: Vec<&String>,
+    fixed_right_hand: Vec<String>,
+) -> BTreeMap<String, String> {
+    let left_hand_owned: Vec<String> = good_left_hand.iter().map(|x| x.to_string()).collect();
+    zip(fixed_right_hand, left_hand_owned).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ortho::Ortho;
+    use crate::up_handler::up;
+    use diesel::PgConnection;
+    use maplit::{btreemap, hashset};
+
+    fn fake_ortho_by_origin_two(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => vec![Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "c".to_string(),
+        )], "e" => vec![Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "c".to_string(),
+            "h".to_string(),
+        )]};
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
+    fn fake_ortho_by_origin_four(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let single = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+        let l_one = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+
+        let r_one = Ortho::new(
+            "i".to_string(),
+            "j".to_string(),
+            "k".to_string(),
+            "l".to_string(),
+        );
+
+        let combined = Ortho::zip_up(
+            l_one,
+            r_one,
+            btreemap! { "j".to_string() => "f".to_string(), "k".to_string() => "g".to_string() },
+        );
+
+        let mut pairs = btreemap! { "a" => vec![single], "e" => vec![combined]};
+
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
+    fn fake_ortho_by_origin_three(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let l_one = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        );
+        let l_two = Ortho::new(
+            "b".to_string(),
+            "c".to_string(),
+            "e".to_string(),
+            "f".to_string(),
+        );
+        let l = Ortho::zip_over(
+            l_one,
+            l_two,
+            btreemap! { "c".to_string() => "b".to_string(), "e".to_string() => "d".to_string() },
+            "c".to_string(),
+        );
+        let r_one = Ortho::new(
+            "g".to_string(),
+            "h".to_string(),
+            "j".to_string(),
+            "k".to_string(),
+        );
+        let r_two = Ortho::new(
+            "h".to_string(),
+            "i".to_string(),
+            "k".to_string(),
+            "l".to_string(),
+        );
+        let r = Ortho::zip_over(
+            r_one,
+            r_two,
+            btreemap! { "i".to_string() => "h".to_string(), "l".to_string() => "j".to_string() },
+            "i".to_string(),
+        );
+        let mut pairs = btreemap! { "a" => vec![l], "g" => vec![r]};
+
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
+    fn fake_ortho_by_origin(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => vec![Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        )], "e" => vec![Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        )]};
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
+    fn fake_pair_exists(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g"), ("d", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_three(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "c"), ("a", "c"), ("b", "c"), ("e", "f"), ("c", "h"), ("e", "c"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "c"), ("c", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_five(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "e"), ("b", "f"), ("c", "g"), ("d", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_four(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("b", "c"), ("d", "e"), ("e", "f"), ("g", "h"), ("h", "i"), ("j", "k"), ("k", "l"),
+        ("a", "d"), ("b", "e"), ("c", "f"), ("g", "j"), ("h", "k"), ("i", "l"), ("a", "g"), ("b", "h"), ("c", "i"), ("d", "j"), ("e", "k"), ("f", "l")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_two(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    #[test]
+    fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
+        let actual = up(None, "a", "e", fake_ortho_by_origin, fake_pair_exists).unwrap();
+        let expected = Ortho::zip_up(
+            Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+            Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+            btreemap! {
+                "e".to_string() => "a".to_string(),
+                "f".to_string() => "b".to_string(),
+                "g".to_string() => "c".to_string()
+            },
+        );
+
+        assert_eq!(actual, vec![expected]);
+    }
+
+    #[test]
+    fn it_does_not_create_up_when_a_forward_is_missing() {
+        let actual = up(None, "a", "e", fake_ortho_by_origin, fake_pair_exists_two).unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+
+    #[test]
+    fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_ortho_by_origin_two,
+            fake_pair_exists_three,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+
+    #[test]
+    fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
+        let actual = up(
+            None,
+            "a",
+            "g",
+            fake_ortho_by_origin_three,
+            fake_pair_exists_four,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+
+    #[test]
+    fn it_only_attempts_to_combine_same_dim_orthos() {
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_ortho_by_origin_four,
+            fake_pair_exists_five,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+}
