@@ -13,13 +13,21 @@ def post(x, data):
     req.add_header('Content-Type', 'application/json')
     return r.urlopen(req, data).read().decode('utf-8')
 
-assert post("add/", json.dumps({'title': 'A story about Ryan', 'body': 'Ryan coded. He coded quickly.'}).encode()) == "A story about Ryan"
-assert post("add/", json.dumps({'title': 'Another story about Ryan', 'body': 'Ryan coded. Ryan debugged. He debugged quickly'}).encode()) == "Another story about Ryan"
+post("add/", json.dumps({'title': 'A story about Ryan', 'body': 'Ryan coded. He coded quickly. He refactored smoothly, He refactored and deployed.'}).encode())
+post("add/", json.dumps({'title': 'Another story about Ryan', 'body': 'Ryan coded. Ryan debugged. He debugged quickly'}).encode())
+post("add/", json.dumps({'title': 'A third story about Ryan', 'body': 'Ryan refactored. Ryan deployed. He smoothly and quickly delivered. He smoothly deployed'}).encode())
+post("add/", json.dumps({'title': 'A fourth story about Ryan', 'body': 'Ryan coded and debugged. He refactored and coded. He debugged smoothly and quickly deployed.'}).encode())
+
+# ryan      coded
+# debugged  quickly
+
+# refactored and
+# smoothly   deployed            
 
 time.sleep(5)
 
-assert get("sentences") == 4 # the duplicate sentence will be filtered
+assert get("sentences") == 12 # the duplicate sentence will be filtered
 assert get("count") == 0 # there is no pending work
 assert get("depth") == 0 # the queue does not have a cycle
-assert get("pairs") == 6 # duplicate pairs will be filtered
-assert get("orthos") == 2
+assert get("pairs") == 23 # duplicate pairs will be filtered
+assert get("orthos") == 29

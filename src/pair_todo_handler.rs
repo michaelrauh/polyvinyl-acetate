@@ -642,7 +642,5 @@ mod tests {
         assert_eq!(actual, vec![]);
     }
 
-    // stop passing forward to up
-    // once origin up is done update the integration test
     // split out up logic into a separate module
 }
