@@ -35,6 +35,20 @@ impl Ortho {
         self.info.iter().map(|(_k, v)| v.to_string()).collect()
     }
 
+    pub(crate) fn is_base(&self) -> bool {
+        let mut longest_length = 0;
+        let mut longest = &Location { info: btreemap! {} };
+
+        for (k, _v) in &self.info {
+            if k.length() > longest_length {
+                longest_length = k.length();
+                longest = k;
+            }
+        }
+
+        longest.each_location_is_length_one()
+    }
+
     pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
         let inner_loc_a = BTreeMap::default();
         let mut inner_loc_b = BTreeMap::default();
@@ -203,6 +217,10 @@ impl Location {
         let mut res: BTreeMap<String, usize> = self.info.to_owned();
         *res.entry(axis).or_insert(0) += 1;
         Location { info: res }
+    }
+
+    fn each_location_is_length_one(&self) -> bool {
+        self.info.values().all(|v| *v == 1)
     }
 }
 
@@ -440,5 +458,57 @@ mod tests {
         };
 
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn it_is_base_dims_unless_it_has_an_axis_of_length_greater_than_one() {
+        let l = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let r = Ortho::new(
+            "b".to_string(),
+            "e".to_string(),
+            "d".to_string(),
+            "f".to_string(),
+        );
+
+        let mapping = btreemap! {
+            "e".to_string() => "b".to_string(),
+            "d".to_string() => "c".to_string()
+        };
+
+        let shift_axis = "e".to_string();
+
+        let over_zipped = Ortho::zip_over(l.clone(), r, mapping, shift_axis);
+
+        let l_up = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let r_up = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+
+        let mapping = btreemap! {
+            "e".to_string() => "a".to_string(),
+            "f".to_string() => "b".to_string(),
+            "g".to_string() => "c".to_string()
+        };
+
+        let up_zipped = Ortho::zip_up(l_up, r_up, mapping);
+
+        assert_eq!(l.is_base(), true);
+        assert_eq!(over_zipped.is_base(), false);
+        assert_eq!(up_zipped.is_base(), true);
     }
 }

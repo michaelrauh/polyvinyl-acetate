@@ -94,8 +94,14 @@ fn up(
         try_right: &str,
     ) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let left_orthos = ortho_by_origin(conn, first_w)?;
-    let right_orthos = ortho_by_origin(conn, second_w)?;
+    let left_orthos: Vec<Ortho> = ortho_by_origin(conn, first_w)?
+        .into_iter()
+        .filter(|o| o.is_base())
+        .collect();
+    let right_orthos: Vec<Ortho> = ortho_by_origin(conn, second_w)?
+        .into_iter()
+        .filter(|o| o.is_base())
+        .collect();
 
     let potential_pairings: Vec<(Ortho, Ortho)> =
         Itertools::cartesian_product(left_orthos.iter().cloned(), right_orthos.iter().cloned())
@@ -358,6 +364,51 @@ mod tests {
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
+    fn fake_ortho_by_origin_three(
+        _conn: Option<&PgConnection>,
+        o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let l_one = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        );
+        let l_two = Ortho::new(
+            "b".to_string(),
+            "c".to_string(),
+            "e".to_string(),
+            "f".to_string(),
+        );
+        let l = Ortho::zip_over(
+            l_one,
+            l_two,
+            btreemap! { "c".to_string() => "b".to_string(), "e".to_string() => "d".to_string() },
+            "c".to_string(),
+        );
+        let r_one = Ortho::new(
+            "g".to_string(),
+            "h".to_string(),
+            "j".to_string(),
+            "k".to_string(),
+        );
+        let r_two = Ortho::new(
+            "h".to_string(),
+            "i".to_string(),
+            "k".to_string(),
+            "l".to_string(),
+        );
+        let r = Ortho::zip_over(
+            r_one,
+            r_two,
+            btreemap! { "i".to_string() => "h".to_string(), "l".to_string() => "j".to_string() },
+            "i".to_string(),
+        );
+        let mut pairs = btreemap! { "a" => vec![l], "g" => vec![r]};
+
+        Ok(pairs.entry(o).or_default().to_owned())
+    }
+
     fn fake_ortho_by_origin(
         _conn: Option<&PgConnection>,
         o: &str,
@@ -392,6 +443,14 @@ mod tests {
         Ok(pairs.entry(from).or_default().to_owned())
     }
 
+    fn fake_forward_three(
+        _conn: Option<&PgConnection>,
+        from: &str,
+    ) -> Result<HashSet<String>, anyhow::Error> {
+        let mut pairs = btreemap! { "a" => hashset! {"b".to_string(), "d".to_string(), "g".to_string()}, "b" => hashset! {"c".to_string(), "e".to_string(), "h".to_string()}, "c" => hashset! {"f".to_string(), "g".to_string()}, "d" => hashset! {"e".to_string(), "j".to_string()}, "e" => hashset! {"f".to_string(), "k".to_string()}, "f" => hashset! {"l".to_string()}, "g" => hashset! {"h".to_string(), "j".to_string()}, "h" => hashset! {"i".to_string(), "k".to_string()} , "i" => hashset! {"l".to_string()}, "j" => hashset! {"k".to_string()}, "k" => hashset! {"l".to_string()}, "l" => hashset! {}};
+        Ok(pairs.entry(from).or_default().to_owned())
+    }
+
     fn fake_backward(
         _conn: Option<&PgConnection>,
         from: &str,
@@ -415,6 +474,16 @@ mod tests {
         try_right: &str,
     ) -> Result<bool, anyhow::Error> {
         let pairs = hashset! {("a", "b"), ("c", "c"), ("a", "c"), ("b", "c"), ("e", "f"), ("c", "h"), ("e", "c"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "c"), ("c", "h")};
+        Ok(pairs.contains(&(try_left, try_right)))
+    }
+
+    fn fake_pair_exists_four(
+        _conn: Option<&PgConnection>,
+        try_left: &str,
+        try_right: &str,
+    ) -> Result<bool, anyhow::Error> {
+        let pairs = hashset! {("a", "b"), ("b", "c"), ("d", "e"), ("e", "f"), ("g", "h"), ("h", "i"), ("j", "k"), ("k", "l"),
+        ("a", "d"), ("b", "e"), ("c", "f"), ("g", "j"), ("h", "k"), ("i", "l"), ("a", "g"), ("b", "h"), ("c", "i"), ("d", "j"), ("e", "k"), ("f", "l")};
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
@@ -529,7 +598,22 @@ mod tests {
 
         assert_eq!(actual, vec![]);
     }
-    // only up base dims
+
+    #[test]
+    fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
+        let actual = up(
+            None,
+            "a",
+            "g",
+            fake_forward_three,
+            fake_ortho_by_origin_three,
+            fake_pair_exists_four,
+        )
+        .unwrap();
+
+        assert_eq!(actual, vec![]);
+    }
+
     // only combine matching dims
     // once origin up is done update the integration test
     // split out up logic into a separate module
