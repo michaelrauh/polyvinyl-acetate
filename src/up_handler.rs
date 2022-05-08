@@ -1,7 +1,6 @@
 use crate::ortho::Ortho;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
-use maplit::{btreemap, hashset};
 use std::collections::BTreeMap;
 
 pub fn up(
@@ -24,6 +23,7 @@ pub fn up(
         .filter(|o| o.is_base())
         .collect();
 
+        // todo add ortho by hop and ortho by contents
     let potential_pairings: Vec<(Ortho, Ortho)> =
         Itertools::cartesian_product(left_orthos.iter().cloned(), right_orthos.iter().cloned())
             .collect();

@@ -32,7 +32,18 @@ impl Ortho {
     }
 
     pub(crate) fn get_contents(&self) -> HashSet<String> {
-        self.info.iter().map(|(_k, v)| v.to_string()).collect()
+        let origin = self.get_origin();
+        let hop = self.get_hop();
+        self.info
+            .iter()
+            .filter_map(|(_k, v)| {
+                if &origin == v || hop.contains(v) {
+                    None
+                } else {
+                    Some(v.to_string())
+                }
+            })
+            .collect()
     }
 
     pub(crate) fn is_base(&self) -> bool {
@@ -283,9 +294,6 @@ mod tests {
             "d".to_string(),
         );
         let mut expected = HashSet::default();
-        expected.insert("a".to_string());
-        expected.insert("b".to_string());
-        expected.insert("c".to_string());
         expected.insert("d".to_string());
         assert_eq!(example_ortho.get_contents(), expected);
     }

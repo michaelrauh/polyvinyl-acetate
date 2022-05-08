@@ -1,7 +1,5 @@
-use anyhow::Error;
-use itertools::{zip, Itertools};
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashSet},
     hash::{Hash, Hasher},
 };
 

@@ -73,7 +73,6 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::ortho::Ortho;
-    use crate::up_handler::up;
 
     use crate::ex_nihilo_handler::ex_nihilo;
 
