@@ -180,55 +180,6 @@ pub struct Location {
     info: BTreeMap<String, usize>,
 }
 
-impl Location {
-    pub fn length(&self) -> usize {
-        self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
-    }
-
-    pub fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
-        Location {
-            info: self
-                .info
-                .iter()
-                .map(|(k, v)| {
-                    (
-                        old_axis_to_new_axis.get(k).unwrap_or(k).to_owned(),
-                        v.to_owned(),
-                    )
-                })
-                .collect(),
-        }
-    }
-
-    fn shift_location(&self, axis: String) -> Location {
-        let mut other: BTreeMap<String, usize> = self.info.clone();
-        *other.entry(axis).or_insert(0) += 1;
-        Location { info: other }
-    }
-
-    fn dims(&self) -> BTreeMap<usize, usize> {
-        let mut res: BTreeMap<usize, usize> = btreemap! {};
-        for v in self.info.values() {
-            *res.entry(*v).or_insert(0) += 1
-        }
-        res
-    }
-
-    fn count_axis(&self, axis: &str) -> usize {
-        *self.info.get(axis).unwrap_or(&0)
-    }
-
-    fn add(&self, axis: String) -> Location {
-        let mut res: BTreeMap<String, usize> = self.info.to_owned();
-        *res.entry(axis).or_insert(0) += 1;
-        Location { info: res }
-    }
-
-    fn each_location_is_length_one(&self) -> bool {
-        self.info.values().all(|v| *v == 1)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -512,5 +463,54 @@ mod tests {
         assert_eq!(l.is_base(), true);
         assert_eq!(over_zipped.is_base(), false);
         assert_eq!(up_zipped.is_base(), true);
+    }
+}
+
+impl Location {
+    pub fn length(&self) -> usize {
+        self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
+    }
+
+    pub fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
+        Location {
+            info: self
+                .info
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        old_axis_to_new_axis.get(k).unwrap_or(k).to_owned(),
+                        v.to_owned(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn shift_location(&self, axis: String) -> Location {
+        let mut other: BTreeMap<String, usize> = self.info.clone();
+        *other.entry(axis).or_insert(0) += 1;
+        Location { info: other }
+    }
+
+    fn dims(&self) -> BTreeMap<usize, usize> {
+        let mut res: BTreeMap<usize, usize> = btreemap! {};
+        for v in self.info.values() {
+            *res.entry(*v).or_insert(0) += 1
+        }
+        res
+    }
+
+    fn count_axis(&self, axis: &str) -> usize {
+        *self.info.get(axis).unwrap_or(&0)
+    }
+
+    fn add(&self, axis: String) -> Location {
+        let mut res: BTreeMap<String, usize> = self.info.to_owned();
+        *res.entry(axis).or_insert(0) += 1;
+        Location { info: res }
+    }
+
+    fn each_location_is_length_one(&self) -> bool {
+        self.info.values().all(|v| *v == 1)
     }
 }

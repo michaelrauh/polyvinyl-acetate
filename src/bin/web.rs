@@ -4,7 +4,9 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use polyvinyl_acetate::establish_connection;
+use std::collections::BTreeMap;
+
+use polyvinyl_acetate::{establish_connection, web_helper};
 use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos,
 };
@@ -48,9 +50,9 @@ fn depth() -> Result<String, Conflict<String>> {
     show_depth().map_err(|e| Conflict(Some(e.to_string())))
 }
 
-#[get("/orthos")]
-fn orthos() -> Result<String, Conflict<String>> {
-    show_orthos().map_err(|e| Conflict(Some(e.to_string())))
+#[get("/orthos?<dims>")]
+fn orthos(dims: String) -> Result<String, Conflict<String>> {
+    show_orthos(web_helper::parse_web_dims(dims)).map_err(|e| Conflict(Some(e.to_string())))
 }
 
 #[derive(Deserialize)]
