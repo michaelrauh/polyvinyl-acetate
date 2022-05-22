@@ -16,22 +16,40 @@ pub fn up(
     ) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    let left_orthos: Vec<Ortho> = ortho_by_origin(conn, first_w)?
+    let left_orthos_by_origin: Vec<Ortho> = ortho_by_origin(conn, first_w)?
         .into_iter()
         .filter(|o| o.is_base())
         .collect();
-    let right_orthos: Vec<Ortho> = ortho_by_origin(conn, second_w)?
+    let right_orthos_by_origin: Vec<Ortho> = ortho_by_origin(conn, second_w)?
         .into_iter()
         .filter(|o| o.is_base())
         .collect();
 
     // by hop and by contents - verify origin works and then continue with below logic
     // potential pairings will be the chain of the cartesian products by each category.
-    let potential_pairings: Vec<(Ortho, Ortho)> =
-        Itertools::cartesian_product(left_orthos.iter().cloned(), right_orthos.iter().cloned())
+    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> =
+        Itertools::cartesian_product(left_orthos_by_origin.iter().cloned(), right_orthos_by_origin.iter().cloned())
             .collect();
 
-    for (lo, ro) in potential_pairings {
+    let left_orthos_by_hop: Vec<Ortho> = ortho_by_hop(conn, vec![first_w.to_string()])?.into_iter()
+    .filter(|o| o.is_base())
+    .collect();
+    let right_orthos_by_hop: Vec<Ortho> = ortho_by_hop(conn, vec![second_w.to_string()])?.into_iter()
+    .filter(|o| o.is_base())
+    .collect();
+
+    let potential_pairings_by_hop: Vec<(Ortho, Ortho)> =
+    Itertools::cartesian_product(left_orthos_by_hop.iter().cloned(), right_orthos_by_hop.iter().cloned())
+        .collect();
+
+    let mut better_pairings_by_hop = vec![];
+    for (l, r) in potential_pairings_by_hop {
+        if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
+            better_pairings_by_hop.push((l, r))
+        }
+    }
+
+    for (lo, ro) in potential_pairings_by_origin.into_iter().chain(better_pairings_by_hop) {
         if lo.get_dims() == ro.get_dims() {
             let lo_hop = lo.get_hop();
             let left_hand_coordinate_configurations =
