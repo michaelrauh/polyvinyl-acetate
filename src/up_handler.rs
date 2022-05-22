@@ -49,9 +49,29 @@ pub fn up(
         }
     }
 
+    let left_orthos_by_contents: Vec<Ortho> =
+        filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
+    let right_orthos_by_contents: Vec<Ortho> =
+        filter_base(ortho_by_contents(conn, vec![second_w.to_string()])?);
+
+    let potential_pairings_by_contents_with_untested_origins: Vec<(Ortho, Ortho)> =
+        Itertools::cartesian_product(
+            left_orthos_by_contents.iter().cloned(),
+            right_orthos_by_contents.iter().cloned(),
+        )
+        .collect();
+
+    let mut potential_pairings_by_contents = vec![];
+    for (l, r) in potential_pairings_by_contents_with_untested_origins {
+        if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
+            potential_pairings_by_contents.push((l, r))
+        }
+    }
+
     for (lo, ro) in potential_pairings_by_origin
         .into_iter()
         .chain(potential_pairings_by_hop)
+        .chain(potential_pairings_by_contents)
     {
         if lo.get_dims() == ro.get_dims() {
             let lo_hop = lo.get_hop();
@@ -541,7 +561,7 @@ mod tests {
             fake_ortho_by_contents,
             fake_pair_exists,
         )
-            .unwrap();
+        .unwrap();
 
         let expected = Ortho::zip_up(
             Ortho::new(
