@@ -76,12 +76,21 @@ fn get_origin_ortho_pairings(
     let left_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, first_w)?);
     let right_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, second_w)?);
 
+    let potential_pairings_by_origin =
+        make_potential_pairings(left_orthos_by_origin, right_orthos_by_origin);
+    Ok(potential_pairings_by_origin)
+}
+
+fn make_potential_pairings(
+    left_orthos_by_origin: Vec<Ortho>,
+    right_orthos_by_origin: Vec<Ortho>,
+) -> Vec<(Ortho, Ortho)> {
     let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
         left_orthos_by_origin.iter().cloned(),
         right_orthos_by_origin.iter().cloned(),
     )
     .collect();
-    Ok(potential_pairings_by_origin)
+    potential_pairings_by_origin
 }
 
 fn get_ortho_pairings(
@@ -97,11 +106,7 @@ fn get_ortho_pairings(
         filter_base(ortho_by(conn, vec![second_w.to_string()])?);
 
     let potential_pairings_with_untested_origins: Vec<(Ortho, Ortho)> =
-        Itertools::cartesian_product(
-            left_orthos_by_contents.iter().cloned(),
-            right_orthos_by_contents.iter().cloned(),
-        )
-        .collect();
+        make_potential_pairings(left_orthos_by_contents, right_orthos_by_contents);
 
     let mut potential_pairings_by_contents = vec![];
     for (l, r) in potential_pairings_with_untested_origins {
