@@ -1,26 +1,30 @@
-use anyhow::Error;
 use std::{
     collections::{hash_map::DefaultHasher, HashSet},
     hash::{Hash, Hasher},
 };
 
-use crate::ortho::Ortho;
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
+    ex_nihilo_handler,
     models::{NewOrthotope, NewTodo, Orthotope},
     schema::{
         orthotopes,
         pairs::{dsl::pairs, id},
     },
+    up_handler,
 };
 use crate::{
-    diesel::{ExpressionMethods, query_dsl::select_dsl::SelectDsl, RunQueryDsl},
+    diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
     establish_connection,
     models::{Pair, Todo},
     schema,
 };
-use diesel::PgConnection;
+use crate::{
+    ortho::Ortho,
+    schema::pairs::{first_word, second_word},
+};
+use diesel::{dsl::exists, BoolExpressionMethods, PgArrayExpressionMethods, PgConnection};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -41,14 +45,88 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
-    let ex_nihilo_orthos: Vec<Ortho> = ex_nihilo(
+    let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(
         Some(conn),
         &pair.first_word,
         &pair.second_word,
         project_forward,
         project_backward,
     )?;
-    let res = ex_nihilo_orthos.iter().map(ortho_to_orthotope).collect();
+    let nihilo_iter = ex_nihilo_orthos.iter();
+    let up_orthos = up_handler::up(
+        Some(conn),
+        &pair.first_word,
+        &pair.second_word,
+        get_ortho_by_origin,
+        get_ortho_by_hop,
+        get_ortho_by_contents,
+        pair_exists,
+    )?;
+    let up_iter = up_orthos.iter();
+    let both = nihilo_iter.chain(up_iter);
+
+    let res = both.map(ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn get_ortho_by_origin(conn: Option<&PgConnection>, o: &str) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{origin, table as orthotopes};
+    let results: Vec<Orthotope> = orthotopes
+        .filter(origin.eq(o))
+        .select(schema::orthotopes::all_columns)
+        .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn get_ortho_by_hop(
+    conn: Option<&PgConnection>,
+    other_hop: Vec<String>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{hop, table as orthotopes};
+    let results: Vec<Orthotope> = orthotopes
+        .filter(hop.overlaps_with(other_hop))
+        .select(schema::orthotopes::all_columns)
+        .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn get_ortho_by_contents(
+    conn: Option<&PgConnection>,
+    other_contents: Vec<String>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{contents, table as orthotopes};
+    let results: Vec<Orthotope> = orthotopes
+        .filter(contents.overlaps_with(other_contents))
+        .select(schema::orthotopes::all_columns)
+        .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn pair_exists(
+    conn: Option<&PgConnection>,
+    try_left: &str,
+    try_right: &str,
+) -> Result<bool, anyhow::Error> {
+    let res: bool = diesel::select(exists(
+        pairs.filter(first_word.eq(try_left).and(second_word.eq(try_right))),
+    ))
+    .get_result(conn.expect("don't use the test connection"))?;
+
     Ok(res)
 }
 
@@ -73,70 +151,10 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     hasher.finish() as i64
 }
 
-fn ex_nihilo(
+fn project_forward(
     conn: Option<&PgConnection>,
-    first: &str,
-    second: &str,
-    forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, anyhow::Error>,
-    backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, anyhow::Error>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    let mut res = vec![];
-    ffbb_search(conn, first, second, forward, backward, &mut res)?;
-    fbbf_search(conn, first, second, forward, backward, &mut res)?;
-    Ok(res)
-}
-
-fn ffbb_search(
-    conn: Option<&PgConnection>,
-    a: &str,
-    b: &str,
-    forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, anyhow::Error>,
-    res: &mut Vec<Ortho>,
-) -> Result<(), anyhow::Error> {
-    for d in forward(conn, b)? {
-        for c in backward(conn, &d)? {
-            if b != c && backward(conn, &c)?.contains(a) {
-                res.push(Ortho::new(
-                    a.to_string(),
-                    b.to_string(),
-                    c.clone(),
-                    d.clone(),
-                ))
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn fbbf_search(
-    conn: Option<&PgConnection>,
-    b: &str,
-    d: &str,
-    forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, anyhow::Error>,
-    res: &mut Vec<Ortho>,
-) -> Result<(), anyhow::Error> {
-    for c in backward(conn, d)? {
-        if b != c {
-            for a in backward(conn, &c)? {
-                if forward(conn, &a)?.contains(b) {
-                    res.push(Ortho::new(
-                        a.clone(),
-                        b.to_string(),
-                        c.clone(),
-                        d.to_string(),
-                    ))
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn project_forward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
+    from: &str,
+) -> Result<HashSet<String>, anyhow::Error> {
     let seconds_vec: Vec<String> = pairs
         .filter(schema::pairs::first_word.eq(from))
         .select(crate::schema::pairs::second_word)
@@ -146,7 +164,10 @@ fn project_forward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<St
     Ok(seconds)
 }
 
-fn project_backward(conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
+fn project_backward(
+    conn: Option<&PgConnection>,
+    from: &str,
+) -> Result<HashSet<String>, anyhow::Error> {
     let firsts_vec: Vec<String> = pairs
         .filter(schema::pairs::second_word.eq(from))
         .select(crate::schema::pairs::first_word)
@@ -173,78 +194,4 @@ fn get_pair(conn: &PgConnection, pk: i32) -> Result<Pair, anyhow::Error> {
         .first(conn)?;
 
     Ok(pair)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
-    use diesel::PgConnection;
-
-    use crate::ortho::Ortho;
-
-    use super::ex_nihilo;
-
-    fn fake_forward(_conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
-        let mut res = HashSet::default();
-        if from == &"a".to_string() {
-            res.insert("b".to_string());
-            res.insert("c".to_string());
-            Ok(res)
-        } else {
-            res.insert("d".to_string());
-            Ok(res)
-        }
-    }
-
-    fn fake_backward(_conn: Option<&PgConnection>, from: &str) -> Result<HashSet<String>, anyhow::Error> {
-        let mut res = HashSet::default();
-        if from == &"d".to_string() {
-            res.insert("b".to_string());
-            res.insert("c".to_string());
-            Ok(res)
-        } else {
-            res.insert("a".to_string());
-            Ok(res)
-        }
-    }
-
-    #[test]
-    fn it_creates_ex_nihilo_ffbb() {
-        let actual = ex_nihilo(
-            None,
-            &"a".to_string(),
-            &"b".to_string(),
-            fake_forward,
-            fake_backward,
-        )
-        .unwrap();
-        let expected = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-
-        assert_eq!(actual, vec![expected])
-    }
-
-    #[test]
-    fn it_creates_ex_nihilo_fbbf() {
-        let actual = ex_nihilo(
-            None,
-            &"b".to_string(),
-            &"d".to_string(),
-            fake_forward,
-            fake_backward,
-        )
-        .unwrap();
-        let expected = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-
-        assert_eq!(actual, vec![expected])
-    }
 }

@@ -9,9 +9,11 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use schema::{sentences, todos};
 mod book_todo_handler;
-mod ortho;
+mod ex_nihilo_handler;
+pub mod ortho;
 mod pair_todo_handler;
 mod sentence_todo_handler;
+mod up_handler;
 pub mod web_helper;
 pub mod worker_helper;
 
