@@ -2,6 +2,8 @@ use crate::ortho::Ortho;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 use std::collections::BTreeMap;
+use std::vec::IntoIter;
+use anyhow::Error;
 
 pub fn up(
     conn: Option<&PgConnection>,
@@ -16,14 +18,8 @@ pub fn up(
     ) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    let left_orthos_by_origin: Vec<Ortho> = ortho_by_origin(conn, first_w)?
-        .into_iter()
-        .filter(|o| o.is_base())
-        .collect();
-    let right_orthos_by_origin: Vec<Ortho> = ortho_by_origin(conn, second_w)?
-        .into_iter()
-        .filter(|o| o.is_base())
-        .collect();
+    let left_orthos_by_origin: Vec<Ortho> = filter_base( ortho_by_origin(conn, first_w)?);
+    let right_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, second_w)?);
 
     // by hop and by contents - verify origin works and then continue with below logic
     // potential pairings will be the chain of the cartesian products by each category.
@@ -31,25 +27,21 @@ pub fn up(
         Itertools::cartesian_product(left_orthos_by_origin.iter().cloned(), right_orthos_by_origin.iter().cloned())
             .collect();
 
-    let left_orthos_by_hop: Vec<Ortho> = ortho_by_hop(conn, vec![first_w.to_string()])?.into_iter()
-    .filter(|o| o.is_base())
-    .collect();
-    let right_orthos_by_hop: Vec<Ortho> = ortho_by_hop(conn, vec![second_w.to_string()])?.into_iter()
-    .filter(|o| o.is_base())
-    .collect();
+    let left_orthos_by_hop: Vec<Ortho> = filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
+    let right_orthos_by_hop: Vec<Ortho> = filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
 
-    let potential_pairings_by_hop: Vec<(Ortho, Ortho)> =
+    let potential_pairings_by_hop_with_untested_origins: Vec<(Ortho, Ortho)> =
     Itertools::cartesian_product(left_orthos_by_hop.iter().cloned(), right_orthos_by_hop.iter().cloned())
         .collect();
 
-    let mut better_pairings_by_hop = vec![];
-    for (l, r) in potential_pairings_by_hop {
+    let mut potential_pairings_by_hop = vec![];
+    for (l, r) in potential_pairings_by_hop_with_untested_origins {
         if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
-            better_pairings_by_hop.push((l, r))
+            potential_pairings_by_hop.push((l, r))
         }
     }
 
-    for (lo, ro) in potential_pairings_by_origin.into_iter().chain(better_pairings_by_hop) {
+    for (lo, ro) in potential_pairings_by_origin.into_iter().chain(potential_pairings_by_hop) {
         if lo.get_dims() == ro.get_dims() {
             let lo_hop = lo.get_hop();
             let left_hand_coordinate_configurations =
@@ -79,6 +71,13 @@ pub fn up(
         }
     }
     Ok(ans)
+}
+
+fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
+    orthos
+        .into_iter()
+        .filter(|o| o.is_base())
+        .collect()
 }
 
 fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
