@@ -24,7 +24,7 @@ use crate::{
     ortho::Ortho,
     schema::pairs::{first_word, second_word},
 };
-use diesel::{dsl::exists, BoolExpressionMethods, PgConnection};
+use diesel::{dsl::exists, BoolExpressionMethods, PgConnection, PgArrayExpressionMethods};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -58,6 +58,7 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         &pair.first_word,
         &pair.second_word,
         get_ortho_by_origin,
+        get_ortho_by_hop,
         pair_exists,
     )?;
     let up_iter = up_orthos.iter();
@@ -71,6 +72,20 @@ fn get_ortho_by_origin(conn: Option<&PgConnection>, o: &str) -> Result<Vec<Ortho
     use crate::schema::orthotopes::{origin, table as orthotopes};
     let results: Vec<Orthotope> = orthotopes
         .filter(origin.eq(o))
+        .select(schema::orthotopes::all_columns)
+        .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn get_ortho_by_hop(conn: Option<&PgConnection>, other_hop: Vec<String>) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{hop, table as orthotopes};
+    let results: Vec<Orthotope> = orthotopes
+        .filter(hop.overlaps_with(other_hop))
         .select(schema::orthotopes::all_columns)
         .load(conn.expect("don't use test connections in production"))?;
 
