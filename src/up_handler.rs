@@ -3,20 +3,23 @@ use anyhow::Error;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 use std::collections::BTreeMap;
-use std::vec::IntoIter;
+
+type FailableBoolOnPair =
+    fn(Option<&PgConnection>, try_left: &str, try_right: &str) -> Result<bool, anyhow::Error>;
+
+type FailableStringVecToOrthoVec =
+    fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableStringToOrthoVec =
+    fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub fn up(
     conn: Option<&PgConnection>,
     first_w: &str,
     second_w: &str,
-    ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>,
-    ortho_by_hop: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>,
-    ortho_by_contents: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>,
-    pair_checker: fn(
-        Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error>,
+    ortho_by_origin: FailableStringToOrthoVec,
+    ortho_by_hop: FailableStringVecToOrthoVec,
+    ortho_by_contents: FailableStringVecToOrthoVec,
+    pair_checker: FailableBoolOnPair,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
 
@@ -97,8 +100,8 @@ fn get_ortho_pairings(
     conn: Option<&PgConnection>,
     first_w: &str,
     second_w: &str,
-    ortho_by: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, Error>,
-    pair_checker: fn(Option<&PgConnection>, &str, &str) -> Result<bool, Error>,
+    ortho_by: FailableStringVecToOrthoVec,
+    pair_checker: FailableBoolOnPair,
 ) -> Result<Vec<(Ortho, Ortho)>, anyhow::Error> {
     let left_orthos_by_contents: Vec<Ortho> =
         filter_base(ortho_by(conn, vec![first_w.to_string()])?);
@@ -135,11 +138,7 @@ fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
 
 fn mapping_is_complete(
     conn: Option<&PgConnection>,
-    pair_checker: fn(
-        Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error>,
+    pair_checker: FailableBoolOnPair,
     mapping: BTreeMap<String, String>,
     lo: Ortho,
     ro: Ortho,
@@ -158,11 +157,7 @@ fn mapping_is_complete(
 
 fn mapping_works(
     conn: Option<&PgConnection>,
-    pair_checker: fn(
-        Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error>,
+    pair_checker: FailableBoolOnPair,
     left_mapping: Vec<&String>,
     fixed_right_hand: Vec<String>,
 ) -> Result<bool, anyhow::Error> {
@@ -209,7 +204,7 @@ mod tests {
 
     fn empty_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        o: &str,
+        _o: &str,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
@@ -368,14 +363,14 @@ mod tests {
 
     fn empty_ortho_by_hop(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        _o: Vec<String>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn empty_ortho_by_contents(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        _o: Vec<String>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }

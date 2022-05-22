@@ -4,8 +4,6 @@ extern crate openssl;
 #[macro_use]
 extern crate diesel;
 
-use std::collections::BTreeMap;
-
 use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos,
 };

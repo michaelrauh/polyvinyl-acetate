@@ -8,7 +8,6 @@ use crate::{
     Book, NewTodo,
 };
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
-use itertools::Itertools;
 
 pub fn create_book(
     conn: &PgConnection,
