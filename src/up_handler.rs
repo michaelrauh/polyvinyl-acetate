@@ -1,9 +1,9 @@
 use crate::ortho::Ortho;
+use anyhow::Error;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 use std::collections::BTreeMap;
 use std::vec::IntoIter;
-use anyhow::Error;
 
 pub fn up(
     conn: Option<&PgConnection>,
@@ -11,6 +11,7 @@ pub fn up(
     second_w: &str,
     ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>,
     ortho_by_hop: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>,
+    ortho_by_contents: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>,
     pair_checker: fn(
         Option<&PgConnection>,
         try_left: &str,
@@ -18,20 +19,27 @@ pub fn up(
     ) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    let left_orthos_by_origin: Vec<Ortho> = filter_base( ortho_by_origin(conn, first_w)?);
+    let left_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, first_w)?);
     let right_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, second_w)?);
 
     // by hop and by contents - verify origin works and then continue with below logic
     // potential pairings will be the chain of the cartesian products by each category.
-    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> =
-        Itertools::cartesian_product(left_orthos_by_origin.iter().cloned(), right_orthos_by_origin.iter().cloned())
-            .collect();
+    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
+        left_orthos_by_origin.iter().cloned(),
+        right_orthos_by_origin.iter().cloned(),
+    )
+    .collect();
 
-    let left_orthos_by_hop: Vec<Ortho> = filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
-    let right_orthos_by_hop: Vec<Ortho> = filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
+    let left_orthos_by_hop: Vec<Ortho> =
+        filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
+    let right_orthos_by_hop: Vec<Ortho> =
+        filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
 
     let potential_pairings_by_hop_with_untested_origins: Vec<(Ortho, Ortho)> =
-    Itertools::cartesian_product(left_orthos_by_hop.iter().cloned(), right_orthos_by_hop.iter().cloned())
+        Itertools::cartesian_product(
+            left_orthos_by_hop.iter().cloned(),
+            right_orthos_by_hop.iter().cloned(),
+        )
         .collect();
 
     let mut potential_pairings_by_hop = vec![];
@@ -41,7 +49,10 @@ pub fn up(
         }
     }
 
-    for (lo, ro) in potential_pairings_by_origin.into_iter().chain(potential_pairings_by_hop) {
+    for (lo, ro) in potential_pairings_by_origin
+        .into_iter()
+        .chain(potential_pairings_by_hop)
+    {
         if lo.get_dims() == ro.get_dims() {
             let lo_hop = lo.get_hop();
             let left_hand_coordinate_configurations =
@@ -74,10 +85,7 @@ pub fn up(
 }
 
 fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
-    orthos
-        .into_iter()
-        .filter(|o| o.is_base())
-        .collect()
+    orthos.into_iter().filter(|o| o.is_base()).collect()
 }
 
 fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
@@ -298,7 +306,41 @@ mod tests {
         Ok(ans)
     }
 
+    fn fake_ortho_by_contents(
+        _conn: Option<&PgConnection>,
+        o: Vec<String>,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut ans = vec![];
+
+        if o.contains(&"d".to_string()) {
+            ans.push(Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ))
+        }
+
+        if o.contains(&"h".to_string()) {
+            ans.push(Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ))
+        }
+
+        Ok(ans)
+    }
+
     fn empty_ortho_by_hop(
+        _conn: Option<&PgConnection>,
+        o: Vec<String>,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        Ok(vec![])
+    }
+
+    fn empty_ortho_by_contents(
         _conn: Option<&PgConnection>,
         o: Vec<String>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -353,7 +395,16 @@ mod tests {
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
-        let actual = up(None, "a", "e", fake_ortho_by_origin, empty_ortho_by_hop, fake_pair_exists).unwrap();
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_ortho_by_origin,
+            empty_ortho_by_hop,
+            empty_ortho_by_contents,
+            fake_pair_exists,
+        )
+        .unwrap();
         let expected = Ortho::zip_up(
             Ortho::new(
                 "a".to_string(),
@@ -379,7 +430,16 @@ mod tests {
 
     #[test]
     fn it_does_not_create_up_when_a_forward_is_missing() {
-        let actual = up(None, "a", "e", fake_ortho_by_origin, empty_ortho_by_hop, fake_pair_exists_two).unwrap();
+        let actual = up(
+            None,
+            "a",
+            "e",
+            fake_ortho_by_origin,
+            empty_ortho_by_hop,
+            empty_ortho_by_contents,
+            fake_pair_exists_two,
+        )
+        .unwrap();
 
         assert_eq!(actual, vec![]);
     }
@@ -392,6 +452,7 @@ mod tests {
             "e",
             fake_ortho_by_origin_two,
             empty_ortho_by_hop,
+            empty_ortho_by_contents,
             fake_pair_exists_three,
         )
         .unwrap();
@@ -407,13 +468,14 @@ mod tests {
             "g",
             fake_ortho_by_origin_three,
             empty_ortho_by_hop,
+            empty_ortho_by_contents,
             fake_pair_exists_four,
         )
         .unwrap();
 
         assert_eq!(actual, vec![]);
     }
-    
+
     #[test]
     fn it_only_attempts_to_combine_same_dim_orthos() {
         let actual = up(
@@ -422,6 +484,7 @@ mod tests {
             "e",
             fake_ortho_by_origin_four,
             empty_ortho_by_hop,
+            empty_ortho_by_contents,
             fake_pair_exists_five,
         )
         .unwrap();
@@ -434,13 +497,51 @@ mod tests {
         // same combine as before, but b -> f is the pair so it must index into hops
         let actual = up(
             None,
-            "b",    // a b c d + e f g h
+            "b", // a b c d + e f g h
             "f",
             empty_ortho_by_origin,
             fake_ortho_by_hop,
+            empty_ortho_by_contents,
             fake_pair_exists,
         )
         .unwrap();
+
+        let expected = Ortho::zip_up(
+            Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+            Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+            btreemap! {
+                "e".to_string() => "a".to_string(),
+                "f".to_string() => "b".to_string(),
+                "g".to_string() => "c".to_string()
+            },
+        );
+
+        assert_eq!(actual, vec![expected]);
+    }
+
+    #[test]
+    fn it_attempts_to_combine_by_contents() {
+        // same combine as before, but d -> h is the pair so it must index into contents
+        let actual = up(
+            None,
+            "d", // a b c d + e f g h
+            "h",
+            empty_ortho_by_origin,
+            empty_ortho_by_hop,
+            fake_ortho_by_contents,
+            fake_pair_exists,
+        )
+            .unwrap();
 
         let expected = Ortho::zip_up(
             Ortho::new(

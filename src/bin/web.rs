@@ -6,10 +6,10 @@ extern crate diesel;
 
 use std::collections::BTreeMap;
 
-use polyvinyl_acetate::{establish_connection, web_helper};
 use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos,
 };
+use polyvinyl_acetate::{establish_connection, web_helper};
 
 #[macro_use]
 extern crate rocket;
