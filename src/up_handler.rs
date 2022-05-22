@@ -19,59 +19,23 @@ pub fn up(
     ) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    let left_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, first_w)?);
-    let right_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, second_w)?);
 
-    // by hop and by contents - verify origin works and then continue with below logic
-    // potential pairings will be the chain of the cartesian products by each category.
-    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
-        left_orthos_by_origin.iter().cloned(),
-        right_orthos_by_origin.iter().cloned(),
-    )
-    .collect();
-
-    let left_orthos_by_hop: Vec<Ortho> =
-        filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
-    let right_orthos_by_hop: Vec<Ortho> =
-        filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
-
-    let potential_pairings_by_hop_with_untested_origins: Vec<(Ortho, Ortho)> =
-        Itertools::cartesian_product(
-            left_orthos_by_hop.iter().cloned(),
-            right_orthos_by_hop.iter().cloned(),
-        )
-        .collect();
-
-    let mut potential_pairings_by_hop = vec![];
-    for (l, r) in potential_pairings_by_hop_with_untested_origins {
-        if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
-            potential_pairings_by_hop.push((l, r))
-        }
-    }
-
-    let left_orthos_by_contents: Vec<Ortho> =
-        filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
-    let right_orthos_by_contents: Vec<Ortho> =
-        filter_base(ortho_by_contents(conn, vec![second_w.to_string()])?);
-
-    let potential_pairings_by_contents_with_untested_origins: Vec<(Ortho, Ortho)> =
-        Itertools::cartesian_product(
-            left_orthos_by_contents.iter().cloned(),
-            right_orthos_by_contents.iter().cloned(),
-        )
-        .collect();
-
-    let mut potential_pairings_by_contents = vec![];
-    for (l, r) in potential_pairings_by_contents_with_untested_origins {
-        if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
-            potential_pairings_by_contents.push((l, r))
-        }
-    }
-
-    for (lo, ro) in potential_pairings_by_origin
+    for (lo, ro) in get_origin_ortho_pairings(conn, first_w, second_w, ortho_by_origin)?
         .into_iter()
-        .chain(potential_pairings_by_hop)
-        .chain(potential_pairings_by_contents)
+        .chain(get_ortho_pairings(
+            conn,
+            first_w,
+            second_w,
+            ortho_by_hop,
+            pair_checker,
+        )?)
+        .chain(get_ortho_pairings(
+            conn,
+            first_w,
+            second_w,
+            ortho_by_contents,
+            pair_checker,
+        )?)
     {
         if lo.get_dims() == ro.get_dims() {
             let lo_hop = lo.get_hop();
@@ -94,14 +58,58 @@ pub fn up(
                         ro.clone(),
                     )? && diagonals_do_not_conflict(lo.clone(), ro.clone())
                     {
-                        let new_ortho = Ortho::zip_up(lo.clone(), ro.clone(), mapping);
-                        ans.push(new_ortho);
+                        ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
                     }
                 }
             }
         }
     }
     Ok(ans)
+}
+
+fn get_origin_ortho_pairings(
+    conn: Option<&PgConnection>,
+    first_w: &str,
+    second_w: &str,
+    ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, Error>,
+) -> Result<Vec<(Ortho, Ortho)>, anyhow::Error> {
+    let left_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, first_w)?);
+    let right_orthos_by_origin: Vec<Ortho> = filter_base(ortho_by_origin(conn, second_w)?);
+
+    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
+        left_orthos_by_origin.iter().cloned(),
+        right_orthos_by_origin.iter().cloned(),
+    )
+    .collect();
+    Ok(potential_pairings_by_origin)
+}
+
+fn get_ortho_pairings(
+    conn: Option<&PgConnection>,
+    first_w: &str,
+    second_w: &str,
+    ortho_by: fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, Error>,
+    pair_checker: fn(Option<&PgConnection>, &str, &str) -> Result<bool, Error>,
+) -> Result<Vec<(Ortho, Ortho)>, anyhow::Error> {
+    let left_orthos_by_contents: Vec<Ortho> =
+        filter_base(ortho_by(conn, vec![first_w.to_string()])?);
+    let right_orthos_by_contents: Vec<Ortho> =
+        filter_base(ortho_by(conn, vec![second_w.to_string()])?);
+
+    let potential_pairings_with_untested_origins: Vec<(Ortho, Ortho)> =
+        Itertools::cartesian_product(
+            left_orthos_by_contents.iter().cloned(),
+            right_orthos_by_contents.iter().cloned(),
+        )
+        .collect();
+
+    let mut potential_pairings_by_contents = vec![];
+    for (l, r) in potential_pairings_with_untested_origins {
+        if pair_checker(conn, &l.get_origin(), &r.get_origin())? {
+            potential_pairings_by_contents.push((l, r))
+        }
+    }
+    Ok(potential_pairings_by_contents)
 }
 
 fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
