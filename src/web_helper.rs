@@ -87,8 +87,6 @@ fn get_orthos_by_size(
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
 
-    let found_dims: Vec<BTreeMap<usize, usize>> =
-        res.clone().into_iter().map(|x| x.get_dims()).collect();
     let actual = res.into_iter().filter(|o| o.get_dims() == dims).collect();
 
     Ok(actual)
@@ -129,4 +127,19 @@ pub fn parse_web_dims(web_dims_str: String) -> BTreeMap<usize, usize> {
         *res.entry(num).or_insert(0) += 1
     }
     res
+}
+
+pub fn delete_db(conn: &PgConnection) -> Result<(), anyhow::Error> {
+    use crate::books;
+    use crate::todos::dsl::todos;
+    use crate::sentences::dsl::sentences;
+    use crate::pairs;
+    use crate::schema::orthotopes::dsl::orthotopes;
+        
+    diesel::delete(books).execute(conn)?;
+    diesel::delete(todos).execute(conn)?;
+    diesel::delete(sentences).execute(conn)?;
+    diesel::delete(pairs).execute(conn)?;
+    diesel::delete(orthotopes).execute(conn)?;
+    Ok(())
 }
