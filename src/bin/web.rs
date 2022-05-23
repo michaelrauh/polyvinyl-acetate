@@ -70,11 +70,18 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
     Ok(book.title)
 }
 
+#[delete("/")]
+fn delete() -> Result<(), Conflict<String>> {
+    web_helper::delete_db(&establish_connection())
+    .map_err(|error| Conflict(Some(error.to_string())))?;
+    Ok(())
+}
+
 #[launch]
 fn rocket() -> _ {
     embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
     rocket::build().mount(
         "/",
-        routes![index, add, count, depth, sentences, pairs, orthos],
+        routes![index, add, count, depth, sentences, pairs, orthos, delete],
     )
 }

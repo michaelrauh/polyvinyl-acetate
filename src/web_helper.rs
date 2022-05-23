@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, env};
+use std::{collections::BTreeMap, env, any};
 
 use crate::{
     create_todo_entry, establish_connection,
@@ -127,4 +127,24 @@ pub fn parse_web_dims(web_dims_str: String) -> BTreeMap<usize, usize> {
         *res.entry(num).or_insert(0) += 1
     }
     res
+}
+
+pub fn delete_db(conn: &PgConnection) -> Result<(), anyhow::Error> {
+    use crate::books;
+    use crate::todos::dsl::todos;
+    use crate::sentences::dsl::sentences;
+    use crate::pairs;
+    use crate::schema::orthotopes::dsl::orthotopes;
+        
+    let effa = diesel::delete(books).execute(conn)?;
+    println!("books: {:?}", effa);
+    let effb = diesel::delete(todos).execute(conn)?;
+    println!("todos: {:?}", effb);
+    let effc = diesel::delete(sentences).execute(conn)?;
+    println!("sentences: {:?}", effc);
+    let effd = diesel::delete(pairs).execute(conn)?;
+    println!("pairs: {:?}", effd);
+    let effe = diesel::delete(orthotopes).execute(conn)?;
+    println!("orthotopes: {:?}", effe);
+    Ok(())
 }
