@@ -136,15 +136,10 @@ pub fn delete_db(conn: &PgConnection) -> Result<(), anyhow::Error> {
     use crate::pairs;
     use crate::schema::orthotopes::dsl::orthotopes;
         
-    let effa = diesel::delete(books).execute(conn)?;
-    println!("books: {:?}", effa);
-    let effb = diesel::delete(todos).execute(conn)?;
-    println!("todos: {:?}", effb);
-    let effc = diesel::delete(sentences).execute(conn)?;
-    println!("sentences: {:?}", effc);
-    let effd = diesel::delete(pairs).execute(conn)?;
-    println!("pairs: {:?}", effd);
-    let effe = diesel::delete(orthotopes).execute(conn)?;
-    println!("orthotopes: {:?}", effe);
+    diesel::delete(books).execute(conn)?;
+    diesel::delete(todos).execute(conn)?;
+    diesel::delete(sentences).execute(conn)?;
+    diesel::delete(pairs).execute(conn)?;
+    diesel::delete(orthotopes).execute(conn)?;
     Ok(())
 }
