@@ -6,5 +6,4 @@ import json
 import time
 
 
-req = r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE")
-r.urlopen(req)
+r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))

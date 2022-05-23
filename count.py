@@ -11,10 +11,6 @@ def get(x):
 def get_with_dims(dims):
     return int(r.urlopen("http://0.0.0.0:30001/orthos?dims=" + dims).read().decode('utf-8'))
 
-def post(x, data):
-    req = r.Request("http://0.0.0.0:30001/" + x)
-    req.add_header('Content-Type', 'application/json')
-    return r.urlopen(req, data).read().decode('utf-8')
 
 print(get("sentences"))
 print(get("count"))
