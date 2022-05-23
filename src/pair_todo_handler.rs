@@ -3,17 +3,20 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::{create_todo_entry, diesel::query_dsl::filter_dsl::FilterDsl, ex_nihilo_handler, models::{NewOrthotope, NewTodo, Orthotope}, schema::{
-    pairs::{dsl::pairs, id},
-}, up_handler, up_helper};
+use crate::ortho::Ortho;
 use crate::{
-    diesel::{ExpressionMethods, query_dsl::select_dsl::SelectDsl, RunQueryDsl},
+    create_todo_entry,
+    diesel::query_dsl::filter_dsl::FilterDsl,
+    ex_nihilo_handler,
+    models::{NewOrthotope, NewTodo, Orthotope},
+    schema::pairs::{dsl::pairs, id},
+    up_handler, up_helper,
+};
+use crate::{
+    diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
     establish_connection,
     models::{Pair, Todo},
     schema,
-};
-use crate::{
-    ortho::Ortho,
 };
 use diesel::{PgArrayExpressionMethods, PgConnection};
 
@@ -41,7 +44,7 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         &pair.first_word,
         &pair.second_word,
         crate::project_forward,
-        project_backward,
+        crate::project_backward,
     )?;
     let nihilo_iter = ex_nihilo_orthos.iter();
     let up_orthos = up_handler::up(
@@ -98,19 +101,6 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     let mut hasher = DefaultHasher::new();
     x.hash(&mut hasher);
     hasher.finish() as i64
-}
-
-fn project_backward(
-    conn: Option<&PgConnection>,
-    from: &str,
-) -> Result<HashSet<String>, anyhow::Error> {
-    let firsts_vec: Vec<String> = pairs
-        .filter(schema::pairs::second_word.eq(from))
-        .select(crate::schema::pairs::first_word)
-        .load(conn.expect("do not pass a test dummy in production"))?;
-
-    let firsts = HashSet::from_iter(firsts_vec);
-    Ok(firsts)
 }
 
 fn get_pair(conn: &PgConnection, pk: i32) -> Result<Pair, anyhow::Error> {

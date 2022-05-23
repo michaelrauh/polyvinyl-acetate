@@ -1,5 +1,5 @@
 use crate::models::Todo;
-use crate::{book_todo_handler, pair_todo_handler, sentence_todo_handler, ortho_todo_handler};
+use crate::{book_todo_handler, ortho_todo_handler, pair_todo_handler, sentence_todo_handler};
 
 pub fn handle_todo(todo: Todo) -> amiquip::Result<(), anyhow::Error> {
     match todo.domain.as_str() {

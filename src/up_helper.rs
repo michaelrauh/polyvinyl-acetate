@@ -1,18 +1,24 @@
-use std::collections::BTreeMap;
-use itertools::{Itertools, zip};
-use diesel::{BoolExpressionMethods, ExpressionMethods, PgConnection, RunQueryDsl};
-use diesel::dsl::exists;
-use diesel::query_dsl::filter_dsl::FilterDsl;
 use crate::models::{NewOrthotope, Orthotope};
 use crate::ortho::Ortho;
 use crate::pair_todo_handler;
 use crate::schema::orthotopes;
 use crate::schema::pairs::{first_word, second_word, table as pairs};
+use diesel::dsl::exists;
+use diesel::query_dsl::filter_dsl::FilterDsl;
+use diesel::{BoolExpressionMethods, ExpressionMethods, PgConnection, RunQueryDsl};
+use itertools::{zip, Itertools};
+use std::collections::BTreeMap;
 
 pub type FailableBoolOnPair =
     fn(Option<&PgConnection>, try_left: &str, try_right: &str) -> Result<bool, anyhow::Error>;
 
-pub fn attempt_up(conn: Option<&PgConnection>, pair_checker: FailableBoolOnPair, ans: &mut Vec<Ortho>, lo: Ortho, ro: Ortho) -> Result<(), anyhow::Error> {
+pub fn attempt_up(
+    conn: Option<&PgConnection>,
+    pair_checker: FailableBoolOnPair,
+    ans: &mut Vec<Ortho>,
+    lo: Ortho,
+    ro: Ortho,
+) -> Result<(), anyhow::Error> {
     if lo.get_dims() == ro.get_dims() {
         let lo_hop = lo.get_hop();
         let left_hand_coordinate_configurations =
@@ -26,13 +32,8 @@ pub fn attempt_up(conn: Option<&PgConnection>, pair_checker: FailableBoolOnPair,
                 fixed_right_hand.clone(),
             )? {
                 let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-                if mapping_is_complete(
-                    conn,
-                    pair_checker,
-                    mapping.clone(),
-                    lo.clone(),
-                    ro.clone(),
-                )? && diagonals_do_not_conflict(lo.clone(), ro.clone())
+                if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
+                    && diagonals_do_not_conflict(lo.clone(), ro.clone())
                 {
                     ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
                 }
@@ -95,10 +96,13 @@ fn make_mapping(
     zip(fixed_right_hand, left_hand_owned).collect()
 }
 
-pub fn get_ortho_by_origin(conn: Option<&PgConnection>, o: &str) -> Result<Vec<Ortho>, anyhow::Error> {
-    use diesel::query_dsl::methods::SelectDsl;
+pub fn get_ortho_by_origin(
+    conn: Option<&PgConnection>,
+    o: &str,
+) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema;
     use crate::schema::orthotopes::{origin, table as orthotopes};
+    use diesel::query_dsl::methods::SelectDsl;
     let results: Vec<Orthotope> = orthotopes
         .filter(origin.eq(o))
         .select(schema::orthotopes::all_columns)

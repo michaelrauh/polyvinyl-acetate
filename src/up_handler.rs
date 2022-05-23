@@ -1,8 +1,8 @@
 use crate::ortho::Ortho;
-use anyhow::Error;
-use diesel::PgConnection;
 use crate::up_helper;
 use crate::up_helper::FailableBoolOnPair;
+use anyhow::Error;
+use diesel::PgConnection;
 
 type FailableStringVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
@@ -49,7 +49,8 @@ fn get_origin_ortho_pairings(
     ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, Error>,
 ) -> Result<Vec<(Ortho, Ortho)>, anyhow::Error> {
     let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
-    let right_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, second_w)?);
+    let right_orthos_by_origin: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
 
     let potential_pairings_by_origin =
         up_helper::make_potential_pairings(left_orthos_by_origin, right_orthos_by_origin);
