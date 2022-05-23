@@ -13,9 +13,12 @@ mod ex_nihilo_handler;
 pub mod ortho;
 mod pair_todo_handler;
 mod sentence_todo_handler;
+mod ortho_todo_handler;
 mod up_handler;
 pub mod web_helper;
 pub mod worker_helper;
+mod up_helper;
+mod up_on_ortho_found_handler;
 
 use crate::{models::NewTodo, schema::books::dsl::books};
 use dotenv::dotenv;
@@ -25,6 +28,8 @@ use std::{
     env,
     hash::{Hash, Hasher},
 };
+use std::collections::HashSet;
+use crate::schema::pairs::table as pairs;
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -50,4 +55,15 @@ pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
     hasher.finish() as i64
+}
+
+fn project_forward(
+    conn: Option<&PgConnection>,
+    from: &str,
+) -> Result<HashSet<String>, anyhow::Error> {
+    let seconds_vec: Vec<String> = diesel::QueryDsl::select(diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(from)), crate::schema::pairs::second_word)
+        .load(conn.expect("do not pass a test dummy in production"))?;
+
+    let seconds = HashSet::from_iter(seconds_vec);
+    Ok(seconds)
 }

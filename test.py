@@ -33,3 +33,9 @@ assert get_with_dims() == 1 # there is one large ortho found
 
 # a c
 # b d
+
+# this end to end so far tests up by origin
+# add up by hop
+# add up by contents
+# add up by ortho forward
+# add up by ortho backward

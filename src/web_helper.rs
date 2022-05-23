@@ -87,8 +87,6 @@ fn get_orthos_by_size(
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
 
-    let found_dims: Vec<BTreeMap<usize, usize>> =
-        res.clone().into_iter().map(|x| x.get_dims()).collect();
     let actual = res.into_iter().filter(|o| o.get_dims() == dims).collect();
 
     Ok(actual)
