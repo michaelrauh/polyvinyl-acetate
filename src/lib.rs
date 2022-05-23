@@ -22,7 +22,6 @@ pub mod worker_helper;
 
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
-use diesel::query_dsl::filter_dsl::FilterDsl;
 use diesel::query_dsl::methods::SelectDsl;
 use dotenv::dotenv;
 use models::Book;
