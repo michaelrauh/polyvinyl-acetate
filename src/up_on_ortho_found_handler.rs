@@ -36,7 +36,7 @@ pub(crate) fn up(
                 orthos_to_left.push(o);
             }
         }
-        println!("orthos to left: {:?}", orthos_to_left);
+
         for lo in orthos_to_left {
             up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
         }
