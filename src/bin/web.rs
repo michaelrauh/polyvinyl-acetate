@@ -73,7 +73,7 @@ fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
 #[delete("/")]
 fn delete() -> Result<(), Conflict<String>> {
     web_helper::delete_db(&establish_connection())
-    .map_err(|error| Conflict(Some(error.to_string())))?;
+        .map_err(|error| Conflict(Some(error.to_string())))?;
     Ok(())
 }
 

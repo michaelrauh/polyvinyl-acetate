@@ -131,11 +131,11 @@ pub fn parse_web_dims(web_dims_str: String) -> BTreeMap<usize, usize> {
 
 pub fn delete_db(conn: &PgConnection) -> Result<(), anyhow::Error> {
     use crate::books;
-    use crate::todos::dsl::todos;
-    use crate::sentences::dsl::sentences;
     use crate::pairs;
     use crate::schema::orthotopes::dsl::orthotopes;
-        
+    use crate::sentences::dsl::sentences;
+    use crate::todos::dsl::todos;
+
     diesel::delete(books).execute(conn)?;
     diesel::delete(todos).execute(conn)?;
     diesel::delete(sentences).execute(conn)?;
