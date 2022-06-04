@@ -6,6 +6,7 @@ use super::schema::orthotopes;
 use super::schema::pairs;
 use super::schema::sentences;
 use super::schema::todos;
+use super::schema::phrases;
 
 #[derive(Insertable)]
 #[table_name = "books"]
@@ -85,4 +86,18 @@ pub struct Orthotope {
     pub hop: Vec<String>,
     pub contents: Vec<String>,
     pub info_hash: i64,
+}
+
+#[derive(Insertable, Debug)]
+#[table_name = "phrases"]
+pub struct NewPhrase {
+    pub words: Vec<String>,
+    pub words_hash: i64
+}
+
+#[derive(Queryable, Debug)]
+pub struct Phrase {
+    pub id: i32,
+    pub words: Vec<String>,
+    pub words_hash: i64
 }

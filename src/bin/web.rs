@@ -5,7 +5,7 @@ extern crate openssl;
 extern crate diesel;
 
 use polyvinyl_acetate::web_helper::{
-    count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos,
+    count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos, show_phrases,
 };
 use polyvinyl_acetate::{establish_connection, web_helper};
 
@@ -48,6 +48,11 @@ fn depth() -> Result<String, Conflict<String>> {
     show_depth().map_err(|e| Conflict(Some(e.to_string())))
 }
 
+#[get("/phrases")]
+fn phrases() -> Result<String, Conflict<String>> {
+    show_phrases().map_err(|e| Conflict(Some(e.to_string())))
+}
+
 #[get("/orthos?<dims>")]
 fn orthos(dims: String) -> Result<String, Conflict<String>> {
     show_orthos(web_helper::parse_web_dims(dims)).map_err(|e| Conflict(Some(e.to_string())))
@@ -82,6 +87,6 @@ fn rocket() -> _ {
     embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
     rocket::build().mount(
         "/",
-        routes![index, add, count, depth, sentences, pairs, orthos, delete],
+        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases],
     )
 }

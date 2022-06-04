@@ -19,6 +19,7 @@ mod up_helper;
 mod up_on_ortho_found_handler;
 pub mod web_helper;
 pub mod worker_helper;
+pub mod phrase_todo_handler;
 
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
@@ -55,6 +56,12 @@ fn create_todo_entry(
 pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
+pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    v.hash(&mut hasher);
     hasher.finish() as i64
 }
 

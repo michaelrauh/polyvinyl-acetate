@@ -34,6 +34,7 @@ assert get("sentences") == 12 # the duplicate sentences will be filtered
 assert get("count") == 0 # there is no pending work
 assert get("depth") == 0 # the queue does not have a cycle
 assert get("pairs") == 13 # duplicate pairs will be filtered
+assert get("phrases") == 24 # many phrases will be added
 
 # up by origin
 assert get_with_dims("1,1,1") == 1 # there is one large ortho found
