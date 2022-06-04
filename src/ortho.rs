@@ -95,7 +95,6 @@ impl Ortho {
                     .get(1)
                     .expect("lists of length greater than one have a second element");
 
-                // skip origin and hard code to one
                 for (i, x) in phrase.iter().skip(1).enumerate() {
                     let loc = Location {
                         info: btreemap! {axis_name.to_string() => i + 1},
@@ -331,37 +330,19 @@ mod tests {
             "d".to_string(),
         );
 
-        assert_eq!(example_ortho.contains_phrase(vec![]), true);
-        assert_eq!(example_ortho.contains_phrase(vec!["a".to_string()]), true);
-        assert_eq!(example_ortho.contains_phrase(vec!["b".to_string()]), true);
-        assert_eq!(example_ortho.contains_phrase(vec!["c".to_string()]), true);
-        assert_eq!(example_ortho.contains_phrase(vec!["d".to_string()]), false);
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["a".to_string(), "b".to_string()]),
-            true
-        );
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["c".to_string(), "d".to_string()]),
-            true
-        );
+        assert!(example_ortho.contains_phrase(vec![]));
+        assert!(example_ortho.contains_phrase(vec!["a".to_string()]));
+        assert!(example_ortho.contains_phrase(vec!["b".to_string()]));
+        assert!(example_ortho.contains_phrase(vec!["c".to_string()]));
+        assert!(!example_ortho.contains_phrase(vec!["d".to_string()]));
+        assert!(example_ortho.contains_phrase(vec!["a".to_string(), "b".to_string()]));
+        assert!(example_ortho.contains_phrase(vec!["c".to_string(), "d".to_string()]));
 
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["a".to_string(), "c".to_string()]),
-            true
-        );
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["b".to_string(), "d".to_string()]),
-            true
-        );
+        assert!(example_ortho.contains_phrase(vec!["a".to_string(), "c".to_string()]));
+        assert!(example_ortho.contains_phrase(vec!["b".to_string(), "d".to_string()]));
 
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["a".to_string(), "e".to_string()]),
-            false
-        );
-        assert_eq!(
-            example_ortho.contains_phrase(vec!["b".to_string(), "a".to_string()]),
-            false
-        );
+        assert!(!example_ortho.contains_phrase(vec!["a".to_string(), "e".to_string()]));
+        assert!(!example_ortho.contains_phrase(vec!["b".to_string(), "a".to_string()]));
 
         let l = Ortho::new(
             "a".to_string(),
@@ -388,17 +369,11 @@ mod tests {
 
         let wider = Ortho::zip_over(l, r, mapping, shift_axis);
 
-        assert_eq!(
-            wider.contains_phrase(vec!["e".to_string(), "f".to_string()]),
-            true
-        );
+        assert!(wider.contains_phrase(vec!["e".to_string(), "f".to_string()]));
 
-        assert_eq!(wider.contains_phrase(vec!["d".to_string()]), false);
+        assert!(!wider.contains_phrase(vec!["d".to_string()]));
 
-        assert_eq!(
-            wider.contains_phrase(vec!["f".to_string(), "e".to_string()]),
-            false
-        );
+        assert!(!wider.contains_phrase(vec!["f".to_string(), "e".to_string()]));
     }
 
     #[test]
