@@ -3,7 +3,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::ortho::Ortho;
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
@@ -18,6 +17,7 @@ use crate::{
     models::{Pair, Todo},
     schema,
 };
+use crate::{insert_orthotopes, ortho::Ortho};
 use diesel::{PgArrayExpressionMethods, PgConnection};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
@@ -25,7 +25,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes(&conn, pair)?;
-        let inserted_orthos = up_helper::insert_orthotopes(&conn, &new_orthos)?;
+        let inserted_orthos = insert_orthotopes(&conn, &new_orthos)?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
             .map(|s| NewTodo {
@@ -51,7 +51,7 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         Some(conn),
         &pair.first_word,
         &pair.second_word,
-        up_helper::get_ortho_by_origin,
+        crate::get_ortho_by_origin,
         get_ortho_by_hop,
         get_ortho_by_contents,
         up_helper::pair_exists,

@@ -13,14 +13,17 @@ mod ex_nihilo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
 mod pair_todo_handler;
+pub mod phrase_todo_handler;
 mod sentence_todo_handler;
 mod up_handler;
 mod up_helper;
 mod up_on_ortho_found_handler;
 pub mod web_helper;
 pub mod worker_helper;
-pub mod phrase_todo_handler;
 
+use crate::models::{NewOrthotope, Orthotope};
+use crate::ortho::Ortho;
+use crate::schema::orthotopes;
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
@@ -91,4 +94,33 @@ fn project_backward(
 
     let firsts = HashSet::from_iter(firsts_vec);
     Ok(firsts)
+}
+
+pub fn insert_orthotopes(
+    conn: &PgConnection,
+    new_orthos: &[NewOrthotope],
+) -> Result<Vec<Orthotope>, diesel::result::Error> {
+    diesel::insert_into(orthotopes::table)
+        .values(new_orthos)
+        .on_conflict_do_nothing()
+        .get_results(conn)
+}
+
+pub fn get_ortho_by_origin(
+    conn: Option<&PgConnection>,
+    o: &str,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{origin, table as orthotopes};
+    use diesel::query_dsl::filter_dsl::FilterDsl;
+    let results: Vec<Orthotope> = SelectDsl::select(
+        FilterDsl::filter(orthotopes, origin.eq(o)),
+        schema::orthotopes::all_columns,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
 }

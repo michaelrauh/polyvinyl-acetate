@@ -96,25 +96,6 @@ fn make_mapping(
     zip(fixed_right_hand, left_hand_owned).collect()
 }
 
-pub fn get_ortho_by_origin(
-    conn: Option<&PgConnection>,
-    o: &str,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema;
-    use crate::schema::orthotopes::{origin, table as orthotopes};
-    use diesel::query_dsl::methods::SelectDsl;
-    let results: Vec<Orthotope> = orthotopes
-        .filter(origin.eq(o))
-        .select(schema::orthotopes::all_columns)
-        .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
-        .collect();
-    Ok(res)
-}
-
 pub fn pair_exists(
     conn: Option<&PgConnection>,
     try_left: &str,
@@ -126,16 +107,6 @@ pub fn pair_exists(
     .get_result(conn.expect("don't use the test connection"))?;
 
     Ok(res)
-}
-
-pub fn insert_orthotopes(
-    conn: &PgConnection,
-    new_orthos: &[NewOrthotope],
-) -> Result<Vec<Orthotope>, diesel::result::Error> {
-    diesel::insert_into(orthotopes::table)
-        .values(new_orthos)
-        .on_conflict_do_nothing()
-        .get_results(conn)
 }
 
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {

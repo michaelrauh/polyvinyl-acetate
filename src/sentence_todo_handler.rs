@@ -1,5 +1,8 @@
-use crate::models::{NewPair, Pair, Sentence, Todo, NewPhrase, Phrase};
-use crate::{create_todo_entry, establish_connection, string_to_signed_int, NewTodo, vec_of_strings_to_signed_int};
+use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
+use crate::{
+    create_todo_entry, establish_connection, string_to_signed_int, vec_of_strings_to_signed_int,
+    NewTodo,
+};
 use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
@@ -64,7 +67,10 @@ fn create_phrases(conn: &PgConnection, sentence: String) -> Result<(), anyhow::E
     Ok(())
 }
 
-fn create_phrase_entry(conn: &PgConnection, to_insert: Vec<NewPhrase>) -> Result<Vec<Phrase>, diesel::result::Error> {
+fn create_phrase_entry(
+    conn: &PgConnection,
+    to_insert: Vec<NewPhrase>,
+) -> Result<Vec<Phrase>, diesel::result::Error> {
     use crate::schema::phrases;
     use diesel::RunQueryDsl;
     diesel::insert_into(phrases::table)
@@ -79,13 +85,16 @@ fn split_sentence_to_phrases(sentence: String) -> Vec<Vec<String>> {
         .map(|x| x.to_string())
         .collect();
 
-    heads(words).iter().flat_map(|ws| tails(ws.to_vec())).collect()
+    heads(words)
+        .iter()
+        .flat_map(|ws| tails(ws.to_vec()))
+        .collect()
 }
 
 fn heads(words: Vec<String>) -> Vec<Vec<String>> {
     let mut acc = vec![];
     for i in 1..words.len() + 1 {
-        let sliced:Vec<String> = words[..i].to_vec();
+        let sliced: Vec<String> = words[..i].to_vec();
         acc.push(sliced);
     }
     acc
@@ -94,7 +103,7 @@ fn heads(words: Vec<String>) -> Vec<Vec<String>> {
 fn tails(words: Vec<String>) -> Vec<Vec<String>> {
     let mut acc = vec![];
     for i in 0..words.len() {
-        let sliced:Vec<String> = words[i..].to_vec();
+        let sliced: Vec<String> = words[i..].to_vec();
         acc.push(sliced);
     }
     acc
@@ -140,7 +149,9 @@ fn get_sentence(conn: &PgConnection, pk: i32) -> Result<Sentence, anyhow::Error>
 #[cfg(test)]
 mod tests {
 
-    use crate::sentence_todo_handler::{split_sentence_to_pairs, split_sentence_to_phrases, heads, tails};
+    use crate::sentence_todo_handler::{
+        heads, split_sentence_to_pairs, split_sentence_to_phrases, tails,
+    };
 
     #[test]
     fn it_splits_sentence_to_pairs_empty() {
@@ -175,22 +186,24 @@ mod tests {
 
     #[test]
     fn it_finds_heads() {
-        let ans: Vec<Vec<String>> = heads(vec!["one".to_owned(), "two".to_owned(), "three".to_owned()]);
+        let ans: Vec<Vec<String>> =
+            heads(vec!["one".to_owned(), "two".to_owned(), "three".to_owned()]);
         let expected: Vec<Vec<String>> = vec![
             vec!["one".to_owned()],
             vec!["one".to_owned(), "two".to_owned()],
-        vec!["one".to_owned(), "two".to_owned(), "three".to_owned()]
+            vec!["one".to_owned(), "two".to_owned(), "three".to_owned()],
         ];
         assert_eq!(ans, expected);
     }
 
     #[test]
     fn it_finds_tails() {
-        let ans: Vec<Vec<String>> = tails(vec!["one".to_owned(), "two".to_owned(), "three".to_owned()]);
+        let ans: Vec<Vec<String>> =
+            tails(vec!["one".to_owned(), "two".to_owned(), "three".to_owned()]);
         let expected: Vec<Vec<String>> = vec![
-        vec!["one".to_owned(), "two".to_owned(), "three".to_owned()],
-        vec!["two".to_owned(), "three".to_owned()],
-        vec!["three".to_owned()]
+            vec!["one".to_owned(), "two".to_owned(), "three".to_owned()],
+            vec!["two".to_owned(), "three".to_owned()],
+            vec!["three".to_owned()],
         ];
         assert_eq!(ans, expected);
     }
@@ -212,7 +225,14 @@ mod tests {
     #[test]
     fn it_splits_sentence_to_phrases_many() {
         let ans: Vec<Vec<String>> = split_sentence_to_phrases("one two three".to_owned());
-        let expected: Vec<Vec<String>> = vec![vec!["one".to_owned()], vec!["one".to_owned(), "two".to_owned()], vec!["two".to_owned()], vec!["one".to_owned(), "two".to_owned(), "three".to_owned()], vec!["two".to_owned(), "three".to_owned()], vec!["three".to_owned()]];
+        let expected: Vec<Vec<String>> = vec![
+            vec!["one".to_owned()],
+            vec!["one".to_owned(), "two".to_owned()],
+            vec!["two".to_owned()],
+            vec!["one".to_owned(), "two".to_owned(), "three".to_owned()],
+            vec!["two".to_owned(), "three".to_owned()],
+            vec!["three".to_owned()],
+        ];
         assert_eq!(ans, expected);
     }
 }

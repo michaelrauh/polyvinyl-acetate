@@ -5,7 +5,8 @@ extern crate openssl;
 extern crate diesel;
 
 use polyvinyl_acetate::web_helper::{
-    count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_todos, show_phrases,
+    count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_phrases,
+    show_todos,
 };
 use polyvinyl_acetate::{establish_connection, web_helper};
 

@@ -1,14 +1,14 @@
 use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, establish_connection,
+    create_todo_entry, establish_connection, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
     schema::{
         self,
         orthotopes::{self, id},
     },
-    up_helper::{self, insert_orthotopes},
+    up_helper::{self},
     up_on_ortho_found_handler,
 };
 
@@ -37,7 +37,7 @@ fn new_orthotopes(
     let up_orthos = up_on_ortho_found_handler::up(
         Some(conn),
         old_orthotope,
-        up_helper::get_ortho_by_origin,
+        crate::get_ortho_by_origin,
         up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
