@@ -3,11 +3,12 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use crate::insert_orthotopes;
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
     ex_nihilo_handler,
-    models::{NewOrthotope, NewTodo, Orthotope},
+    models::{NewOrthotope, NewTodo},
     schema::pairs::{dsl::pairs, id},
     up_handler, up_helper,
 };
@@ -17,8 +18,7 @@ use crate::{
     models::{Pair, Todo},
     schema,
 };
-use crate::{insert_orthotopes, ortho::Ortho};
-use diesel::{PgArrayExpressionMethods, PgConnection};
+use diesel::PgConnection;
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -52,48 +52,14 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         &pair.first_word,
         &pair.second_word,
         crate::get_ortho_by_origin,
-        get_ortho_by_hop,
-        get_ortho_by_contents,
+        crate::get_ortho_by_hop,
+        crate::get_ortho_by_contents,
         up_helper::pair_exists,
     )?;
     let up_iter = up_orthos.iter();
     let both = nihilo_iter.chain(up_iter);
 
-    let res = both.map(up_helper::ortho_to_orthotope).collect();
-    Ok(res)
-}
-
-fn get_ortho_by_hop(
-    conn: Option<&PgConnection>,
-    other_hop: Vec<String>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{hop, table as orthotopes};
-    let results: Vec<Orthotope> = orthotopes
-        .filter(hop.overlaps_with(other_hop))
-        .select(schema::orthotopes::all_columns)
-        .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
-        .collect();
-    Ok(res)
-}
-
-fn get_ortho_by_contents(
-    conn: Option<&PgConnection>,
-    other_contents: Vec<String>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{contents, table as orthotopes};
-    let results: Vec<Orthotope> = orthotopes
-        .filter(contents.overlaps_with(other_contents))
-        .select(schema::orthotopes::all_columns)
-        .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
-        .collect();
+    let res = both.map(crate::ortho_to_orthotope).collect();
     Ok(res)
 }
 

@@ -13,6 +13,7 @@ mod ex_nihilo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
 mod pair_todo_handler;
+pub mod phrase_ortho_handler;
 pub mod phrase_todo_handler;
 mod sentence_todo_handler;
 mod up_handler;
@@ -35,6 +36,11 @@ use std::{
     env,
     hash::{Hash, Hasher},
 };
+
+type FailableStringVecToOrthoVec =
+    fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableStringToOrthoVec =
+    fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -114,6 +120,57 @@ pub fn get_ortho_by_origin(
     use diesel::query_dsl::filter_dsl::FilterDsl;
     let results: Vec<Orthotope> = SelectDsl::select(
         FilterDsl::filter(orthotopes, origin.eq(o)),
+        schema::orthotopes::all_columns,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
+    let information = bincode::serialize(&ortho).expect("serialization should work");
+    let origin = ortho.get_origin();
+    let hop = Vec::from_iter(ortho.get_hop());
+    let contents = Vec::from_iter(ortho.get_contents());
+    let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
+    NewOrthotope {
+        information,
+        origin,
+        hop,
+        contents,
+        info_hash,
+    }
+}
+
+fn get_ortho_by_hop(
+    conn: Option<&PgConnection>,
+    other_hop: Vec<String>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{hop, table as orthotopes};
+    let results: Vec<Orthotope> = SelectDsl::select(
+        orthotopes.filter(hop.overlaps_with(other_hop)),
+        schema::orthotopes::all_columns,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .collect();
+    Ok(res)
+}
+
+fn get_ortho_by_contents(
+    conn: Option<&PgConnection>,
+    other_contents: Vec<String>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{contents, table as orthotopes};
+    let results: Vec<Orthotope> = SelectDsl::select(
+        orthotopes.filter(contents.overlaps_with(other_contents)),
         schema::orthotopes::all_columns,
     )
     .load(conn.expect("don't use test connections in production"))?;

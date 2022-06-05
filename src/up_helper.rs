@@ -1,7 +1,4 @@
-use crate::models::{NewOrthotope, Orthotope};
 use crate::ortho::Ortho;
-use crate::pair_todo_handler;
-use crate::schema::orthotopes;
 use crate::schema::pairs::{first_word, second_word, table as pairs};
 use diesel::dsl::exists;
 use diesel::query_dsl::filter_dsl::FilterDsl;
@@ -107,21 +104,6 @@ pub fn pair_exists(
     .get_result(conn.expect("don't use the test connection"))?;
 
     Ok(res)
-}
-
-pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
-    let information = bincode::serialize(&ortho).expect("serialization should work");
-    let origin = ortho.get_origin();
-    let hop = Vec::from_iter(ortho.get_hop());
-    let contents = Vec::from_iter(ortho.get_contents());
-    let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
-    NewOrthotope {
-        information,
-        origin,
-        hop,
-        contents,
-        info_hash,
-    }
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {

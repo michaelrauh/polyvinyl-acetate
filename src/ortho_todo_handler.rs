@@ -43,10 +43,7 @@ fn new_orthotopes(
         crate::project_backward,
     )?;
 
-    let res = up_orthos
-        .iter()
-        .map(up_helper::ortho_to_orthotope)
-        .collect();
+    let res = up_orthos.iter().map(crate::ortho_to_orthotope).collect();
     Ok(res)
 }
 

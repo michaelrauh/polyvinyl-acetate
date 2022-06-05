@@ -1,13 +1,8 @@
 use crate::ortho::Ortho;
-use crate::up_helper;
 use crate::up_helper::FailableBoolOnPair;
+use crate::{up_helper, FailableStringToOrthoVec, FailableStringVecToOrthoVec};
 use anyhow::Error;
 use diesel::PgConnection;
-
-type FailableStringVecToOrthoVec =
-    fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
-type FailableStringToOrthoVec =
-    fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub fn up(
     conn: Option<&PgConnection>,
