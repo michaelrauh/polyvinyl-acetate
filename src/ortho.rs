@@ -251,13 +251,18 @@ impl Ortho {
         Ortho { info: combined }
     }
 
-    fn get_end(&self, shift_axis: String) -> BTreeMap<Location, String> {
-        let mut axis_length = 0;
+    pub(crate) fn axis_length(&self, name: &str) -> usize {
+        let mut len = 0;
         for key in self.info.keys() {
-            if key.count_axis(&shift_axis) > axis_length {
-                axis_length = key.count_axis(&shift_axis)
+            if key.count_axis(&name) > len {
+                len = key.count_axis(&name)
             }
         }
+        len
+    }
+
+    fn get_end(&self, shift_axis: String) -> BTreeMap<Location, String> {
+        let axis_length = self.axis_length(&shift_axis);
         self.info
             .clone()
             .into_iter()
@@ -271,6 +276,12 @@ impl Ortho {
             .into_iter()
             .find_map(|(loc, n)| if n == name { Some(loc) } else { None })
             .expect("do not search for the location of a name that does not exist")
+    }
+
+   
+
+    pub(crate) fn to_vec(&self) -> Vec<(Location, String)> {
+        self.info.iter().map(|(a, b)| { (a.clone(), b.clone()) }).collect()
     }
 }
 
@@ -320,7 +331,7 @@ mod tests {
         );
         assert_eq!(example_ortho.get_origin(), "a".to_string());
     }
-
+    
     #[test]
     fn it_can_detect_if_it_contains_a_phrase() {
         let example_ortho = Ortho::new(
@@ -666,11 +677,11 @@ impl Location {
         res
     }
 
-    fn count_axis(&self, axis: &str) -> usize {
+    pub(crate) fn count_axis(&self, axis: &str) -> usize {
         *self.info.get(axis).unwrap_or(&0)
     }
 
-    fn add(&self, axis: String) -> Location {
+    pub(crate) fn add(&self, axis: String) -> Location {
         let mut res: BTreeMap<String, usize> = self.info.to_owned();
         *res.entry(axis).or_insert(0) += 1;
         Location { info: res }
