@@ -96,14 +96,9 @@ impl Ortho {
             return false;
         }
         for loc in self.location_at_name(head) {
-            dbg!(loc.clone());
-            dbg!(loc.is_contents());
-            dbg!(loc.is_edge(self.get_hop()));
-            dbg!();
             if loc.is_contents() {
                 if loc.is_edge(self.get_hop()) {
                     let missing_axes = loc.missing_axes(self.get_hop());
-                    dbg!(missing_axes.clone());
 
                     for axis in missing_axes {
                         if self.axis_has_phrase(phrase, loc.clone(), axis) {
@@ -145,7 +140,6 @@ impl Ortho {
         loc: Location,
         axis: String,
     ) -> bool {
-        dbg!(phrase, loc.clone(), axis.clone());
         for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
             let desired = loc.add_n(axis.clone(), i + 1);
             if self

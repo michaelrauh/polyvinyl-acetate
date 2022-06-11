@@ -73,31 +73,50 @@ pub(crate) fn over(
             Itertools::permutations(lo_hop.iter(), lo_hop.len());
 
         for left_mapping in left_hand_coordinate_configurations {
-            let mapping = make_mapping(
-                left_mapping,
+            if axis_lengths_match(
+                left_mapping.clone(),
                 fixed_right_hand.clone(),
-                origin_shift_axis,
-                origin_lhs_known_mapping_member.clone(),
-            );
-
-            if mapping_works(
-                mapping.clone(),
                 lo.clone(),
                 ro.clone(),
-                origin_shift_axis,
-                &origin_lhs_known_mapping_member,
             ) {
-                ans.push(Ortho::zip_over(
+                let mapping = make_mapping(
+                    left_mapping,
+                    fixed_right_hand.clone(),
+                    origin_shift_axis,
+                    origin_lhs_known_mapping_member.clone(),
+                );
+
+                if mapping_works(
+                    mapping.clone(),
                     lo.clone(),
                     ro.clone(),
-                    mapping.clone(),
-                    origin_shift_axis.to_string(),
-                ));
+                    origin_shift_axis,
+                    &origin_lhs_known_mapping_member,
+                ) {
+                    ans.push(Ortho::zip_over(
+                        lo.clone(),
+                        ro.clone(),
+                        mapping.clone(),
+                        origin_shift_axis.to_string(),
+                    ));
+                }
             }
         }
     }
 
     Ok(ans)
+}
+
+fn axis_lengths_match(
+    left_axes: Vec<&String>,
+    right_axes: Vec<String>,
+    lo: Ortho,
+    ro: Ortho,
+) -> bool {
+    let left_lengths: Vec<usize> = left_axes.iter().map(|axis| lo.axis_length(axis)).collect();
+    let right_lengths: Vec<usize> = right_axes.iter().map(|axis| ro.axis_length(axis)).collect();
+
+    left_lengths == right_lengths
 }
 
 fn mapping_works(
@@ -107,7 +126,7 @@ fn mapping_works(
     origin_shift_axis: &str,
     origin_lhs_known_mapping_member: &str,
 ) -> bool {
-    let shift_axis_length: usize = ro.axis_length(origin_shift_axis);
+    let shift_axis_length = ro.axis_length(origin_shift_axis);
 
     for (location, name) in ro.to_vec() {
         if location.count_axis(origin_shift_axis) == shift_axis_length {
@@ -146,7 +165,7 @@ mod tests {
 
     use crate::ortho::Ortho;
 
-    use super::over;
+    use super::{axis_lengths_match, over};
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
@@ -522,6 +541,80 @@ mod tests {
         .unwrap();
 
         assert_eq!(actual.len(), 0);
+    }
+
+    #[test]
+    fn axis_lengths_can_match() {
+        let fejg = Ortho::new(
+            "f".to_string(),
+            "e".to_string(),
+            "j".to_string(),
+            "g".to_string(),
+        );
+
+        let ebfe = Ortho::new(
+            "e".to_string(),
+            "b".to_string(),
+            "f".to_string(),
+            "e".to_string(),
+        );
+
+        let bedf = Ortho::new(
+            "b".to_string(),
+            "e".to_string(),
+            "d".to_string(),
+            "f".to_string(),
+        );
+
+        let dfij = Ortho::new(
+            "d".to_string(),
+            "f".to_string(),
+            "i".to_string(),
+            "j".to_string(),
+        );
+
+        // b e  e b
+        // d f  f e
+        let bebdfe = Ortho::zip_over(
+            bedf,
+            ebfe,
+            btreemap! {
+                "b".to_string() => "e".to_string(),
+                "f".to_string() => "d".to_string()
+            },
+            "b".to_string(),
+        );
+
+        // d f   f e
+        // i j   j g
+        let dfeijg = Ortho::zip_over(
+            dfij,
+            fejg,
+            btreemap! {
+                "e".to_string() => "f".to_string(),
+                "j".to_string() => "i".to_string()
+            },
+            "e".to_string(),
+        );
+
+        // b e b   d f e
+        // d f e   i j g
+        let yes = axis_lengths_match(
+            vec![&"e".to_string(), &"d".to_string()],
+            vec!["f".to_string(), "i".to_string()],
+            bebdfe.clone(),
+            dfeijg.clone(),
+        );
+
+        let no = axis_lengths_match(
+            vec![&"d".to_string(), &"e".to_string()],
+            vec!["f".to_string(), "i".to_string()],
+            bebdfe,
+            dfeijg,
+        );
+
+        assert!(yes);
+        assert!(!no);
     }
 }
 // for hop and contents (and for origin for that matter, but this is a slower way to find it), shift axis is the axis that increases in the rhs while traversing the phrase
