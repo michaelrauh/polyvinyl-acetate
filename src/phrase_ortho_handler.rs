@@ -5,8 +5,9 @@ use itertools::{zip, Itertools};
 use maplit::hashset;
 
 use crate::{
-    ortho::Ortho, up_helper::make_potential_pairings, FailableStringToOrthoVec,
-    FailableStringVecToOrthoVec,
+    ortho::{Location, Ortho},
+    up_helper::make_potential_pairings,
+    FailableStringToOrthoVec, FailableStringVecToOrthoVec,
 };
 
 pub(crate) fn over(
@@ -31,14 +32,21 @@ pub(crate) fn over(
         .iter()
         .filter(|o| o.contains_phrase(lhs_phrase_head.clone()))
         .filter(|o| o.get_hop().contains(&phrase[1])) // for origin, hop must have the second word as it is starting in the corner. Origin only logic
-        .filter(|o| o.axis_length(&origin_lhs_known_mapping_member) == (phrase.len() - 2)) // offset is two as it doesn't count origin or extra word
+        .filter(|o| o.axis_length(&origin_lhs_known_mapping_member) == (phrase.len() - 2)) // offset is two as it doesn't count origin or extra word. origin only logic
         .cloned()
         .collect();
 
     let rhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[1])?
         .iter()
         .filter(|o| o.contains_phrase(rhs_phrase_head.clone()))
-        .filter(|o| o.axis_length(origin_shift_axis) == (phrase.len() - 2))
+        .filter(|o| o.axis_length(origin_shift_axis) == (phrase.len() - 2)) // offset is two as it doesn't count origin or extra word. origin only logic
+        .filter(|o| {
+            o.axis_has_phrase(
+                &rhs_phrase_head,
+                Location::default(),
+                origin_shift_axis.to_string(),
+            ) // origin only logic
+        })
         .cloned()
         .collect();
 
@@ -65,7 +73,6 @@ pub(crate) fn over(
             Itertools::permutations(lo_hop.iter(), lo_hop.len());
 
         for left_mapping in left_hand_coordinate_configurations {
-
             let mapping = make_mapping(
                 left_mapping,
                 fixed_right_hand.clone(),
@@ -342,10 +349,10 @@ mod tests {
             "f".to_string(),
         );
 
-        // a b e 
-        // c d f  
- 
-        // c d f  
+        // a b e
+        // c d f
+
+        // c d f
         // h i j
         let abecdfhij = Ortho::zip_over(
             abecdf,
@@ -368,7 +375,6 @@ mod tests {
             },
             "b".to_string(),
         );
-
 
         // d f   f e
         // i j   j g
@@ -502,7 +508,12 @@ mod tests {
     fn over_filters_if_the_phrase_wont_result() {
         let actual = over(
             None,
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned(), "g".to_owned()],
+            vec![
+                "a".to_owned(),
+                "b".to_owned(),
+                "e".to_owned(),
+                "g".to_owned(),
+            ],
             fake_ortho_by_origin_four,
             empty_ortho_by_hop,
             empty_ortho_by_contents,

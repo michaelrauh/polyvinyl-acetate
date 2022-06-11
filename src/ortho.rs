@@ -139,7 +139,13 @@ impl Ortho {
         false
     }
 
-    fn axis_has_phrase(&self, phrase: &Vec<String>, loc: Location, axis: String) -> bool {
+    pub(crate) fn axis_has_phrase(
+        &self,
+        phrase: &Vec<String>,
+        loc: Location,
+        axis: String,
+    ) -> bool {
+        dbg!(phrase, loc.clone(), axis.clone());
         for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
             let desired = loc.add_n(axis.clone(), i + 1);
             if self
@@ -732,7 +738,7 @@ impl Location {
         Location { info: res }
     }
 
-    fn add_n(&self, axis: String, n: usize) -> Location {
+    pub(crate) fn add_n(&self, axis: String, n: usize) -> Location {
         let mut res: BTreeMap<String, usize> = self.info.to_owned();
         *res.entry(axis).or_insert(0) += n;
         Location { info: res }
@@ -758,5 +764,9 @@ impl Location {
             .filter(|i| i > &&1)
             .collect::<Vec<_>>()
             .is_empty()
+    }
+
+    pub(crate) fn default() -> Location {
+        Location { info: btreemap! {} }
     }
 }
