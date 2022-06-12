@@ -1,3 +1,4 @@
+use anyhow::Error;
 use std::collections::BTreeMap;
 
 use diesel::PgConnection;
@@ -18,9 +19,8 @@ pub(crate) fn over(
     ortho_by_contents: FailableStringVecToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let mut ans = vec![];
     if phrase.len() < 3 {
-        return Ok(ans);
+        return Ok(vec![]);
     }
 
     let lhs_phrase_head: Vec<String> = phrase[..phrase.len() - 1].to_vec();
@@ -57,6 +57,25 @@ pub(crate) fn over(
             .cloned()
             .collect();
 
+    let ans = attempt_combine_over(
+        conn,
+        phrase_exists,
+        &origin_shift_axis,
+        &origin_lhs_known_mapping_member,
+        potential_pairings,
+    )?;
+
+    Ok(ans)
+}
+
+fn attempt_combine_over(
+    conn: Option<&PgConnection>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, Error>,
+    origin_shift_axis: &&String,
+    origin_lhs_known_mapping_member: &String,
+    potential_pairings: Vec<(Ortho, Ortho)>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let mut ans = vec![];
     for (lo, ro) in potential_pairings.clone() {
         let lo_hop: Vec<String> = lo
             .get_hop()
@@ -65,7 +84,7 @@ pub(crate) fn over(
             .collect();
         let fixed_right_hand: Vec<String> = ro
             .get_hop()
-            .difference(&hashset! {origin_shift_axis.to_owned()})
+            .difference(&hashset! {origin_shift_axis.to_owned().to_owned()})
             .cloned()
             .collect();
 
@@ -112,7 +131,6 @@ pub(crate) fn over(
             }
         }
     }
-
     Ok(ans)
 }
 
