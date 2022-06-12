@@ -668,7 +668,6 @@ mod tests {
     }
 }
 
-// integrated test for origin
 // for hop and contents (and for origin for that matter, but this is a slower way to find it), shift axis is the axis that increases in the rhs while traversing the phrase
 // by hop
 // integrated test by hop

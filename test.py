@@ -78,3 +78,14 @@ time.sleep(5)
 assert get_with_dims("1,1,1") == 1
 
 r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+
+# a b + b e = a b e
+# c d   d f   c d f
+post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
+post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
+post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # phrases to join them with the last one being added going through the origins
+
+time.sleep(5)
+
+# over by origin
+assert get_with_dims("2,1") == 1 # there is one wide ortho found
