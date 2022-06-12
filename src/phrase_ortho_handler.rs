@@ -25,6 +25,7 @@ pub(crate) fn over(
 
     let lhs_phrase_head: Vec<String> = phrase[..phrase.len() - 1].to_vec();
     let rhs_phrase_head: Vec<String> = phrase[1..].to_vec();
+
     let origin_shift_axis = &phrase[2].to_owned(); // by origin shift axis must be the third word, as it follows the origin of the rhs. This logic does not apply to hop or contents
     let origin_lhs_known_mapping_member = (&phrase[1]).to_owned(); // origin only logic
 
@@ -50,20 +51,22 @@ pub(crate) fn over(
         .cloned()
         .collect();
 
-    let potential_pairings: Vec<(Ortho, Ortho)> =
+    let potential_pairings: Vec<(Ortho, Ortho, String, String)> =
         make_potential_pairings(lhs_by_origin, rhs_by_origin)
             .iter()
             .filter(|(l, r)| l.get_dims() == r.get_dims())
             .cloned()
+            .map(|(l, r)| {
+                (
+                    l,
+                    r,
+                    origin_lhs_known_mapping_member.clone(),
+                    origin_shift_axis.to_owned(),
+                )
+            })
             .collect();
 
-    let ans = attempt_combine_over(
-        conn,
-        phrase_exists,
-        &origin_shift_axis,
-        &origin_lhs_known_mapping_member,
-        potential_pairings,
-    )?;
+    let ans = attempt_combine_over(conn, phrase_exists, potential_pairings)?;
 
     Ok(ans)
 }
@@ -71,20 +74,18 @@ pub(crate) fn over(
 fn attempt_combine_over(
     conn: Option<&PgConnection>,
     phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, Error>,
-    origin_shift_axis: &&String,
-    origin_lhs_known_mapping_member: &String,
-    potential_pairings: Vec<(Ortho, Ortho)>,
+    potential_pairings_and_shift_axes: Vec<(Ortho, Ortho, String, String)>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    for (lo, ro) in potential_pairings.clone() {
+    for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes.clone() {
         let lo_hop: Vec<String> = lo
             .get_hop()
-            .difference(&hashset! {origin_lhs_known_mapping_member.clone()})
+            .difference(&hashset! {left_shift_axis.clone()})
             .cloned()
             .collect();
         let fixed_right_hand: Vec<String> = ro
             .get_hop()
-            .difference(&hashset! {origin_shift_axis.to_owned().to_owned()})
+            .difference(&hashset! {right_shift_axis.to_owned().to_owned()})
             .cloned()
             .collect();
 
@@ -101,28 +102,28 @@ fn attempt_combine_over(
                 let mapping = make_mapping(
                     left_mapping,
                     fixed_right_hand.clone(),
-                    origin_shift_axis,
-                    origin_lhs_known_mapping_member.clone(),
+                    &right_shift_axis,
+                    left_shift_axis.clone(),
                 );
 
                 if mapping_works(
                     mapping.clone(),
                     lo.clone(),
                     ro.clone(),
-                    origin_shift_axis,
-                    &origin_lhs_known_mapping_member,
+                    &right_shift_axis,
+                    &left_shift_axis,
                 ) {
                     let ortho_to_add = Ortho::zip_over(
                         lo.clone(),
                         ro.clone(),
                         mapping.clone(),
-                        origin_shift_axis.to_string(),
+                        right_shift_axis.to_string(),
                     );
 
                     if phrases_work(
                         phrase_exists,
                         ortho_to_add.clone(),
-                        origin_lhs_known_mapping_member.to_owned(),
+                        left_shift_axis.to_owned(),
                         conn,
                     )? {
                         ans.push(ortho_to_add);
@@ -247,6 +248,13 @@ mod tests {
             "f".to_string(),
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
+    }
+
+    fn empty_ortho_by_origin(
+        _conn: Option<&PgConnection>,
+        _o: &str,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        Ok(vec![])
     }
 
     fn fake_ortho_by_origin_two(
@@ -486,6 +494,51 @@ mod tests {
         Ok(vec![])
     }
 
+    fn fake_ortho_by_hop(
+        _conn: Option<&PgConnection>,
+        o: Vec<String>,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut ans = vec![];
+
+        if o.contains(&"b".to_string()) {
+            ans.push(Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ))
+        }
+
+        if o.contains(&"c".to_string()) {
+            ans.push(Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ))
+        }
+
+        if o.contains(&"e".to_string()) {
+            ans.push(Ortho::new(
+                "b".to_string(),
+                "e".to_string(),
+                "d".to_string(),
+                "f".to_string(),
+            ))
+        }
+
+        if o.contains(&"d".to_string()) {
+            ans.push(Ortho::new(
+                "b".to_string(),
+                "e".to_string(),
+                "d".to_string(),
+                "f".to_string(),
+            ))
+        }
+
+        Ok(ans)
+    }
+
     fn empty_ortho_by_contents(
         _conn: Option<&PgConnection>,
         _o: Vec<String>,
@@ -684,10 +737,56 @@ mod tests {
 
         assert_eq!(actual.len(), 0);
     }
+
+    // #[test]
+    // fn over_by_hop() {
+    //     // a b | b e    =   a b e
+    //     // c d | d f        c d f
+
+    //     // d -> f is a translation across e.
+
+    //     // a b | b x
+    //     // c d | d f
+
+    //     // d -> f is a translation across x.
+    //     // shift axis is unique per rhs.
+    //     // lhs known mapping member of LHS shift axis is unique to lhs.
+    //     // refactor origin logic to instead of (ortho, ortho) produce (ortho, ortho, (axis, axis)) for combine
+
+    //     let expected = Ortho::zip_over(
+    //         Ortho::new(
+    //             "a".to_string(),
+    //             "b".to_string(),
+    //             "c".to_string(),
+    //             "d".to_string(),
+    //         ),
+    //         Ortho::new(
+    //             "b".to_string(),
+    //             "e".to_string(),
+    //             "d".to_string(),
+    //             "f".to_string(),
+    //         ),
+    //         btreemap! {
+    //             "e".to_string() => "b".to_string(),
+    //             "d".to_string() => "c".to_string()
+    //         },
+    //         "e".to_string(),
+    //     );
+
+    //     let actual = over(
+    //         None,
+    //         vec!["c".to_owned(), "d".to_owned(), "f".to_owned()],
+    //         empty_ortho_by_origin,
+    //         fake_ortho_by_hop,
+    //         empty_ortho_by_contents,
+    //         fake_phrase_exists,
+    //     )
+    //     .unwrap();
+
+    //     assert_eq!(vec![expected], actual);
+    // }
 }
 
-// for hop and contents (and for origin for that matter, but this is a slower way to find it), shift axis is the axis that increases in the rhs while traversing the phrase
-// by hop
 // integrated test by hop
 // by contents
 // integrated test by contents
