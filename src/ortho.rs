@@ -300,6 +300,27 @@ impl Ortho {
             .map(|(a, b)| (a.clone(), b.clone()))
             .collect()
     }
+
+    pub(crate) fn phrases(&self, shift_axis: String) -> Vec<Vec<String>> {
+        let length = self.axis_length(&shift_axis);
+        self.info
+            .iter()
+            .filter(|(loc, _name)| loc.does_not_have_axis(shift_axis.clone()))
+            .map(|(loc, _name)| self.extract_phrase_along(shift_axis.clone(), length, loc))
+            .collect()
+    }
+
+    fn extract_phrase_along(&self, axis: String, length: usize, loc: &Location) -> Vec<String> {
+        let mut res = vec![];
+
+        res.push(self.name_at_location(loc.to_owned()));
+        for i in 1..length + 1 {
+            let location = loc.add_n(axis.clone(), i);
+            let name = self.name_at_location(location);
+            res.push(name)
+        }
+        res
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -686,6 +707,34 @@ mod tests {
 
         assert_eq!(actual, expected)
     }
+
+    #[test]
+    fn it_can_produce_all_phrases_along_an_axis() {
+        let l = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+
+        let ans = l.phrases("b".to_owned());
+        assert_eq!(
+            ans,
+            vec![
+                vec!["a".to_owned(), "b".to_owned()],
+                vec!["c".to_owned(), "d".to_owned()]
+            ]
+        );
+
+        let ans_two = l.phrases("c".to_owned());
+        assert_eq!(
+            ans_two,
+            vec![
+                vec!["a".to_owned(), "c".to_owned()],
+                vec!["b".to_owned(), "d".to_owned()]
+            ]
+        );
+    }
 }
 
 impl Location {
@@ -762,5 +811,9 @@ impl Location {
 
     pub(crate) fn default() -> Location {
         Location { info: btreemap! {} }
+    }
+
+    fn does_not_have_axis(&self, shift_axis: String) -> bool {
+        !self.info.contains_key(&shift_axis)
     }
 }

@@ -93,18 +93,43 @@ pub(crate) fn over(
                     origin_shift_axis,
                     &origin_lhs_known_mapping_member,
                 ) {
-                    ans.push(Ortho::zip_over(
+                    let ortho_to_add = Ortho::zip_over(
                         lo.clone(),
                         ro.clone(),
                         mapping.clone(),
                         origin_shift_axis.to_string(),
-                    ));
+                    );
+
+                    if phrases_work(
+                        phrase_exists,
+                        ortho_to_add.clone(),
+                        origin_lhs_known_mapping_member.to_owned(),
+                        conn,
+                    )? {
+                        ans.push(ortho_to_add);
+                    }
                 }
             }
         }
     }
 
     Ok(ans)
+}
+
+fn phrases_work(
+    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, anyhow::Error>,
+    ortho_to_add: Ortho,
+    shift_axis: String,
+    conn: Option<&PgConnection>,
+) -> Result<bool, anyhow::Error> {
+    let phrases = ortho_to_add.phrases(shift_axis);
+    dbg!(phrases.clone());
+    for phrase in phrases {
+        if !phrase_exists(conn, phrase)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn axis_lengths_match(
@@ -174,6 +199,16 @@ mod tests {
         let ps = hashset! {
             vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
             vec!["c".to_owned(), "d".to_owned(), "f".to_owned()]
+        };
+        Ok(ps.contains(&phrase))
+    }
+
+    fn fake_phrase_exists_two(
+        _conn: Option<&PgConnection>,
+        phrase: Vec<String>,
+    ) -> Result<bool, anyhow::Error> {
+        let ps = hashset! {
+            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()]
         };
         Ok(ps.contains(&phrase))
     }
@@ -616,11 +651,27 @@ mod tests {
         assert!(yes);
         assert!(!no);
     }
-}
-// for hop and contents (and for origin for that matter, but this is a slower way to find it), shift axis is the axis that increases in the rhs while traversing the phrase
 
-// filters axis mappings if the axes are not the same length
-// filters by all required phrases are in db - you can extract the right phrases by starting with everything not having the shift axis, and then traverse that axis.
+    #[test]
+    fn over_by_origin_filters_if_a_phrase_is_missing_from_db() {
+        let actual = over(
+            None,
+            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
+            fake_ortho_by_origin,
+            empty_ortho_by_hop,
+            empty_ortho_by_contents,
+            fake_phrase_exists_two,
+        )
+        .unwrap();
+
+        assert_eq!(actual.len(), 0);
+    }
+}
+
+// integrated test for origin
+// for hop and contents (and for origin for that matter, but this is a slower way to find it), shift axis is the axis that increases in the rhs while traversing the phrase
 // by hop
+// integrated test by hop
 // by contents
-// integrated test
+// integrated test by contents
+// origin to origin add when ortho is added. Issue: there is no phrase project. project forward from last in phrase and filter by phrase exists. To get initial phrases, extract_phrase_along starting at origin and going along each axis
