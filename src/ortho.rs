@@ -73,28 +73,11 @@ impl Ortho {
         Ortho { info }
     }
 
-    pub(crate) fn contains_phrase(&self, phrase: Vec<String>) -> bool {
-        let phrase_length = phrase.len();
-        if phrase_length == 0 {
-            return true;
-        }
-
+    pub(crate) fn contents_has_phrase(&self, phrase: &Vec<String>) -> bool {
         let head = phrase
             .get(0)
             .expect("nonempty lists must have a first element");
 
-        let origin = self.get_origin();
-        let origin_has_phrase = self.origin_has_phrase(&phrase, phrase_length, head, &origin);
-        let hop_has_phrase = self.hop_has_phrase(&phrase, phrase_length, head);
-        let contents_has_phrase = self.contents_has_phrase(&phrase, head);
-
-        origin_has_phrase || hop_has_phrase || contents_has_phrase
-    }
-
-    fn contents_has_phrase(&self, phrase: &Vec<String>, head: &String) -> bool {
-        if !self.get_contents().contains(head) {
-            return false;
-        }
         for loc in self.location_at_name(head) {
             if loc.is_contents() {
                 if loc.is_edge(self.get_hop()) {
@@ -112,13 +95,10 @@ impl Ortho {
         false
     }
 
-    fn hop_has_phrase(&self, phrase: &Vec<String>, phrase_length: usize, head: &String) -> bool {
-        if !self.get_hop().contains(head) {
-            return false;
-        }
-        if phrase_length == 1 {
-            return true;
-        }
+    pub(crate) fn hop_has_phrase(&self, phrase: &Vec<String>) -> bool {
+        let head = phrase
+            .get(0)
+            .expect("nonempty lists must have a first element");
 
         let loc = Location {
             info: btreemap! {head.to_string() => 1},
@@ -153,20 +133,7 @@ impl Ortho {
         true
     }
 
-    fn origin_has_phrase(
-        &self,
-        phrase: &Vec<String>,
-        phrase_length: usize,
-        head: &String,
-        origin: &String,
-    ) -> bool {
-        if head != origin {
-            return false;
-        }
-        if phrase_length == 1 {
-            return true;
-        }
-
+    pub(crate) fn origin_has_phrase(&self, phrase: &Vec<String>) -> bool {
         let axis_name = phrase
             .get(1)
             .expect("lists of length greater than one have a second element");
@@ -321,6 +288,25 @@ impl Ortho {
         }
         res
     }
+
+    pub(crate) fn axis_of_change_between_names_for_hop(
+        &self,
+        from_name: String,
+        to_name: String,
+    ) -> String {
+        let all_locations_for_to_name = self.location_at_name(&to_name);
+        let to_location = all_locations_for_to_name
+            .iter()
+            .filter(|loc| loc.length() == 2)
+            .collect::<Vec<_>>()[0];
+        let from_location = Location::default().add(from_name);
+        let missing_axes = from_location.missing_axes(to_location.info.keys().cloned().collect());
+        missing_axes
+            .iter()
+            .next()
+            .expect("there should be an axis of change from hop")
+            .to_owned()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -426,22 +412,16 @@ mod tests {
             "b".to_string(),
         );
 
-        assert!(example_ortho.contains_phrase(vec![]));
-        assert!(example_ortho.contains_phrase(vec!["a".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["b".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["c".to_string()]));
-        assert!(!example_ortho.contains_phrase(vec!["d".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["a".to_string(), "b".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["c".to_string(), "d".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["a".to_string(), "c".to_string()]));
-        assert!(example_ortho.contains_phrase(vec!["b".to_string(), "d".to_string()]));
-        assert!(!example_ortho.contains_phrase(vec!["a".to_string(), "e".to_string()]));
-        assert!(!example_ortho.contains_phrase(vec!["b".to_string(), "a".to_string()]));
-        assert!(wider.contains_phrase(vec!["e".to_string(), "f".to_string()]));
-        assert!(!wider.contains_phrase(vec!["d".to_string()]));
-        assert!(!wider.contains_phrase(vec!["f".to_string(), "e".to_string()]));
-        assert!(tricky_ortho.contains_phrase(vec!["b".to_owned(), "e".to_owned()]));
-        assert!(tricky_two.contains_phrase(vec!["b".to_owned(), "e".to_owned()]));
+        assert!(example_ortho.origin_has_phrase(&vec!["a".to_string(), "b".to_string()]));
+        assert!(example_ortho.hop_has_phrase(&vec!["c".to_string(), "d".to_string()]));
+        assert!(example_ortho.origin_has_phrase(&vec!["a".to_string(), "c".to_string()]));
+        assert!(example_ortho.hop_has_phrase(&vec!["b".to_string(), "d".to_string()]));
+        assert!(!example_ortho.origin_has_phrase(&vec!["a".to_string(), "e".to_string()]));
+        assert!(!example_ortho.hop_has_phrase(&vec!["b".to_string(), "a".to_string()]));
+        assert!(wider.contents_has_phrase(&vec!["e".to_string(), "f".to_string()]));
+        assert!(!wider.contents_has_phrase(&vec!["f".to_string(), "e".to_string()]));
+        assert!(tricky_ortho.hop_has_phrase(&vec!["b".to_owned(), "e".to_owned()]));
+        assert!(tricky_two.contents_has_phrase(&vec!["b".to_owned(), "e".to_owned()]));
     }
 
     #[test]

@@ -6,9 +6,8 @@ use itertools::{zip, Itertools};
 use maplit::hashset;
 
 use crate::{
-    ortho::{Location, Ortho},
-    up_helper::make_potential_pairings,
-    FailableStringToOrthoVec, FailableStringVecToOrthoVec,
+    ortho::Ortho, up_helper::make_potential_pairings, FailableStringToOrthoVec,
+    FailableStringVecToOrthoVec,
 };
 
 pub(crate) fn over(
@@ -26,46 +25,65 @@ pub(crate) fn over(
     let lhs_phrase_head: Vec<String> = phrase[..phrase.len() - 1].to_vec();
     let rhs_phrase_head: Vec<String> = phrase[1..].to_vec();
 
-    let origin_shift_axis = &phrase[2].to_owned(); // by origin shift axis must be the third word, as it follows the origin of the rhs. This logic does not apply to hop or contents
-    let origin_lhs_known_mapping_member = (&phrase[1]).to_owned(); // origin only logic
-
     let lhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[0])?
         .iter()
-        .filter(|o| o.contains_phrase(lhs_phrase_head.clone()))
-        .filter(|o| o.get_hop().contains(&phrase[1])) // for origin, hop must have the second word as it is starting in the corner. Origin only logic
-        .filter(|o| o.axis_length(&origin_lhs_known_mapping_member) == (phrase.len() - 2)) // offset is two as it doesn't count origin or extra word. origin only logic
+        .filter(|o| o.origin_has_phrase(&lhs_phrase_head.clone()))
+        .filter(|o| o.axis_length(&phrase[1]) == (phrase.len() - 2))
         .cloned()
         .collect();
 
     let rhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[1])?
         .iter()
-        .filter(|o| o.contains_phrase(rhs_phrase_head.clone()))
-        .filter(|o| o.axis_length(origin_shift_axis) == (phrase.len() - 2)) // offset is two as it doesn't count origin or extra word. origin only logic
-        .filter(|o| {
-            o.axis_has_phrase(
-                &rhs_phrase_head,
-                Location::default(),
-                origin_shift_axis.to_string(),
-            ) // origin only logic
-        })
+        .filter(|o| o.origin_has_phrase(&rhs_phrase_head.clone()))
+        .filter(|o| o.axis_length(&phrase[2]) == (phrase.len() - 2))
         .cloned()
         .collect();
 
-    let potential_pairings: Vec<(Ortho, Ortho, String, String)> =
+    let origin_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
         make_potential_pairings(lhs_by_origin, rhs_by_origin)
             .iter()
             .filter(|(l, r)| l.get_dims() == r.get_dims())
             .cloned()
-            .map(|(l, r)| {
-                (
-                    l,
-                    r,
-                    origin_lhs_known_mapping_member.clone(),
-                    origin_shift_axis.to_owned(),
-                )
-            })
+            .map(|(l, r)| (l, r, phrase[1].clone(), phrase[2].to_owned()))
             .collect();
 
+    let lhs_by_hop: Vec<(Ortho, String)> = ortho_by_hop(conn, vec![phrase[0].clone()])?
+        .iter()
+        .filter(|o| o.hop_has_phrase(&lhs_phrase_head.clone()))
+        .filter_map(|o| {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[0].clone(), phrase[1].clone());
+            if o.axis_length(&axis) == phrase.len() - 2 {
+                Some((o.to_owned(), axis))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let rhs_by_hop: Vec<(Ortho, String)> = ortho_by_hop(conn, vec![phrase[1].clone()])?
+        .iter()
+        .filter(|o| o.hop_has_phrase(&rhs_phrase_head.clone()))
+        .filter_map(|o| {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[1].clone(), phrase[2].clone());
+            if o.axis_length(&axis) == phrase.len() - 2 {
+                Some((o.to_owned(), axis))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let hop_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
+        Itertools::cartesian_product(lhs_by_hop.iter().cloned(), rhs_by_hop.iter().cloned())
+            .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
+            .map(|((l, lx), (r, rx))| (l.clone(), r.clone(), lx.to_string(), rx.to_string()))
+            .collect();
+
+    let potential_pairings = origin_potential_pairings
+        .iter()
+        .chain(hop_potential_pairings.iter())
+        .cloned()
+        .collect::<Vec<_>>();
     let ans = attempt_combine_over(conn, phrase_exists, potential_pairings)?;
 
     Ok(ans)
@@ -738,56 +756,53 @@ mod tests {
         assert_eq!(actual.len(), 0);
     }
 
-    // #[test]
-    // fn over_by_hop() {
-    //     // a b | b e    =   a b e
-    //     // c d | d f        c d f
+    #[test]
+    fn over_by_hop() {
+        // a b | b e    =   a b e
+        // c d | d f        c d f
 
-    //     // d -> f is a translation across e.
+        let expected = Ortho::zip_over(
+            Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+            Ortho::new(
+                "b".to_string(),
+                "e".to_string(),
+                "d".to_string(),
+                "f".to_string(),
+            ),
+            btreemap! {
+                "e".to_string() => "b".to_string(),
+                "d".to_string() => "c".to_string()
+            },
+            "e".to_string(),
+        );
 
-    //     // a b | b x
-    //     // c d | d f
+        let actual = over(
+            None,
+            vec!["c".to_owned(), "d".to_owned(), "f".to_owned()],
+            empty_ortho_by_origin,
+            fake_ortho_by_hop,
+            empty_ortho_by_contents,
+            fake_phrase_exists,
+        )
+        .unwrap();
 
-    //     // d -> f is a translation across x.
-    //     // shift axis is unique per rhs.
-    //     // lhs known mapping member of LHS shift axis is unique to lhs.
-    //     // refactor origin logic to instead of (ortho, ortho) produce (ortho, ortho, (axis, axis)) for combine
-
-    //     let expected = Ortho::zip_over(
-    //         Ortho::new(
-    //             "a".to_string(),
-    //             "b".to_string(),
-    //             "c".to_string(),
-    //             "d".to_string(),
-    //         ),
-    //         Ortho::new(
-    //             "b".to_string(),
-    //             "e".to_string(),
-    //             "d".to_string(),
-    //             "f".to_string(),
-    //         ),
-    //         btreemap! {
-    //             "e".to_string() => "b".to_string(),
-    //             "d".to_string() => "c".to_string()
-    //         },
-    //         "e".to_string(),
-    //     );
-
-    //     let actual = over(
-    //         None,
-    //         vec!["c".to_owned(), "d".to_owned(), "f".to_owned()],
-    //         empty_ortho_by_origin,
-    //         fake_ortho_by_hop,
-    //         empty_ortho_by_contents,
-    //         fake_phrase_exists,
-    //     )
-    //     .unwrap();
-
-    //     assert_eq!(vec![expected], actual);
-    // }
+        assert_eq!(vec![expected], actual);
+    }
 }
 
 // integrated test by hop
 // by contents
 // integrated test by contents
 // origin to origin add when ortho is added. Issue: there is no phrase project. project forward from last in phrase and filter by phrase exists. To get initial phrases, extract_phrase_along starting at origin and going along each axis
+// big test that hits service with a lot of text, dumps results, unwraps each, and makes sure everything is in there
+// review code for style drift and dedup
+// basic bottleneck analysis
+
+// for contents, axis must be an edge, and the shift axis must be one from it. There could be multiple of those though. In which case, both are valid.
+// the tricky bit is that the checks have to carry over. You can't check for one and then assume for the other later. Therefore the ortho, axis pairs must be
+// calculated earlier for contents
