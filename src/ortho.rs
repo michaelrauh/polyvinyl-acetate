@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 
@@ -306,6 +307,27 @@ impl Ortho {
             .next()
             .expect("there should be an axis of change from hop")
             .to_owned()
+    }
+
+    pub(crate) fn axes_of_change_between_names_for_contents(
+        &self,
+        from_name: String,
+        to_name: String,
+    ) -> Vec<String> {
+        let foo = self.location_at_name(&from_name);
+        let from_locations = foo.iter().filter(|name| name.is_edge(self.get_hop()));
+
+        let to_locations = self.location_at_name(&to_name);
+        let potentials =
+            Itertools::cartesian_product(from_locations.cloned(), to_locations.iter().cloned());
+        let valid_potentials = potentials
+            .filter(|(l, r)| (l.length() + 1) == r.length())
+            .collect::<Vec<_>>();
+
+        let missing_axeses = valid_potentials
+            .iter()
+            .map(|(l, r)| r.subtract_adjacent_for_single_axis_name(l.to_owned()));
+        missing_axeses.collect()
     }
 }
 
@@ -795,5 +817,15 @@ impl Location {
 
     fn does_not_have_axis(&self, shift_axis: String) -> bool {
         !self.info.contains_key(&shift_axis)
+    }
+
+    fn subtract_adjacent_for_single_axis_name(&self, other: Location) -> String {
+        self.info
+            .clone()
+            .into_iter()
+            .filter(|(axis, count)| other.info.get(axis).unwrap_or(&0) != count)
+            .collect::<Vec<_>>()[0]
+            .0
+            .clone()
     }
 }

@@ -79,9 +79,47 @@ pub(crate) fn over(
             .map(|((l, lx), (r, rx))| (l.clone(), r.clone(), lx.to_string(), rx.to_string()))
             .collect();
 
+    let lhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[0].clone()])?
+        .iter()
+        .filter(|o| o.contents_has_phrase(&lhs_phrase_head.clone()))
+        .map(|o| {
+            (
+                o,
+                o.axes_of_change_between_names_for_contents(phrase[0].clone(), phrase[1].clone()),
+            )
+        })
+        .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
+        .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
+        .map(|(o, a)| (o.to_owned(), a))
+        .collect();
+
+    let rhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[1].clone()])?
+        .iter()
+        .filter(|o| o.contents_has_phrase(&rhs_phrase_head.clone()))
+        .map(|o| {
+            (
+                o,
+                o.axes_of_change_between_names_for_contents(phrase[1].clone(), phrase[2].clone()),
+            )
+        })
+        .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
+        .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
+        .map(|(o, a)| (o.to_owned(), a))
+        .collect();
+
+    let contents_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
+        Itertools::cartesian_product(
+            lhs_by_contents.iter().cloned(),
+            rhs_by_contents.iter().cloned(),
+        )
+        .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
+        .map(|((l, lx), (r, rx))| (l.clone(), r.clone(), lx.to_string(), rx.to_string()))
+        .collect();
+
     let potential_pairings = origin_potential_pairings
         .iter()
         .chain(hop_potential_pairings.iter())
+        .chain(contents_potential_pairings.iter())
         .cloned()
         .collect::<Vec<_>>();
     let ans = attempt_combine_over(conn, phrase_exists, potential_pairings)?;
@@ -160,7 +198,7 @@ fn phrases_work(
     conn: Option<&PgConnection>,
 ) -> Result<bool, anyhow::Error> {
     let phrases = ortho_to_add.phrases(shift_axis);
-    dbg!(phrases.clone());
+
     for phrase in phrases {
         if !phrase_exists(conn, phrase)? {
             return Ok(false);
@@ -246,6 +284,18 @@ mod tests {
     ) -> Result<bool, anyhow::Error> {
         let ps = hashset! {
             vec!["a".to_owned(), "b".to_owned(), "e".to_owned()]
+        };
+        Ok(ps.contains(&phrase))
+    }
+
+    fn fake_phrase_exists_three(
+        _conn: Option<&PgConnection>,
+        phrase: Vec<String>,
+    ) -> Result<bool, anyhow::Error> {
+        let ps = hashset! {
+            vec!["a".to_owned(), "d".to_owned(), "g".to_owned()],
+            vec!["b".to_owned(), "e".to_owned(), "h".to_owned()],
+            vec!["c".to_owned(), "f".to_owned(), "i".to_owned()]
         };
         Ok(ps.contains(&phrase))
     }
@@ -510,6 +560,83 @@ mod tests {
         _o: Vec<String>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
+    }
+
+    fn fake_ortho_by_contents(
+        _conn: Option<&PgConnection>,
+        o: Vec<String>,
+    ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let mut ans = vec![];
+
+        // a b c
+        // d e f
+
+        // d e f
+        // g h i
+
+        let abde = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        );
+
+        let bcef = Ortho::new(
+            "b".to_string(),
+            "c".to_string(),
+            "e".to_string(),
+            "f".to_string(),
+        );
+
+        let degh = Ortho::new(
+            "d".to_string(),
+            "e".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+
+        let efhi = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "h".to_string(),
+            "i".to_string(),
+        );
+
+        let abcdef = Ortho::zip_over(
+            abde,
+            bcef.clone(),
+            btreemap! {
+                "c".to_string() => "b".to_string(),
+                "e".to_string() => "d".to_string()
+            },
+            "c".to_string(),
+        );
+
+        let defghi = Ortho::zip_over(
+            degh,
+            efhi,
+            btreemap! {
+                "f".to_string() => "e".to_string(),
+                "h".to_string() => "g".to_string()
+            },
+            "f".to_string(),
+        );
+
+        if o.contains(&"c".to_string())
+            || o.contains(&"e".to_string())
+            || o.contains(&"f".to_string())
+        {
+            ans.push(abcdef);
+        }
+
+        if o.contains(&"f".to_string())
+            || o.contains(&"h".to_string())
+            || o.contains(&"i".to_string())
+        {
+            ans.push(defghi);
+        }
+
+        Ok(ans)
     }
 
     fn fake_ortho_by_hop(
@@ -793,16 +920,98 @@ mod tests {
 
         assert_eq!(vec![expected], actual);
     }
+
+    #[test]
+    fn over_by_contents() {
+        // a b c
+        // d e f
+
+        // d e f
+        // g h i
+
+        // a b c
+        // d e f
+        // g h i
+
+        // phrase: c f i
+
+        let abde = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        );
+
+        let bcef = Ortho::new(
+            "b".to_string(),
+            "c".to_string(),
+            "e".to_string(),
+            "f".to_string(),
+        );
+
+        let degh = Ortho::new(
+            "d".to_string(),
+            "e".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+
+        let efhi = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "h".to_string(),
+            "i".to_string(),
+        );
+
+        let abcdef = Ortho::zip_over(
+            abde,
+            bcef.clone(),
+            btreemap! {
+                "c".to_string() => "b".to_string(),
+                "e".to_string() => "d".to_string()
+            },
+            "c".to_string(),
+        );
+
+        let defghi = Ortho::zip_over(
+            degh,
+            efhi,
+            btreemap! {
+                "f".to_string() => "e".to_string(),
+                "h".to_string() => "g".to_string()
+            },
+            "f".to_string(),
+        );
+
+        let expected = Ortho::zip_over(
+            abcdef,
+            defghi,
+            btreemap! {
+                "e".to_string() => "b".to_string(),
+                "g".to_string() => "d".to_string()
+            },
+            "g".to_string(),
+        );
+
+        let actual = over(
+            None,
+            vec!["c".to_owned(), "f".to_owned(), "i".to_owned()],
+            empty_ortho_by_origin,
+            empty_ortho_by_hop,
+            fake_ortho_by_contents,
+            fake_phrase_exists_three,
+        )
+        .unwrap();
+
+        assert_eq!(vec![expected], actual);
+    }
 }
 
-// integrated test by hop
-// by contents
 // integrated test by contents
+// clippy
+// look at broken abstractions. Particularly reaching into locations and orthos
+
 // origin to origin add when ortho is added. Issue: there is no phrase project. project forward from last in phrase and filter by phrase exists. To get initial phrases, extract_phrase_along starting at origin and going along each axis
 // big test that hits service with a lot of text, dumps results, unwraps each, and makes sure everything is in there
 // review code for style drift and dedup
 // basic bottleneck analysis
-
-// for contents, axis must be an edge, and the shift axis must be one from it. There could be multiple of those though. In which case, both are valid.
-// the tricky bit is that the checks have to carry over. You can't check for one and then assume for the other later. Therefore the ortho, axis pairs must be
-// calculated earlier for contents
