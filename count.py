@@ -12,11 +12,12 @@ def get_with_dims(dims):
     return int(r.urlopen("http://0.0.0.0:30001/orthos?dims=" + dims).read().decode('utf-8'))
 
 
+print("depth:     " + str(get("depth")))
 print("sentences: " + str(get("sentences")))
 print("count:     " + str(get("count")))
-print("depth:     " + str(get("depth")))
 print("pairs:     " + str(get("pairs")))
 print("phrases:   " + str(get("phrases")))
 print("1,1:       " + str(get_with_dims("1,1")))
 print("1,1,1:     " + str(get_with_dims("1,1,1")))
 print("1,2:       " + str(get_with_dims("1,2")))
+print("2,2:       " + str(get_with_dims("2,2")))

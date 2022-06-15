@@ -1006,12 +1006,3 @@ mod tests {
         assert_eq!(vec![expected], actual);
     }
 }
-
-// integrated test by contents
-// clippy
-// look at broken abstractions. Particularly reaching into locations and orthos
-
-// origin to origin add when ortho is added. Issue: there is no phrase project. project forward from last in phrase and filter by phrase exists. To get initial phrases, extract_phrase_along starting at origin and going along each axis
-// big test that hits service with a lot of text, dumps results, unwraps each, and makes sure everything is in there
-// review code for style drift and dedup
-// basic bottleneck analysis

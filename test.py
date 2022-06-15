@@ -109,3 +109,26 @@ print("ingesting over by hop")
 assert get_with_dims("2,1") == 1 # there is one wide ortho found
 
 r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+
+
+# a b c
+# d e f
+
+# d e f
+# g h i
+
+# a b c
+# d e f
+# g h i
+
+post("add/", json.dumps({'title': 'one', 'body': 'a b c. d e f. a d. b e. c f'}).encode()) # left ortho
+post("add/", json.dumps({'title': 'two', 'body': 'd e f. g h i. d g. e h. f i'}).encode()) # right ortho
+post("add/", json.dumps({'title': 'thr', 'body': 'a d g. b e h. c f i'}).encode()) # phrases to join them with the last one being added going through the hops
+
+time.sleep(5)
+print("ingesting over by contents")
+
+# over by contents
+assert get_with_dims("2,2") == 1 # there is 3x3 ortho found
+
+r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
