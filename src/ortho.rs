@@ -329,6 +329,21 @@ impl Ortho {
             .map(|(l, r)| r.subtract_adjacent_for_single_axis_name(l.to_owned()));
         missing_axeses.collect()
     }
+
+    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<String>> {
+        self.get_hop()
+            .iter()
+            .flat_map(|axis| {
+                let phrases_for_axis = self.phrases(axis.to_owned().clone());
+                let axis_length = self.axis_length(axis);
+                phrases_for_axis
+                    .iter()
+                    .filter(|phrase| phrase.len() == axis_length + 1)
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]

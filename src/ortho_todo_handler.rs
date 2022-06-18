@@ -4,6 +4,7 @@ use crate::{
     create_todo_entry, establish_connection, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
+    over_on_ortho_found_handler,
     schema::{
         self,
         orthotopes::{self, id},
@@ -36,14 +37,25 @@ fn new_orthotopes(
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let up_orthos = up_on_ortho_found_handler::up(
         Some(conn),
-        old_orthotope,
+        old_orthotope.clone(),
         crate::get_ortho_by_origin,
         up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
     )?;
 
-    let res = up_orthos.iter().map(crate::ortho_to_orthotope).collect();
+    let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over(
+        Some(conn),
+        old_orthotope,
+        crate::get_ortho_by_origin,
+        crate::phrase_exists,
+        crate::project_forward,
+        crate::project_backward,
+    )?;
+
+    let orthos = up_orthos.iter().chain(over_orthos.iter());
+
+    let res = orthos.map(crate::ortho_to_orthotope).collect();
     Ok(res)
 }
 

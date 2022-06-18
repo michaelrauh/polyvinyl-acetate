@@ -12,6 +12,7 @@ mod book_todo_handler;
 mod ex_nihilo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
+pub mod over_on_ortho_found_handler;
 mod pair_todo_handler;
 pub mod phrase_ortho_handler;
 pub mod phrase_todo_handler;
@@ -179,5 +180,18 @@ fn get_ortho_by_contents(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+    Ok(res)
+}
+
+pub(crate) fn phrase_exists(
+    conn: Option<&PgConnection>,
+    phrase: Vec<String>,
+) -> Result<bool, anyhow::Error> {
+    use crate::schema::phrases::dsl::phrases;
+    let res: bool = diesel::select(diesel::dsl::exists(
+        phrases.filter(schema::phrases::words_hash.eq(vec_of_strings_to_signed_int(phrase))),
+    ))
+    .get_result(conn.expect("don't use the test connection"))?;
+
     Ok(res)
 }

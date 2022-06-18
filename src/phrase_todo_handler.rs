@@ -6,9 +6,6 @@ use crate::diesel::RunQueryDsl;
 use crate::ortho_to_orthotope;
 use crate::phrase_ortho_handler;
 use crate::schema::phrases::dsl::phrases;
-use crate::schema::phrases::words_hash;
-use crate::vec_of_strings_to_signed_int;
-use diesel::dsl::exists;
 
 use crate::schema::phrases::all_columns;
 use crate::{
@@ -42,19 +39,10 @@ fn new_orthotopes(conn: &PgConnection, phrase: Phrase) -> Result<Vec<NewOrthotop
         crate::get_ortho_by_origin,
         crate::get_ortho_by_hop,
         crate::get_ortho_by_contents,
-        phrase_exists,
+        crate::phrase_exists,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
-    Ok(res)
-}
-
-fn phrase_exists(conn: Option<&PgConnection>, phrase: Vec<String>) -> Result<bool, anyhow::Error> {
-    let res: bool = diesel::select(exists(
-        phrases.filter(words_hash.eq(vec_of_strings_to_signed_int(phrase))),
-    ))
-    .get_result(conn.expect("don't use the test connection"))?;
-
     Ok(res)
 }
 

@@ -132,3 +132,31 @@ print("ingesting over by contents")
 assert get_with_dims("2,2") == 1 # there is 3x3 ortho found
 
 r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+
+# a b + b e = a b e
+# c d   d f   c d f
+post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # phrases to join them
+post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
+post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
+
+time.sleep(5)
+print("ingesting over by ortho forward")
+
+# over on ortho found forward
+assert get_with_dims("2,1") == 1 # there is one wide ortho found
+
+r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+
+# a b + b e = a b e
+# c d   d f   c d f
+post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # phrases to join them
+post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
+post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
+
+time.sleep(5)
+print("ingesting over by ortho backward")
+
+# over on ortho found backward
+assert get_with_dims("2,1") == 1 # there is one wide ortho found
+
+r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))

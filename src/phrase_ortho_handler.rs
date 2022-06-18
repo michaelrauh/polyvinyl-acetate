@@ -127,7 +127,7 @@ pub(crate) fn over(
     Ok(ans)
 }
 
-fn attempt_combine_over(
+pub fn attempt_combine_over(
     conn: Option<&PgConnection>,
     phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, Error>,
     potential_pairings_and_shift_axes: Vec<(Ortho, Ortho, String, String)>,
