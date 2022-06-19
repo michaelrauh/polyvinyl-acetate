@@ -5,7 +5,6 @@ use diesel::PgConnection;
 
 use crate::{ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableStringToOrthoVec};
 
-// there is an issue where some axis is being found that is not really an axis. Revisit axis calculation
 pub(crate) fn over(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
