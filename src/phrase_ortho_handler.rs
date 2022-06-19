@@ -76,7 +76,7 @@ pub(crate) fn over(
     let hop_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
         Itertools::cartesian_product(lhs_by_hop.iter().cloned(), rhs_by_hop.iter().cloned())
             .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-            .map(|((l, lx), (r, rx))| (l.clone(), r.clone(), lx.to_string(), rx.to_string()))
+            .map(|((l, lx), (r, rx))| (l, r, lx, rx))
             .collect();
 
     let lhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[0].clone()])?
@@ -113,7 +113,7 @@ pub(crate) fn over(
             rhs_by_contents.iter().cloned(),
         )
         .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-        .map(|((l, lx), (r, rx))| (l.clone(), r.clone(), lx.to_string(), rx.to_string()))
+        .map(|((l, lx), (r, rx))| (l, r, lx, rx))
         .collect();
 
     let potential_pairings = origin_potential_pairings
@@ -133,7 +133,7 @@ pub fn attempt_combine_over(
     potential_pairings_and_shift_axes: Vec<(Ortho, Ortho, String, String)>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes.clone() {
+    for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes {
         let lo_hop: Vec<String> = lo
             .get_hop()
             .difference(&hashset! {left_shift_axis.clone()})

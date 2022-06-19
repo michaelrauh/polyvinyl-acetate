@@ -74,20 +74,18 @@ impl Ortho {
         Ortho { info }
     }
 
-    pub(crate) fn contents_has_phrase(&self, phrase: &Vec<String>) -> bool {
+    pub(crate) fn contents_has_phrase(&self, phrase: &[String]) -> bool {
         let head = phrase
             .get(0)
             .expect("nonempty lists must have a first element");
 
         for loc in self.location_at_name(head) {
-            if loc.is_contents() {
-                if loc.is_edge(self.get_hop()) {
-                    let missing_axes = loc.missing_axes(self.get_hop());
+            if loc.is_contents() && loc.is_edge(self.get_hop()) {
+                let missing_axes = loc.missing_axes(self.get_hop());
 
-                    for axis in missing_axes {
-                        if self.axis_has_phrase(phrase, loc.clone(), axis) {
-                            return true;
-                        }
+                for axis in missing_axes {
+                    if self.axis_has_phrase(phrase, loc.clone(), axis) {
+                        return true;
                     }
                 }
             }
@@ -96,7 +94,7 @@ impl Ortho {
         false
     }
 
-    pub(crate) fn hop_has_phrase(&self, phrase: &Vec<String>) -> bool {
+    pub(crate) fn hop_has_phrase(&self, phrase: &[String]) -> bool {
         let head = phrase
             .get(0)
             .expect("nonempty lists must have a first element");
@@ -115,12 +113,7 @@ impl Ortho {
         false
     }
 
-    pub(crate) fn axis_has_phrase(
-        &self,
-        phrase: &Vec<String>,
-        loc: Location,
-        axis: String,
-    ) -> bool {
+    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: Location, axis: String) -> bool {
         for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
             let desired = loc.add_n(axis.clone(), i + 1);
             if self
@@ -134,7 +127,7 @@ impl Ortho {
         true
     }
 
-    pub(crate) fn origin_has_phrase(&self, phrase: &Vec<String>) -> bool {
+    pub(crate) fn origin_has_phrase(&self, phrase: &[String]) -> bool {
         let axis_name = phrase
             .get(1)
             .expect("lists of length greater than one have a second element");
@@ -238,8 +231,8 @@ impl Ortho {
     pub(crate) fn axis_length(&self, name: &str) -> usize {
         let mut len = 0;
         for key in self.info.keys() {
-            if key.count_axis(&name) > len {
-                len = key.count_axis(&name)
+            if key.count_axis(name) > len {
+                len = key.count_axis(name)
             }
         }
         len
@@ -279,9 +272,8 @@ impl Ortho {
     }
 
     fn extract_phrase_along(&self, axis: String, length: usize, loc: &Location) -> Vec<String> {
-        let mut res = vec![];
+        let mut res = vec![self.name_at_location(loc.to_owned())];
 
-        res.push(self.name_at_location(loc.to_owned()));
         for i in 1..length + 1 {
             let location = loc.add_n(axis.clone(), i);
             let name = self.name_at_location(location);
@@ -314,8 +306,10 @@ impl Ortho {
         from_name: String,
         to_name: String,
     ) -> Vec<String> {
-        let foo = self.location_at_name(&from_name);
-        let from_locations = foo.iter().filter(|name| name.is_edge(self.get_hop()));
+        let from_name_location = self.location_at_name(&from_name);
+        let from_locations = from_name_location
+            .iter()
+            .filter(|name| name.is_edge(self.get_hop()));
 
         let to_locations = self.location_at_name(&to_name);
         let potentials =
@@ -334,7 +328,7 @@ impl Ortho {
         self.get_hop()
             .iter()
             .flat_map(|axis| {
-                let phrases_for_axis = self.phrases(axis.to_owned().clone());
+                let phrases_for_axis = self.phrases(axis.to_owned());
                 let axis_length = self.axis_length(axis);
                 phrases_for_axis
                     .iter()
@@ -818,12 +812,7 @@ impl Location {
     }
 
     fn is_contents(&self) -> bool {
-        !self
-            .info
-            .values()
-            .filter(|i| i > &&1)
-            .collect::<Vec<_>>()
-            .is_empty()
+        self.info.values().any(|i| i > &1)
     }
 
     pub(crate) fn default() -> Location {

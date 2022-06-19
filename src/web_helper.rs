@@ -89,12 +89,11 @@ fn get_orthos_by_size(
         .select(schema::orthotopes::all_columns)
         .load(conn)?;
 
-    let res: Vec<Ortho> = results
+    let actual: Vec<Ortho> = results
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .filter(|o: &Ortho| o.get_dims() == dims)
         .collect();
-
-    let actual = res.into_iter().filter(|o| o.get_dims() == dims).collect();
 
     Ok(actual)
 }

@@ -35,17 +35,16 @@ pub(crate) fn over(
     let mut forward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
     for phrase in rhs_phrases {
         for potential_ortho in get_ortho_by_origin(conn, &phrase[1])? {
-            if potential_ortho.origin_has_phrase(&phrase[1..].to_vec()) {
-                if potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2 {
-                    if old_orthotope.get_dims() == potential_ortho.get_dims() {
-                        forward_potential_pairings.push((
-                            old_orthotope.clone(),
-                            potential_ortho,
-                            phrase[1].clone(),
-                            phrase[2].clone(),
-                        ));
-                    }
-                }
+            if potential_ortho.origin_has_phrase(&phrase[1..].to_vec())
+                && potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2
+                && old_orthotope.get_dims() == potential_ortho.get_dims()
+            {
+                forward_potential_pairings.push((
+                    old_orthotope.clone(),
+                    potential_ortho,
+                    phrase[1].clone(),
+                    phrase[2].clone(),
+                ));
             }
         }
     }
@@ -53,7 +52,7 @@ pub(crate) fn over(
     // considering old orthotope to be on the right hand side
     let mut lhs_phrases = vec![]; // phrase with extension into the previous ortho going to the left
 
-    for old_phrase in all_phrases.clone() {
+    for old_phrase in all_phrases {
         let prevs = project_backward(conn, &old_phrase[0])?;
         for prev in prevs {
             let current_phrase = vec![prev]
@@ -70,17 +69,16 @@ pub(crate) fn over(
     let mut backward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
     for phrase in lhs_phrases {
         for potential_ortho in get_ortho_by_origin(conn, &phrase[0])? {
-            if potential_ortho.origin_has_phrase(&phrase[..phrase.len() - 1].to_vec()) {
-                if potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2 {
-                    if old_orthotope.get_dims() == potential_ortho.get_dims() {
-                        backward_potential_pairings.push((
-                            potential_ortho,
-                            old_orthotope.clone(),
-                            phrase[1].clone(),
-                            phrase[2].clone(),
-                        ));
-                    }
-                }
+            if potential_ortho.origin_has_phrase(&phrase[..phrase.len() - 1].to_vec())
+                && potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2
+                && old_orthotope.get_dims() == potential_ortho.get_dims()
+            {
+                backward_potential_pairings.push((
+                    potential_ortho,
+                    old_orthotope.clone(),
+                    phrase[1].clone(),
+                    phrase[2].clone(),
+                ));
             }
         }
     }
