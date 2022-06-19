@@ -5,6 +5,7 @@ use diesel::PgConnection;
 
 use crate::{ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableStringToOrthoVec};
 
+// there is an issue where some axis is being found that is not really an axis. Revisit axis calculation
 pub(crate) fn over(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
@@ -37,12 +38,14 @@ pub(crate) fn over(
         for potential_ortho in get_ortho_by_origin(conn, &phrase[1])? {
             if potential_ortho.origin_has_phrase(&phrase[1..].to_vec()) {
                 if potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2 {
-                    forward_potential_pairings.push((
-                        old_orthotope.clone(),
-                        potential_ortho,
-                        phrase[1].clone(),
-                        phrase[2].clone(),
-                    ));
+                    if old_orthotope.get_dims() == potential_ortho.get_dims() {
+                        forward_potential_pairings.push((
+                            old_orthotope.clone(),
+                            potential_ortho,
+                            phrase[1].clone(),
+                            phrase[2].clone(),
+                        ));
+                    }
                 }
             }
         }
@@ -70,13 +73,14 @@ pub(crate) fn over(
         for potential_ortho in get_ortho_by_origin(conn, &phrase[0])? {
             if potential_ortho.origin_has_phrase(&phrase[..phrase.len() - 1].to_vec()) {
                 if potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2 {
-                    // this may be off by one
-                    backward_potential_pairings.push((
-                        potential_ortho,
-                        old_orthotope.clone(),
-                        phrase[1].clone(),
-                        phrase[2].clone(),
-                    ));
+                    if old_orthotope.get_dims() == potential_ortho.get_dims() {
+                        backward_potential_pairings.push((
+                            potential_ortho,
+                            old_orthotope.clone(),
+                            phrase[1].clone(),
+                            phrase[2].clone(),
+                        ));
+                    }
                 }
             }
         }
