@@ -28,6 +28,14 @@ table! {
 }
 
 table! {
+    phrases (id) {
+        id -> Int4,
+        words -> Array<Text>,
+        words_hash -> Int8,
+    }
+}
+
+table! {
     sentences (id) {
         id -> Int4,
         sentence -> Text,
@@ -43,4 +51,4 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, sentences, todos,);
+allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, phrases, sentences, todos,);

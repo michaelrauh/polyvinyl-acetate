@@ -4,7 +4,7 @@ use crate::{
     create_todo_entry, establish_connection,
     models::{NewBook, Orthotope},
     ortho::Ortho,
-    schema::{self, books},
+    schema::{self, books, phrases},
     Book, NewTodo,
 };
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
@@ -73,6 +73,13 @@ pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error
     Ok(res)
 }
 
+pub fn show_phrases() -> Result<String, anyhow::Error> {
+    use crate::schema::phrases::dsl::phrases;
+    let results: i64 = phrases.count().get_result(&establish_connection())?;
+
+    Ok(results.to_string())
+}
+
 fn get_orthos_by_size(
     conn: &PgConnection,
     dims: BTreeMap<usize, usize>,
@@ -135,11 +142,13 @@ pub fn delete_db(conn: &PgConnection) -> Result<(), anyhow::Error> {
     use crate::schema::orthotopes::dsl::orthotopes;
     use crate::sentences::dsl::sentences;
     use crate::todos::dsl::todos;
+    use crate::web_helper::phrases::dsl::phrases;
 
     diesel::delete(books).execute(conn)?;
     diesel::delete(todos).execute(conn)?;
     diesel::delete(sentences).execute(conn)?;
     diesel::delete(pairs).execute(conn)?;
     diesel::delete(orthotopes).execute(conn)?;
+    diesel::delete(phrases).execute(conn)?;
     Ok(())
 }
