@@ -73,6 +73,26 @@ pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error
     Ok(res)
 }
 
+fn phrases_to_string(all_full_length_phrases: Vec<Vec<String>>) -> String {
+    let phrases_in_string: Vec<String> = all_full_length_phrases
+        .iter()
+        .map(|p| p.join(" "))
+        .collect();
+    phrases_in_string.join("\n")
+}
+
+pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {
+    let results = get_orthos_by_size(&establish_connection(), dims)?;
+
+    let phrases: Vec<_> = results
+        .iter()
+        .map(|o| phrases_to_string(o.all_full_length_phrases()))
+        .collect();
+    let res = phrases.join("\n\n");
+
+    Ok(res)
+}
+
 pub fn show_phrases() -> Result<String, anyhow::Error> {
     use crate::schema::phrases::dsl::phrases;
     let results: i64 = phrases.count().get_result(&establish_connection())?;

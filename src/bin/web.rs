@@ -6,7 +6,7 @@ extern crate diesel;
 
 use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_phrases,
-    show_todos,
+    show_todos, splat_orthos,
 };
 use polyvinyl_acetate::{establish_connection, web_helper};
 
@@ -21,6 +21,7 @@ use rocket::response::status::Conflict;
 use rocket::routes;
 use rocket::serde::json::Json;
 use serde::Deserialize;
+
 
 embed_migrations!("./migrations");
 
@@ -59,6 +60,11 @@ fn orthos(dims: String) -> Result<String, Conflict<String>> {
     show_orthos(web_helper::parse_web_dims(dims)).map_err(|e| Conflict(Some(e.to_string())))
 }
 
+#[get("/splat?<dims>")]
+fn splat(dims: String) -> Result<String, Conflict<String>> {
+    splat_orthos(web_helper::parse_web_dims(dims)).map_err(|e| Conflict(Some(e.to_string())))
+}
+
 #[derive(Deserialize)]
 struct WebBook {
     title: String,
@@ -88,6 +94,6 @@ fn rocket() -> _ {
     embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
     rocket::build().mount(
         "/",
-        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases],
+        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases, splat],
     )
 }
