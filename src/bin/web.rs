@@ -6,7 +6,7 @@ extern crate diesel;
 
 use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_phrases,
-    show_todos, splat_orthos,
+    show_todos, splat_orthos, splat_pairs,
 };
 use polyvinyl_acetate::{establish_connection, web_helper};
 
@@ -38,6 +38,12 @@ fn sentences() -> Result<String, Conflict<String>> {
 #[get("/pairs")]
 fn pairs() -> Result<String, Conflict<String>> {
     count_pairs().map_err(|e| Conflict(Some(e.to_string())))
+}
+
+
+#[get("/splat-all-pairs")]
+fn splat_all_pairs() -> Result<String, Conflict<String>> {
+    splat_pairs().map_err(|e| Conflict(Some(e.to_string())))
 }
 
 #[get("/count")]
@@ -94,6 +100,6 @@ fn rocket() -> _ {
     embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
     rocket::build().mount(
         "/",
-        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases, splat],
+        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases, splat, splat_all_pairs],
     )
 }
