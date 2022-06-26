@@ -4,6 +4,7 @@ use crate::{
     create_todo_entry, establish_connection, schema, sentences, string_to_signed_int, Book, NewTodo,
 };
 use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
+use itertools::Itertools;
 
 pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -44,16 +45,19 @@ fn get_book(conn: &PgConnection, pk: i32) -> Result<Book, anyhow::Error> {
 
 pub fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
     book.body
-        .split(|x| x == '.' || x == '!' || x == '?' || x == ';')
+        .split_terminator(&['.', '!', '?', ';'])
         .filter(|x| !x.is_empty())
         .map(|x| x.trim())
-        .map(|x| x.to_string())
         .map(|sentence| {
             sentence
-                .replace('-', "")
-                .replace(':', "")
-                .replace(',', "")
-                .to_lowercase()
+            .split_ascii_whitespace()
+            .map(|s| {
+                s.chars()
+                    .filter(|c| c.is_alphabetic())
+                    .collect::<String>()
+                    .to_lowercase()
+            })
+            .join(" ")
         })
         .map(|t| NewSentence {
             sentence: t.clone(),
