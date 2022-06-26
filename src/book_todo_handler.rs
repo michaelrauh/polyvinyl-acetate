@@ -50,14 +50,14 @@ pub fn split_book_to_sentences(book: Book) -> Vec<NewSentence> {
         .map(|x| x.trim())
         .map(|sentence| {
             sentence
-            .split_ascii_whitespace()
-            .map(|s| {
-                s.chars()
-                    .filter(|c| c.is_alphabetic())
-                    .collect::<String>()
-                    .to_lowercase()
-            })
-            .join(" ")
+                .split_ascii_whitespace()
+                .map(|s| {
+                    s.chars()
+                        .filter(|c| c.is_alphabetic())
+                        .collect::<String>()
+                        .to_lowercase()
+                })
+                .join(" ")
         })
         .map(|t| NewSentence {
             sentence: t.clone(),

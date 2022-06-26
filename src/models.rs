@@ -101,3 +101,10 @@ pub struct Phrase {
     pub words: Vec<String>,
     pub words_hash: i64,
 }
+
+#[derive(QueryableByName, Debug)]
+#[table_name = "pairs"]
+pub struct ExNihilo {
+    pub first_word: String,
+    pub second_word: String,
+}

@@ -1,7 +1,11 @@
-use crate::ortho::Ortho;
+use crate::{
+    models::{ExNihilo, Pair},
+    ortho::Ortho,
+};
 use anyhow::Error;
-use diesel::PgConnection;
-use std::collections::HashSet;
+use core::fmt;
+use diesel::{sql_query, PgConnection, RunQueryDsl};
+use std::collections::{HashSet, BTreeSet};
 
 pub fn ex_nihilo(
     conn: Option<&PgConnection>,
@@ -12,7 +16,49 @@ pub fn ex_nihilo(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut res = vec![];
     ffbb_search(conn, first, second, forward, backward, &mut res)?;
+
+    let single_ffbb: Vec<Ortho> = single_ffbb(conn, first, second)?;
+    assert_eq!(res.len(), single_ffbb.len());
+    let left: BTreeSet<_> = res.iter().collect();
+    let right:BTreeSet<_> = single_ffbb.iter().collect();
+    assert_eq!(left, right);
+
     fbbf_search(conn, first, second, forward, backward, &mut res)?;
+
+    
+
+    Ok(res)
+}
+
+fn single_ffbb(
+    conn: Option<&PgConnection>,
+    first: &str,
+    second: &str,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let query = format!(
+        "SELECT CD.first_word, CD.second_word
+        FROM pairs CD
+        INNER JOIN pairs AC ON AC.second_word=CD.first_word
+        INNER JOIN pairs BD ON BD.second_word=CD.second_word AND BD.first_word<>AC.second_word
+        WHERE BD.first_word='{}'
+        AND AC.first_word='{}';",
+        second, first
+    );
+    let ffbbs: Vec<ExNihilo> =
+        sql_query(query).load(conn.expect("do not pass a test dummy in production"))?;
+
+    let res = ffbbs
+        .iter()
+        .map(|r| {
+            Ortho::new(
+                first.to_owned(),
+                second.to_owned(),
+                r.first_word.to_owned(),
+                r.second_word.to_owned(),
+            )
+        })
+        .collect();
+
     Ok(res)
 }
 

@@ -6,8 +6,7 @@ use crate::{
 use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
-
-// Enter the span, returning a guard object.
+    // Enter the span, returning a guard object.
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;

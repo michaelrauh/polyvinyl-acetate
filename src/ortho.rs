@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, HashSet};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct Ortho {
     pub(crate) info: BTreeMap<Location, String>,
 }
