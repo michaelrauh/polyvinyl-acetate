@@ -38,6 +38,10 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+extern crate flame;
+#[macro_use]
+extern crate flamer;
+
 type FailableStringVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
 type FailableStringToOrthoVec =

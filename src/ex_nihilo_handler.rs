@@ -5,7 +5,7 @@ use crate::{
 use anyhow::Error;
 use core::fmt;
 use diesel::{sql_query, PgConnection, RunQueryDsl};
-use std::collections::{HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashSet};
 
 pub fn ex_nihilo(
     conn: Option<&PgConnection>,
@@ -20,16 +20,15 @@ pub fn ex_nihilo(
     let single_ffbb: Vec<Ortho> = single_ffbb(conn, first, second)?;
     assert_eq!(res.len(), single_ffbb.len());
     let left: BTreeSet<_> = res.iter().collect();
-    let right:BTreeSet<_> = single_ffbb.iter().collect();
+    let right: BTreeSet<_> = single_ffbb.iter().collect();
     assert_eq!(left, right);
 
     fbbf_search(conn, first, second, forward, backward, &mut res)?;
 
-    
-
     Ok(res)
 }
 
+#[flame]
 fn single_ffbb(
     conn: Option<&PgConnection>,
     first: &str,
@@ -62,6 +61,7 @@ fn single_ffbb(
     Ok(res)
 }
 
+#[flame]
 fn ffbb_search(
     conn: Option<&PgConnection>,
     a: &str,
