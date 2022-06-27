@@ -67,8 +67,13 @@ pub fn count_pairs() -> Result<String, diesel::result::Error> {
 
 pub fn splat_pairs() -> Result<String, diesel::result::Error> {
     use crate::schema::pairs::dsl::pairs;
-    let results:Vec<crate::models::Pair> = pairs.select(schema::pairs::all_columns).get_results(&establish_connection())?;
-    let res: Vec<String> = results.iter().map(|p| format!("{}, {}", p.first_word, p.second_word)).collect();
+    let results: Vec<crate::models::Pair> = pairs
+        .select(schema::pairs::all_columns)
+        .get_results(&establish_connection())?;
+    let res: Vec<String> = results
+        .iter()
+        .map(|p| format!("{}, {}", p.first_word, p.second_word))
+        .collect();
 
     Ok(res.join("\n"))
 }

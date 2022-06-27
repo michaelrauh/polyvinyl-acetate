@@ -22,7 +22,6 @@ use rocket::routes;
 use rocket::serde::json::Json;
 use serde::Deserialize;
 
-
 embed_migrations!("./migrations");
 
 #[get("/")]
@@ -39,7 +38,6 @@ fn sentences() -> Result<String, Conflict<String>> {
 fn pairs() -> Result<String, Conflict<String>> {
     count_pairs().map_err(|e| Conflict(Some(e.to_string())))
 }
-
 
 #[get("/splat-all-pairs")]
 fn splat_all_pairs() -> Result<String, Conflict<String>> {
@@ -100,6 +98,18 @@ fn rocket() -> _ {
     embedded_migrations::run_with_output(&establish_connection(), &mut std::io::stdout()).unwrap();
     rocket::build().mount(
         "/",
-        routes![index, add, count, depth, sentences, pairs, orthos, delete, phrases, splat, splat_all_pairs],
+        routes![
+            index,
+            add,
+            count,
+            depth,
+            sentences,
+            pairs,
+            orthos,
+            delete,
+            phrases,
+            splat,
+            splat_all_pairs
+        ],
     )
 }
