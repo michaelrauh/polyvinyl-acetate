@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::insert_orthotopes;
+use crate::{insert_orthotopes, ortho::Ortho, models::ExNihilo};
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
@@ -18,7 +18,7 @@ use crate::{
     models::{Pair, Todo},
     schema,
 };
-use diesel::PgConnection;
+use diesel::{PgConnection, sql_query};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -38,13 +38,79 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+fn single_ffbb(
+    conn: Option<&PgConnection>,
+    first: &str,
+    second: &str,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let query = format!(
+        "SELECT CD.first_word, CD.second_word
+        FROM pairs CD
+        INNER JOIN pairs AC ON AC.second_word=CD.first_word
+        INNER JOIN pairs BD ON BD.second_word=CD.second_word AND BD.first_word<>AC.second_word
+        WHERE BD.first_word='{}'
+        AND AC.first_word='{}';",
+        second, first
+    );
+    let ffbbs: Vec<ExNihilo> =
+        sql_query(query).load(conn.expect("do not pass a test dummy in production"))?;
+
+    let res = ffbbs
+        .iter()
+        .map(|r| {
+            Ortho::new(
+                first.to_owned(),
+                second.to_owned(),
+                r.first_word.to_owned(),
+                r.second_word.to_owned(),
+            )
+        })
+        .collect();
+
+    Ok(res)
+}
+
+fn single_fbbf(
+    conn: Option<&PgConnection>,
+    first: &str,
+    second: &str,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let query = format!(
+        "SELECT AC.first_word, AC.second_word
+        FROM pairs AC
+        INNER JOIN pairs AB ON AC.first_word_hash=AB.first_word_hash AND AB.second_word_hash<>AC.second_word_hash
+        INNER JOIN pairs CD ON AC.second_word_hash=CD.first_word_hash 
+        WHERE AB.second_word='{}'
+        AND CD.second_word='{}';",
+        first, second
+    );
+    let ffbbs: Vec<ExNihilo> =
+        sql_query(query).load(conn.expect("do not pass a test dummy in production"))?;
+
+    // finding ac given bd
+    let res = ffbbs
+        .iter()
+        .map(|r| {
+            Ortho::new(
+                r.first_word.to_owned(),
+                first.to_owned(),
+                r.second_word.to_owned(),
+                second.to_owned(),
+            )
+        })
+        .collect();
+
+    Ok(res)
+}
+
+
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(
         Some(conn),
         &pair.first_word,
         &pair.second_word,
-        crate::project_forward,
-        crate::project_backward,
+        single_ffbb,
+        single_fbbf,
     )?;
     let nihilo_iter = ex_nihilo_orthos.iter();
     let up_orthos = up_handler::up(
