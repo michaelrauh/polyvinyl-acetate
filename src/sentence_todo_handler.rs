@@ -1,8 +1,5 @@
 use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
-use crate::{
-    create_todo_entry, establish_connection, vec_of_strings_to_signed_int,
-    NewTodo,
-};
+use crate::{create_todo_entry, establish_connection, vec_of_strings_to_signed_int, NewTodo};
 use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {

@@ -1,5 +1,6 @@
 use crate::ortho::Ortho;
-use crate::schema::pairs::{first_word, second_word, table as pairs};
+use crate::schema::pairs::{first_word, pair_hash, second_word, table as pairs};
+use crate::vec_of_strings_to_signed_int;
 use diesel::dsl::exists;
 use diesel::query_dsl::filter_dsl::FilterDsl;
 use diesel::{BoolExpressionMethods, ExpressionMethods, PgConnection, RunQueryDsl};
@@ -98,9 +99,9 @@ pub fn pair_exists(
     try_left: &str,
     try_right: &str,
 ) -> Result<bool, anyhow::Error> {
-    let res: bool = diesel::select(exists(
-        pairs.filter(first_word.eq(try_left).and(second_word.eq(try_right))),
-    ))
+    let res: bool = diesel::select(exists(pairs.filter(pair_hash.eq(
+        vec_of_strings_to_signed_int(vec![try_left.to_string(), try_right.to_string()]),
+    ))))
     .get_result(conn.expect("don't use the test connection"))?;
 
     Ok(res)

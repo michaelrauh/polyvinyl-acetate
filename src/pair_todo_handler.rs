@@ -3,7 +3,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::{insert_orthotopes, ortho::Ortho, models::ExNihilo};
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
@@ -18,7 +17,8 @@ use crate::{
     models::{Pair, Todo},
     schema,
 };
-use diesel::{PgConnection, sql_query};
+use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
+use diesel::{sql_query, PgConnection};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
@@ -78,8 +78,8 @@ fn single_fbbf(
     let query = format!(
         "SELECT AC.first_word, AC.second_word
         FROM pairs AC
-        INNER JOIN pairs AB ON AC.first_word_hash=AB.first_word_hash AND AB.second_word_hash<>AC.second_word_hash
-        INNER JOIN pairs CD ON AC.second_word_hash=CD.first_word_hash 
+        INNER JOIN pairs AB ON AC.first_word=AB.first_word AND AB.second_word<>AC.second_word
+        INNER JOIN pairs CD ON AC.second_word=CD.first_word 
         WHERE AB.second_word='{}'
         AND CD.second_word='{}';",
         first, second
@@ -102,7 +102,6 @@ fn single_fbbf(
 
     Ok(res)
 }
-
 
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(

@@ -1,10 +1,6 @@
-use crate::{
-    ortho::Ortho,
-};
+use crate::ortho::Ortho;
 
-
-use diesel::{PgConnection};
-
+use diesel::PgConnection;
 
 pub fn ex_nihilo(
     conn: Option<&PgConnection>,
@@ -33,7 +29,12 @@ mod tests {
         _first: &str,
         _second: &str,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned())])
+        Ok(vec![Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        )])
     }
 
     fn fake_ffbb(
@@ -41,7 +42,12 @@ mod tests {
         _first: &str,
         _second: &str,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![Ortho::new("e".to_owned(), "f".to_owned(), "g".to_owned(), "h".to_owned())])
+        Ok(vec![Ortho::new(
+            "e".to_owned(),
+            "f".to_owned(),
+            "g".to_owned(),
+            "h".to_owned(),
+        )])
     }
 
     #[test]
@@ -54,13 +60,20 @@ mod tests {
             fake_fbbf,
         )
         .unwrap();
-        let expected = vec![Ortho::new("e".to_owned(), "f".to_owned(), "g".to_owned(), "h".to_owned()),
+        let expected = vec![
             Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        )];
+                "e".to_owned(),
+                "f".to_owned(),
+                "g".to_owned(),
+                "h".to_owned(),
+            ),
+            Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+        ];
         assert_eq!(actual, expected)
     }
 }
