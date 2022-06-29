@@ -22,8 +22,7 @@ table! {
         id -> Int4,
         first_word -> Text,
         second_word -> Text,
-        first_word_hash -> Int8,
-        second_word_hash -> Int8,
+        pair_hash -> Int8,
     }
 }
 
@@ -51,4 +50,11 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, phrases, sentences, todos,);
+allow_tables_to_appear_in_same_query!(
+    books,
+    orthotopes,
+    pairs,
+    phrases,
+    sentences,
+    todos,
+);

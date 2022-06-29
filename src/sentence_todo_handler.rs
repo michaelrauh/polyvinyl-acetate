@@ -1,12 +1,11 @@
 use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
 use crate::{
-    create_todo_entry, establish_connection, string_to_signed_int, vec_of_strings_to_signed_int,
+    create_todo_entry, establish_connection, vec_of_strings_to_signed_int,
     NewTodo,
 };
 use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    // Enter the span, returning a guard object.
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
@@ -117,8 +116,7 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
         .map(|(f, s)| NewPair {
             first_word: f.clone(),
             second_word: s.clone(),
-            first_word_hash: string_to_signed_int(f),
-            second_word_hash: string_to_signed_int(s),
+            pair_hash: vec_of_strings_to_signed_int(vec![f.to_string(), s.to_string()]),
         })
         .collect();
 
