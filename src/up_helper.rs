@@ -17,24 +17,21 @@ pub fn attempt_up(
     lo: Ortho,
     ro: Ortho,
 ) -> Result<(), anyhow::Error> {
-    if lo.get_dims() == ro.get_dims() {
-        let lo_hop = lo.get_hop();
-        let left_hand_coordinate_configurations =
-            Itertools::permutations(lo_hop.iter(), lo_hop.len());
-        let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
-        for left_mapping in left_hand_coordinate_configurations {
-            if mapping_works(
-                conn,
-                pair_checker,
-                left_mapping.clone(),
-                fixed_right_hand.clone(),
-            )? {
-                let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-                if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
-                    && diagonals_do_not_conflict(lo.clone(), ro.clone())
-                {
-                    ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
-                }
+    let lo_hop = lo.get_hop();
+    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
+    let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+    for left_mapping in left_hand_coordinate_configurations {
+        if mapping_works(
+            conn,
+            pair_checker,
+            left_mapping.clone(),
+            fixed_right_hand.clone(),
+        )? {
+            let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
+            if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
+                && diagonals_do_not_conflict(lo.clone(), ro.clone())
+            {
+                ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
             }
         }
     }

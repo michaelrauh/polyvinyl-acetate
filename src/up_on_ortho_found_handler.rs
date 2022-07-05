@@ -14,13 +14,12 @@ pub(crate) fn up(
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    
     if !old_ortho.is_base() {
         return Ok(vec![]);
     }
 
     let mut ans = vec![];
-    
+
     let projected_forward = forward(conn, &old_ortho.get_origin())?;
     let projected_backward = backward(conn, &old_ortho.get_origin())?;
 
@@ -32,7 +31,9 @@ pub(crate) fn up(
     }
 
     for ro in orthos_to_right {
-        up_helper::attempt_up(conn, pair_checker, &mut ans, old_ortho.clone(), ro)?;
+        if old_ortho.get_dims() == ro.get_dims() {
+            up_helper::attempt_up(conn, pair_checker, &mut ans, old_ortho.clone(), ro)?;
+        }
     }
 
     let mut orthos_to_left = vec![];
@@ -43,7 +44,9 @@ pub(crate) fn up(
     }
 
     for lo in orthos_to_left {
-        up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
+        if old_ortho.get_dims() == lo.get_dims() {
+            up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
+        }
     }
     Ok(ans)
 }

@@ -31,6 +31,7 @@ pub fn up(
             ortho_by_contents,
             pair_checker,
         )?)
+        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
     {
         up_helper::attempt_up(conn, pair_checker, &mut ans, lo, ro)?;
     }
