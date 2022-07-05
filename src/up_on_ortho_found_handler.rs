@@ -14,32 +14,36 @@ pub(crate) fn up(
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
+    if !old_ortho.is_base() {
+        return Ok(vec![]);
+    }
+
     let mut ans = vec![];
-    if old_ortho.is_base() {
-        let projected_forward = forward(conn, &old_ortho.get_origin())?;
-        let projected_backward = backward(conn, &old_ortho.get_origin())?;
+    
+    let projected_forward = forward(conn, &old_ortho.get_origin())?;
+    let projected_backward = backward(conn, &old_ortho.get_origin())?;
 
-        let mut orthos_to_right = vec![];
-        for f in projected_forward {
-            for o in ortho_by_origin(conn, &f)? {
-                orthos_to_right.push(o);
-            }
+    let mut orthos_to_right = vec![];
+    for f in projected_forward {
+        for o in ortho_by_origin(conn, &f)? {
+            orthos_to_right.push(o);
         }
+    }
 
-        for ro in orthos_to_right {
-            up_helper::attempt_up(conn, pair_checker, &mut ans, old_ortho.clone(), ro)?;
-        }
+    for ro in orthos_to_right {
+        up_helper::attempt_up(conn, pair_checker, &mut ans, old_ortho.clone(), ro)?;
+    }
 
-        let mut orthos_to_left = vec![];
-        for f in projected_backward {
-            for o in ortho_by_origin(conn, &f)? {
-                orthos_to_left.push(o);
-            }
+    let mut orthos_to_left = vec![];
+    for f in projected_backward {
+        for o in ortho_by_origin(conn, &f)? {
+            orthos_to_left.push(o);
         }
+    }
 
-        for lo in orthos_to_left {
-            up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
-        }
+    for lo in orthos_to_left {
+        up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
     }
     Ok(ans)
 }
