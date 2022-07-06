@@ -1,4 +1,6 @@
-use crate::{ortho::Ortho, up_helper, up_helper::FailableBoolOnPair};
+use crate::{
+    get_all_pairs, ortho::Ortho, pair_hash_db_filter, up_helper, up_helper::FailableBoolOnPair,
+};
 use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
@@ -13,6 +15,10 @@ pub(crate) fn up(
     pair_checker: FailableBoolOnPair,
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
+    db_filter: fn(
+        conn: Option<&PgConnection>,
+        to_filter: Vec<i64>,
+    ) -> Result<Vec<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
         return Ok(vec![]);
@@ -30,9 +36,22 @@ pub(crate) fn up(
         }
     }
 
+    let all_forward_pairs = orthos_to_right
+        .iter()
+        .flat_map(|ro| get_all_pairs(old_ortho.clone(), ro.to_owned()))
+        .collect();
+    let filtered_forward_pairs = db_filter(conn, all_forward_pairs)?;
+
     for ro in orthos_to_right {
         if old_ortho.get_dims() == ro.get_dims() {
-            up_helper::attempt_up(conn, pair_checker, &mut ans, old_ortho.clone(), ro)?;
+            up_helper::attempt_up(
+                conn,
+                pair_checker,
+                filtered_forward_pairs.clone(),
+                &mut ans,
+                old_ortho.clone(),
+                ro,
+            )?;
         }
     }
 
@@ -43,9 +62,21 @@ pub(crate) fn up(
         }
     }
 
+    let all_backward_pairs = orthos_to_left
+        .iter()
+        .flat_map(|lo| get_all_pairs(lo.to_owned(), old_ortho.clone()))
+        .collect();
+    let filtered_backward_pairs = db_filter(conn, all_backward_pairs)?;
     for lo in orthos_to_left {
         if old_ortho.get_dims() == lo.get_dims() {
-            up_helper::attempt_up(conn, pair_checker, &mut ans, lo, old_ortho.clone())?;
+            up_helper::attempt_up(
+                conn,
+                pair_checker,
+                filtered_backward_pairs.clone(),
+                &mut ans,
+                lo,
+                old_ortho.clone(),
+            )?;
         }
     }
     Ok(ans)
@@ -156,6 +187,13 @@ mod tests {
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
+    fn fake_pair_hash_db_filter(
+        conn: Option<&PgConnection>,
+        to_filter: Vec<i64>,
+    ) -> Result<Vec<i64>, anyhow::Error> {
+        Ok(to_filter)
+    }
+
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin_from_left() {
         let left_ortho = Ortho::new(
@@ -179,6 +217,7 @@ mod tests {
             fake_pair_exists,
             fake_forward,
             fake_backward,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
         let expected = Ortho::zip_up(
@@ -217,6 +256,7 @@ mod tests {
             fake_pair_exists,
             fake_forward,
             fake_backward,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
         let expected = Ortho::zip_up(
@@ -260,6 +300,7 @@ mod tests {
             fake_pair_exists_four,
             fake_forward,
             fake_backward,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 

@@ -1,6 +1,9 @@
 use crate::ortho::Ortho;
 use crate::up_helper::FailableBoolOnPair;
-use crate::{up_helper, FailableStringToOrthoVec, FailableStringVecToOrthoVec};
+use crate::{
+    get_all_pairs, pair_hash_db_filter, up_helper, FailableStringToOrthoVec,
+    FailableStringVecToOrthoVec,
+};
 use anyhow::Error;
 use diesel::PgConnection;
 
@@ -12,10 +15,14 @@ pub fn up(
     ortho_by_hop: FailableStringVecToOrthoVec,
     ortho_by_contents: FailableStringVecToOrthoVec,
     pair_checker: FailableBoolOnPair,
+    db_filter: fn(
+        conn: Option<&PgConnection>,
+        to_filter: Vec<i64>,
+    ) -> Result<Vec<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
 
-    for (lo, ro) in get_origin_ortho_pairings(conn, first_w, second_w, ortho_by_origin)?
+    let ortho_pairs = get_origin_ortho_pairings(conn, first_w, second_w, ortho_by_origin)?
         .into_iter()
         .chain(get_ortho_pairings(
             conn,
@@ -31,9 +38,16 @@ pub fn up(
             ortho_by_contents,
             pair_checker,
         )?)
-        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-    {
-        up_helper::attempt_up(conn, pair_checker, &mut ans, lo, ro)?;
+        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
+
+    let all_all_pairs = ortho_pairs
+        .clone()
+        .flat_map(|(lo, ro)| get_all_pairs(lo, ro))
+        .collect::<Vec<_>>();
+    let filtered_pairs = db_filter(conn, all_all_pairs)?;
+
+    for (lo, ro) in ortho_pairs {
+        up_helper::attempt_up(conn, pair_checker, filtered_pairs.clone(), &mut ans, lo, ro)?;
     }
     Ok(ans)
 }
@@ -321,6 +335,20 @@ mod tests {
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
+    fn fake_pair_hash_db_filter(
+        _conn: Option<&PgConnection>,
+        to_filter: Vec<i64>,
+    ) -> Result<Vec<i64>, anyhow::Error> {
+        Ok(to_filter)
+    }
+
+    fn fake_pair_hash_db_filter_two(
+        _conn: Option<&PgConnection>,
+        to_filter: Vec<i64>,
+    ) -> Result<Vec<i64>, anyhow::Error> {
+        panic!()
+    }
+    
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
         let actual = up(
@@ -331,6 +359,7 @@ mod tests {
             empty_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
         let expected = Ortho::zip_up(
@@ -366,6 +395,7 @@ mod tests {
             empty_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists_two,
+            fake_pair_hash_db_filter_two,
         )
         .unwrap();
 
@@ -382,6 +412,7 @@ mod tests {
             empty_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists_three,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 
@@ -398,6 +429,7 @@ mod tests {
             empty_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists_four,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 
@@ -414,6 +446,7 @@ mod tests {
             empty_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists_five,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 
@@ -431,6 +464,7 @@ mod tests {
             fake_ortho_by_hop,
             empty_ortho_by_contents,
             fake_pair_exists,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 
@@ -468,6 +502,7 @@ mod tests {
             empty_ortho_by_hop,
             fake_ortho_by_contents,
             fake_pair_exists,
+            fake_pair_hash_db_filter,
         )
         .unwrap();
 

@@ -13,6 +13,7 @@ pub type FailableBoolOnPair =
 pub fn attempt_up(
     conn: Option<&PgConnection>,
     pair_checker: FailableBoolOnPair,
+    all_pairs: Vec<i64>,
     ans: &mut Vec<Ortho>,
     lo: Ortho,
     ro: Ortho,

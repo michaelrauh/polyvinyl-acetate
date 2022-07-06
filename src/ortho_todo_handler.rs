@@ -4,7 +4,7 @@ use crate::{
     create_todo_entry, establish_connection, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
-    over_on_ortho_found_handler,
+    over_on_ortho_found_handler, pair_hash_db_filter,
     schema::{
         self,
         orthotopes::{self, id},
@@ -42,6 +42,7 @@ fn new_orthotopes(
         up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
+        pair_hash_db_filter,
     )?;
 
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over(
