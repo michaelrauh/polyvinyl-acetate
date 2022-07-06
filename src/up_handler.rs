@@ -93,7 +93,7 @@ fn get_ortho_pairings(
 
 #[cfg(test)]
 mod tests {
-    use crate::ortho::Ortho;
+    use crate::{ortho::Ortho, vec_of_strings_to_signed_int};
     use crate::up_handler::up;
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
@@ -326,15 +326,6 @@ mod tests {
         Ok(pairs.contains(&(try_left, try_right)))
     }
 
-    fn fake_pair_exists_two(
-        _conn: Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error> {
-        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g")};
-        Ok(pairs.contains(&(try_left, try_right)))
-    }
-
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
         to_filter: Vec<i64>,
@@ -344,9 +335,11 @@ mod tests {
 
     fn fake_pair_hash_db_filter_two(
         _conn: Option<&PgConnection>,
-        to_filter: Vec<i64>,
+        _to_filter: Vec<i64>,
     ) -> Result<Vec<i64>, anyhow::Error> {
-        panic!()
+        let pairs = vec![("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g")];
+        let res = pairs.iter().map(|(l ,r)| { vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]) } ).collect();
+        Ok(res)
     }
     
     #[test]
@@ -394,7 +387,7 @@ mod tests {
             fake_ortho_by_origin,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
-            fake_pair_exists_two,
+            fake_pair_exists,
             fake_pair_hash_db_filter_two,
         )
         .unwrap();
