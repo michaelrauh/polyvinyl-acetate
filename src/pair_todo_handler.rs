@@ -8,7 +8,7 @@ use crate::{
     diesel::query_dsl::filter_dsl::FilterDsl,
     ex_nihilo_handler,
     models::{NewOrthotope, NewTodo},
-    pair_hash_db_filter,
+    get_hashes_of_pairs_with_words_in,
     schema::pairs::{dsl::pairs, id},
     up_handler, up_helper,
 };
@@ -121,7 +121,7 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         crate::get_ortho_by_hop,
         crate::get_ortho_by_contents,
         up_helper::pair_exists,
-        pair_hash_db_filter,
+        get_hashes_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();
     let both = nihilo_iter.chain(up_iter);

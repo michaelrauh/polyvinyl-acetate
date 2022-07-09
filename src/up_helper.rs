@@ -5,7 +5,7 @@ use diesel::dsl::exists;
 use diesel::query_dsl::filter_dsl::FilterDsl;
 use diesel::{BoolExpressionMethods, ExpressionMethods, PgConnection, RunQueryDsl};
 use itertools::{zip, Itertools};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 pub type FailableBoolOnPair =
     fn(Option<&PgConnection>, try_left: &str, try_right: &str) -> Result<bool, anyhow::Error>;
@@ -13,7 +13,7 @@ pub type FailableBoolOnPair =
 pub fn attempt_up(
     conn: Option<&PgConnection>,
     pair_checker: FailableBoolOnPair,
-    all_pairs: Vec<i64>,
+    all_pairs: HashSet<i64>,
     ans: &mut Vec<Ortho>,
     lo: Ortho,
     ro: Ortho,
@@ -23,10 +23,9 @@ pub fn attempt_up(
     let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
     for left_mapping in left_hand_coordinate_configurations {
         if mapping_works(
-            conn,
-            pair_checker,
             left_mapping.clone(),
             fixed_right_hand.clone(),
+            all_pairs.clone()
         )? {
             let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
             if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
@@ -71,17 +70,12 @@ fn mapping_is_complete(
 }
 
 fn mapping_works(
-    conn: Option<&PgConnection>,
-    pair_checker: FailableBoolOnPair,
     left_mapping: Vec<&String>,
     fixed_right_hand: Vec<String>,
+    all_pairs: HashSet<i64>
 ) -> Result<bool, anyhow::Error> {
-    for (try_left, try_right) in zip(left_mapping, fixed_right_hand) {
-        if !pair_checker(conn, try_left, &try_right)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+    let desired = zip(left_mapping, fixed_right_hand).map(|(try_left, try_right)| vec_of_strings_to_signed_int(vec![try_left.to_string(), try_right])).collect::<HashSet<_>>();
+    Ok(desired.is_subset(&all_pairs))
 }
 
 fn make_mapping(

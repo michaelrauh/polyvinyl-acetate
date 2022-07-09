@@ -57,33 +57,24 @@ pub fn establish_connection() -> PgConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
-pub fn get_all_pairs(lo: Ortho, ro: Ortho) -> Vec<i64> {
-    let lo_hop = lo.get_hop();
-    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
-    let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
-    let mut res = vec![];
-    for left_mapping in left_hand_coordinate_configurations {
-        for (try_left, try_right) in zip(left_mapping, fixed_right_hand.clone()) {
-            res.push(vec_of_strings_to_signed_int(vec![
-                try_left.to_string(),
-                try_right,
-            ]));
-        }
-    }
-    res
-}
-
-pub fn pair_hash_db_filter(
+pub fn get_hashes_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
-    to_filter: Vec<i64>,
-) -> Result<Vec<i64>, anyhow::Error> {
-    let res: Vec<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(pairs, schema::pairs::pair_hash.eq(any(to_filter))),
+    first_words: Vec<String>,
+    second_words: Vec<String>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    let firsts: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(any(first_words))),
         crate::schema::pairs::pair_hash,
     )
-    .load(conn.expect("do not pass a test dummy in production"))?;
+    .load(conn.expect("do not pass a test dummy in production"))?.iter().cloned().collect();
 
-    Ok(res)
+    let seconds: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(pairs, schema::pairs::second_word.eq(any(second_words))),
+        crate::schema::pairs::pair_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?.iter().cloned().collect();
+
+    Ok(firsts.intersection(&seconds).cloned().collect())
 }
 
 fn create_todo_entry(

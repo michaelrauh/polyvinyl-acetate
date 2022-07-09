@@ -4,13 +4,13 @@ use crate::{
     create_todo_entry, establish_connection, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
-    over_on_ortho_found_handler, pair_hash_db_filter,
+    over_on_ortho_found_handler,
     schema::{
         self,
         orthotopes::{self, id},
     },
     up_helper::{self},
-    up_on_ortho_found_handler,
+    up_on_ortho_found_handler, get_hashes_of_pairs_with_words_in,
 };
 
 pub(crate) fn handle_ortho_todo(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
@@ -42,7 +42,7 @@ fn new_orthotopes(
         up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
-        pair_hash_db_filter,
+        get_hashes_of_pairs_with_words_in,
     )?;
 
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over(

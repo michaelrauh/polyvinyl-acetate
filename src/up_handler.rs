@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use crate::ortho::Ortho;
 use crate::up_helper::FailableBoolOnPair;
 use crate::{
-    get_all_pairs, pair_hash_db_filter, up_helper, FailableStringToOrthoVec,
+    get_all_pairs, up_helper, FailableStringToOrthoVec,
     FailableStringVecToOrthoVec,
 };
 use anyhow::Error;
@@ -17,8 +19,9 @@ pub fn up(
     pair_checker: FailableBoolOnPair,
     db_filter: fn(
         conn: Option<&PgConnection>,
-        to_filter: Vec<i64>,
-    ) -> Result<Vec<i64>, anyhow::Error>,
+        first_words: Vec<String>,
+        second_words: Vec<String>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
 
@@ -40,11 +43,7 @@ pub fn up(
         )?)
         .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
 
-    let all_all_pairs = ortho_pairs
-        .clone()
-        .flat_map(|(lo, ro)| get_all_pairs(lo, ro))
-        .collect::<Vec<_>>();
-    let filtered_pairs = db_filter(conn, all_all_pairs)?;
+    let filtered_pairs = db_filter(conn, left_vocabulary, right_vocabulary)?.clone();
 
     for (lo, ro) in ortho_pairs {
         up_helper::attempt_up(conn, pair_checker, filtered_pairs.clone(), &mut ans, lo, ro)?;
@@ -93,8 +92,10 @@ fn get_ortho_pairings(
 
 #[cfg(test)]
 mod tests {
-    use crate::{ortho::Ortho, vec_of_strings_to_signed_int};
+    use std::collections::HashSet;
+
     use crate::up_handler::up;
+    use crate::{ortho::Ortho, vec_of_strings_to_signed_int};
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
 
@@ -328,20 +329,53 @@ mod tests {
 
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
-        to_filter: Vec<i64>,
-    ) -> Result<Vec<i64>, anyhow::Error> {
-        Ok(to_filter)
+        _to_filter: Vec<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        let pairs = vec![
+            ("a", "b"),
+            ("c", "d"),
+            ("a", "c"),
+            ("b", "d"),
+            ("e", "f"),
+            ("g", "h"),
+            ("e", "g"),
+            ("f", "h"),
+            ("a", "e"),
+            ("b", "f"),
+            ("c", "g"),
+            ("d", "h"),
+        ];
+        let res = pairs
+            .iter()
+            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .collect();
+        Ok(res)
     }
 
     fn fake_pair_hash_db_filter_two(
         _conn: Option<&PgConnection>,
         _to_filter: Vec<i64>,
-    ) -> Result<Vec<i64>, anyhow::Error> {
-        let pairs = vec![("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g")];
-        let res = pairs.iter().map(|(l ,r)| { vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]) } ).collect();
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        let pairs = vec![
+            ("a", "b"),
+            ("c", "d"),
+            ("a", "c"),
+            ("b", "d"),
+            ("e", "f"),
+            ("g", "h"),
+            ("e", "g"),
+            ("f", "h"),
+            ("a", "e"),
+            ("b", "f"),
+            ("c", "g"),
+        ];
+        let res = pairs
+            .iter()
+            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .collect();
         Ok(res)
     }
-    
+
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
         let actual = up(
@@ -380,6 +414,7 @@ mod tests {
 
     #[test]
     fn it_does_not_create_up_when_a_forward_is_missing() {
+
         let actual = up(
             None,
             "a",

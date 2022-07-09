@@ -1,8 +1,9 @@
 use crate::{
-    get_all_pairs, ortho::Ortho, pair_hash_db_filter, up_helper, up_helper::FailableBoolOnPair,
+    ortho::Ortho, up_helper, up_helper::FailableBoolOnPair,
 };
 use anyhow::Error;
 use diesel::PgConnection;
+use itertools::Itertools;
 use std::collections::HashSet;
 
 type FailableStringToOrthoVec =
@@ -15,10 +16,11 @@ pub(crate) fn up(
     pair_checker: FailableBoolOnPair,
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    db_filter: fn(
+    get_pair_hashes_relevant_to_vocabularies: fn(
         conn: Option<&PgConnection>,
-        to_filter: Vec<i64>,
-    ) -> Result<Vec<i64>, anyhow::Error>,
+        first_words: Vec<String>,
+        second_words: Vec<String>
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
         return Ok(vec![]);
@@ -36,18 +38,17 @@ pub(crate) fn up(
         }
     }
 
-    let all_forward_pairs = orthos_to_right
-        .iter()
-        .flat_map(|ro| get_all_pairs(old_ortho.clone(), ro.to_owned()))
-        .collect();
-    let filtered_forward_pairs = db_filter(conn, all_forward_pairs)?;
+    let forward_left_vocab = old_ortho.to_vec().iter().map(|(l, r)| r).cloned().collect_vec();
+    let forward_right_vocab = orthos_to_right.iter().flat_map(|o| o.to_vec()).map(|(l, r)| r).collect_vec();
+
+    let forward_hashes = get_pair_hashes_relevant_to_vocabularies(conn, forward_left_vocab, forward_right_vocab)?;
 
     for ro in orthos_to_right {
         if old_ortho.get_dims() == ro.get_dims() {
             up_helper::attempt_up(
                 conn,
                 pair_checker,
-                filtered_forward_pairs.clone(),
+                forward_hashes.clone(),
                 &mut ans,
                 old_ortho.clone(),
                 ro,
@@ -62,29 +63,29 @@ pub(crate) fn up(
         }
     }
 
-    let all_backward_pairs = orthos_to_left
-        .iter()
-        .flat_map(|lo| get_all_pairs(lo.to_owned(), old_ortho.clone()))
-        .collect();
-    let filtered_backward_pairs = db_filter(conn, all_backward_pairs)?;
+    let backward_left_vocab = orthos_to_left.iter().flat_map(|o| o.to_vec()).map(|(l, r)| r).collect_vec();
+    let backward_right_vocab = forward_left_vocab;
+    let backward_hashes = get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
+
     for lo in orthos_to_left {
         if old_ortho.get_dims() == lo.get_dims() {
             up_helper::attempt_up(
                 conn,
                 pair_checker,
-                filtered_backward_pairs.clone(),
+                backward_hashes.clone(),
                 &mut ans,
                 lo,
                 old_ortho.clone(),
             )?;
         }
     }
+
     Ok(ans)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{ortho::Ortho, up_on_ortho_found_handler::up};
+    use crate::{ortho::Ortho, up_on_ortho_found_handler::up, vec_of_strings_to_signed_int};
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
@@ -188,10 +189,29 @@ mod tests {
     }
 
     fn fake_pair_hash_db_filter(
-        conn: Option<&PgConnection>,
-        to_filter: Vec<i64>,
-    ) -> Result<Vec<i64>, anyhow::Error> {
-        Ok(to_filter)
+        _conn: Option<&PgConnection>,
+        _first_words: Vec<String>,
+        _second_words: Vec<String>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        let pairs = vec![
+            ("a", "b"),
+            ("c", "d"),
+            ("a", "c"),
+            ("b", "d"),
+            ("e", "f"),
+            ("g", "h"),
+            ("e", "g"),
+            ("f", "h"),
+            ("a", "e"),
+            ("b", "f"),
+            ("c", "g"),
+            ("d", "h"),
+        ];
+        let res = pairs
+            .iter()
+            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .collect();
+        Ok(res)
     }
 
     #[test]
