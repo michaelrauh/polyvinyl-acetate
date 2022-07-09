@@ -1,6 +1,4 @@
-use crate::{
-    ortho::Ortho, up_helper, up_helper::FailableBoolOnPair,
-};
+use crate::{ortho::Ortho, up_helper};
 use anyhow::Error;
 use diesel::PgConnection;
 use itertools::Itertools;
@@ -13,13 +11,12 @@ pub(crate) fn up(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
     ortho_by_origin: FailableStringToOrthoVec,
-    pair_checker: FailableBoolOnPair,
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     get_pair_hashes_relevant_to_vocabularies: fn(
         conn: Option<&PgConnection>,
         first_words: Vec<String>,
-        second_words: Vec<String>
+        second_words: Vec<String>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
@@ -34,50 +31,54 @@ pub(crate) fn up(
     let mut orthos_to_right = vec![];
     for f in projected_forward {
         for o in ortho_by_origin(conn, &f)? {
-            orthos_to_right.push(o);
+            if old_ortho.get_dims() == o.get_dims() {
+                orthos_to_right.push(o);
+            }
         }
     }
 
-    let forward_left_vocab = old_ortho.to_vec().iter().map(|(l, r)| r).cloned().collect_vec();
-    let forward_right_vocab = orthos_to_right.iter().flat_map(|o| o.to_vec()).map(|(l, r)| r).collect_vec();
+    let forward_left_vocab = old_ortho
+        .to_vec()
+        .iter()
+        .map(|(_l, r)| r)
+        .cloned()
+        .collect_vec();
+    let forward_right_vocab = orthos_to_right
+        .iter()
+        .flat_map(|o| o.to_vec())
+        .map(|(_l, r)| r)
+        .collect_vec();
 
-    let forward_hashes = get_pair_hashes_relevant_to_vocabularies(conn, forward_left_vocab, forward_right_vocab)?;
+    let forward_hashes = get_pair_hashes_relevant_to_vocabularies(
+        conn,
+        forward_left_vocab.clone(),
+        forward_right_vocab,
+    )?;
 
     for ro in orthos_to_right {
-        if old_ortho.get_dims() == ro.get_dims() {
-            up_helper::attempt_up(
-                conn,
-                pair_checker,
-                forward_hashes.clone(),
-                &mut ans,
-                old_ortho.clone(),
-                ro,
-            )?;
-        }
+        up_helper::attempt_up(forward_hashes.clone(), &mut ans, old_ortho.clone(), ro)?;
     }
 
     let mut orthos_to_left = vec![];
     for f in projected_backward {
         for o in ortho_by_origin(conn, &f)? {
-            orthos_to_left.push(o);
+            if old_ortho.get_dims() == o.get_dims() {
+                orthos_to_left.push(o);
+            }
         }
     }
 
-    let backward_left_vocab = orthos_to_left.iter().flat_map(|o| o.to_vec()).map(|(l, r)| r).collect_vec();
+    let backward_left_vocab = orthos_to_left
+        .iter()
+        .flat_map(|o| o.to_vec())
+        .map(|(_l, r)| r)
+        .collect_vec();
     let backward_right_vocab = forward_left_vocab;
-    let backward_hashes = get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
+    let backward_hashes =
+        get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
 
     for lo in orthos_to_left {
-        if old_ortho.get_dims() == lo.get_dims() {
-            up_helper::attempt_up(
-                conn,
-                pair_checker,
-                backward_hashes.clone(),
-                &mut ans,
-                lo,
-                old_ortho.clone(),
-            )?;
-        }
+        up_helper::attempt_up(backward_hashes.clone(), &mut ans, lo, old_ortho.clone())?;
     }
 
     Ok(ans)
@@ -124,15 +125,6 @@ mod tests {
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
-    fn fake_pair_exists(
-        _conn: Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error> {
-        let pairs = hashset! {("a", "b"), ("c", "d"), ("a", "c"), ("b", "d"), ("e", "f"), ("g", "h"), ("e", "g"), ("f", "h"), ("a", "e"), ("b", "f"), ("c", "g"), ("d", "h")};
-        Ok(pairs.contains(&(try_left, try_right)))
-    }
-
     fn fake_ortho_by_origin_three(
         _conn: Option<&PgConnection>,
         o: &str,
@@ -176,16 +168,6 @@ mod tests {
         let mut pairs = btreemap! { "a" => vec![l], "g" => vec![r]};
 
         Ok(pairs.entry(o).or_default().to_owned())
-    }
-
-    fn fake_pair_exists_four(
-        _conn: Option<&PgConnection>,
-        try_left: &str,
-        try_right: &str,
-    ) -> Result<bool, anyhow::Error> {
-        let pairs = hashset! {("a", "b"), ("b", "c"), ("d", "e"), ("e", "f"), ("g", "h"), ("h", "i"), ("j", "k"), ("k", "l"),
-        ("a", "d"), ("b", "e"), ("c", "f"), ("g", "j"), ("h", "k"), ("i", "l"), ("a", "g"), ("b", "h"), ("c", "i"), ("d", "j"), ("e", "k"), ("f", "l")};
-        Ok(pairs.contains(&(try_left, try_right)))
     }
 
     fn fake_pair_hash_db_filter(
@@ -234,7 +216,6 @@ mod tests {
             None,
             left_ortho.clone(),
             fake_ortho_by_origin,
-            fake_pair_exists,
             fake_forward,
             fake_backward,
             fake_pair_hash_db_filter,
@@ -273,7 +254,6 @@ mod tests {
             None,
             right_ortho.clone(),
             fake_ortho_by_origin,
-            fake_pair_exists,
             fake_forward,
             fake_backward,
             fake_pair_hash_db_filter,
@@ -317,7 +297,6 @@ mod tests {
             None,
             l,
             fake_ortho_by_origin_three,
-            fake_pair_exists_four,
             fake_forward,
             fake_backward,
             fake_pair_hash_db_filter,

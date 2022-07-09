@@ -8,7 +8,7 @@ extern crate dotenv;
 use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use itertools::{zip, Itertools};
+
 use schema::{sentences, todos};
 mod book_todo_handler;
 mod ex_nihilo_handler;
@@ -66,13 +66,19 @@ pub fn get_hashes_of_pairs_with_words_in(
         diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(any(first_words))),
         crate::schema::pairs::pair_hash,
     )
-    .load(conn.expect("do not pass a test dummy in production"))?.iter().cloned().collect();
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
 
     let seconds: HashSet<i64> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(pairs, schema::pairs::second_word.eq(any(second_words))),
         crate::schema::pairs::pair_hash,
     )
-    .load(conn.expect("do not pass a test dummy in production"))?.iter().cloned().collect();
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
 
     Ok(firsts.intersection(&seconds).cloned().collect())
 }

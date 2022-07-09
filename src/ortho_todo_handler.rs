@@ -1,7 +1,7 @@
 use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, establish_connection, insert_orthotopes,
+    create_todo_entry, establish_connection, get_hashes_of_pairs_with_words_in, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
     over_on_ortho_found_handler,
@@ -9,8 +9,7 @@ use crate::{
         self,
         orthotopes::{self, id},
     },
-    up_helper::{self},
-    up_on_ortho_found_handler, get_hashes_of_pairs_with_words_in,
+    up_on_ortho_found_handler,
 };
 
 pub(crate) fn handle_ortho_todo(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
@@ -39,7 +38,6 @@ fn new_orthotopes(
         Some(conn),
         old_orthotope.clone(),
         crate::get_ortho_by_origin,
-        up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
         get_hashes_of_pairs_with_words_in,

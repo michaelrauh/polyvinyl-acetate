@@ -6,11 +6,10 @@ use std::{
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
-    ex_nihilo_handler,
+    ex_nihilo_handler, get_hashes_of_pairs_with_words_in,
     models::{NewOrthotope, NewTodo},
-    get_hashes_of_pairs_with_words_in,
     schema::pairs::{dsl::pairs, id},
-    up_handler, up_helper,
+    up_handler,
 };
 use crate::{
     diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
@@ -120,7 +119,6 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         crate::get_ortho_by_origin,
         crate::get_ortho_by_hop,
         crate::get_ortho_by_contents,
-        up_helper::pair_exists,
         get_hashes_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();
