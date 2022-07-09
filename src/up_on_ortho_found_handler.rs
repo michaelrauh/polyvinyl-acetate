@@ -56,7 +56,7 @@ pub(crate) fn up(
     )?;
 
     for ro in orthos_to_right {
-        up_helper::attempt_up(forward_hashes.clone(), &mut ans, old_ortho.clone(), ro)?;
+        up_helper::attempt_up(forward_hashes.clone(), &mut ans, old_ortho.clone(), ro);
     }
 
     let mut orthos_to_left = vec![];
@@ -78,7 +78,7 @@ pub(crate) fn up(
         get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
 
     for lo in orthos_to_left {
-        up_helper::attempt_up(backward_hashes.clone(), &mut ans, lo, old_ortho.clone())?;
+        up_helper::attempt_up(backward_hashes.clone(), &mut ans, lo, old_ortho.clone());
     }
 
     Ok(ans)

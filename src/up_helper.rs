@@ -11,7 +11,7 @@ pub fn attempt_up(
     ans: &mut Vec<Ortho>,
     lo: Ortho,
     ro: Ortho,
-) -> Result<(), anyhow::Error> {
+) {
     let lo_hop = lo.get_hop();
     let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
     let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
@@ -20,16 +20,15 @@ pub fn attempt_up(
             left_mapping.clone(),
             fixed_right_hand.clone(),
             all_pairs.clone(),
-        )? {
+        ) {
             let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-            if mapping_is_complete(all_pairs.clone(), mapping.clone(), lo.clone(), ro.clone())?
+            if mapping_is_complete(all_pairs.clone(), mapping.clone(), lo.clone(), ro.clone())
                 && diagonals_do_not_conflict(lo.clone(), ro.clone())
             {
                 ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
             }
         }
     }
-    Ok(())
 }
 
 fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
@@ -49,30 +48,30 @@ fn mapping_is_complete(
     mapping: BTreeMap<String, String>,
     lo: Ortho,
     ro: Ortho,
-) -> Result<bool, anyhow::Error> {
+) -> bool {
     for (right_location, right_name) in ro.info {
         if right_location.length() > 1 {
             let mapped = right_location.map_location(mapping.clone());
             let left_name = lo.name_at_location(mapped);
             if !all_pairs.contains(&vec_of_strings_to_signed_int(vec![left_name, right_name])) {
-                return Ok(false);
+                return false;
             }
         }
     }
-    Ok(true)
+    true
 }
 
 fn mapping_works(
     left_mapping: Vec<&String>,
     fixed_right_hand: Vec<String>,
     all_pairs: HashSet<i64>,
-) -> Result<bool, anyhow::Error> {
+) -> bool {
     let desired = zip(left_mapping, fixed_right_hand)
         .map(|(try_left, try_right)| {
             vec_of_strings_to_signed_int(vec![try_left.to_string(), try_right])
         })
         .collect::<HashSet<_>>();
-    Ok(desired.is_subset(&all_pairs))
+    desired.is_subset(&all_pairs)
 }
 
 fn make_mapping(

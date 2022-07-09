@@ -45,7 +45,7 @@ pub fn up(
         db_filter(conn, origin_left_vocabulary, origin_right_vocabulary)?.clone();
 
     for (lo, ro) in ortho_origin_pairings {
-        up_helper::attempt_up(origin_filtered_pairs.clone(), &mut ans, lo, ro)?;
+        up_helper::attempt_up(origin_filtered_pairs.clone(), &mut ans, lo, ro);
     }
 
     let hop_left_orthos: Vec<Ortho> =
@@ -83,7 +83,7 @@ pub fn up(
     }
 
     for (lo, ro) in hop_origin_pairings {
-        up_helper::attempt_up(hop_filtered_pairs.clone(), &mut ans, lo, ro)?;
+        up_helper::attempt_up(hop_filtered_pairs.clone(), &mut ans, lo, ro);
     }
 
     let contents_left_orthos: Vec<Ortho> =
@@ -122,7 +122,7 @@ pub fn up(
     }
 
     for (lo, ro) in contents_origin_pairings {
-        up_helper::attempt_up(contents_filtered_pairs.clone(), &mut ans, lo, ro)?;
+        up_helper::attempt_up(contents_filtered_pairs.clone(), &mut ans, lo, ro);
     }
 
     Ok(ans)
