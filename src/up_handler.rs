@@ -5,7 +5,6 @@ use crate::ortho::Ortho;
 use crate::{
     up_helper, vec_of_strings_to_signed_int, FailableStringToOrthoVec, FailableStringVecToOrthoVec,
 };
-use anyhow::Error;
 use diesel::PgConnection;
 
 pub fn up(
@@ -23,12 +22,18 @@ pub fn up(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
 
-    let ortho_origin_pairings: Vec<(Ortho, Ortho)> =
-        get_origin_ortho_pairings(conn, first_w, second_w, ortho_by_origin)?
-            .iter()
-            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-            .cloned()
-            .collect();
+    let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
+    let right_orthos_by_origin: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
+
+    let potential_pairings_by_origin =
+        up_helper::make_potential_pairings(left_orthos_by_origin, right_orthos_by_origin);
+
+    let ortho_origin_pairings: Vec<(Ortho, Ortho)> = potential_pairings_by_origin
+        .iter()
+        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
+        .cloned()
+        .collect();
     let origin_left_vocabulary = ortho_origin_pairings
         .iter()
         .flat_map(|(lo, _ro)| lo.to_vec())
@@ -129,21 +134,6 @@ pub fn up(
     }
 
     Ok(ans)
-}
-
-fn get_origin_ortho_pairings(
-    conn: Option<&PgConnection>,
-    first_w: &str,
-    second_w: &str,
-    ortho_by_origin: fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, Error>,
-) -> Result<Vec<(Ortho, Ortho)>, anyhow::Error> {
-    let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
-    let right_orthos_by_origin: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
-
-    let potential_pairings_by_origin =
-        up_helper::make_potential_pairings(left_orthos_by_origin, right_orthos_by_origin);
-    Ok(potential_pairings_by_origin)
 }
 
 #[cfg(test)]
