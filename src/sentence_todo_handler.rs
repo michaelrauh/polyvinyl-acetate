@@ -59,7 +59,7 @@ fn create_phrases(conn: &PgConnection, sentence: String) -> Result<(), anyhow::E
             other: p.id,
         })
         .collect();
-    create_todo_entry(conn, &to_insert)?;
+    create_todo_entry(conn, to_insert)?;
 
     Ok(())
 }
@@ -125,7 +125,7 @@ fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Err
             other: p.id,
         })
         .collect();
-    create_todo_entry(conn, &to_insert)?;
+    create_todo_entry(conn, to_insert)?;
 
     Ok(())
 }

@@ -22,7 +22,7 @@ pub struct Book {
     pub body: String,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, Clone, PartialEq, Eq, Hash)]
 #[table_name = "todos"]
 pub struct NewTodo {
     pub domain: String,
@@ -66,7 +66,7 @@ pub struct Pair {
     pub pair_hash: i64,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, PartialEq, Eq, Hash, Clone)]
 #[table_name = "orthotopes"]
 pub struct NewOrthotope {
     pub information: Vec<u8>,

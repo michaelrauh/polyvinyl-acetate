@@ -1,7 +1,6 @@
 use crate::{ortho::Ortho, up_helper};
 use anyhow::Error;
 use diesel::PgConnection;
-use itertools::Itertools;
 use std::collections::HashSet;
 
 type FailableStringToOrthoVec =
@@ -15,8 +14,8 @@ pub(crate) fn up(
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     get_pair_hashes_relevant_to_vocabularies: fn(
         conn: Option<&PgConnection>,
-        first_words: Vec<String>,
-        second_words: Vec<String>,
+        first_words: HashSet<String>,
+        second_words: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
@@ -37,17 +36,17 @@ pub(crate) fn up(
         }
     }
 
-    let forward_left_vocab = old_ortho
+    let forward_left_vocab: HashSet<String> = old_ortho
         .to_vec()
         .iter()
         .map(|(_l, r)| r)
         .cloned()
-        .collect_vec();
+        .collect();
     let forward_right_vocab = orthos_to_right
         .iter()
         .flat_map(|o| o.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
 
     let forward_hashes = get_pair_hashes_relevant_to_vocabularies(
         conn,
@@ -72,7 +71,7 @@ pub(crate) fn up(
         .iter()
         .flat_map(|o| o.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
     let backward_right_vocab = forward_left_vocab;
     let backward_hashes =
         get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
@@ -172,8 +171,8 @@ mod tests {
 
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
-        _first_words: Vec<String>,
-        _second_words: Vec<String>,
+        _first_words: HashSet<String>,
+        _second_words: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
             ("a", "b"),

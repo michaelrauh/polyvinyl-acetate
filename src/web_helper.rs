@@ -20,7 +20,7 @@ pub fn create_book(
             domain: "books".to_owned(),
             other: book.id,
         }];
-        create_todo_entry(conn, &to_insert)?;
+        create_todo_entry(conn, to_insert)?;
         Ok(book)
     })
 }

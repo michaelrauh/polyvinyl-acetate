@@ -59,11 +59,15 @@ pub fn establish_connection() -> PgConnection {
 
 pub fn get_hashes_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
-    first_words: Vec<String>,
-    second_words: Vec<String>,
+    first_words: HashSet<String>,
+    second_words: HashSet<String>,
 ) -> Result<HashSet<i64>, anyhow::Error> {
+    
     let firsts: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(any(first_words))),
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
+        ),
         crate::schema::pairs::pair_hash,
     )
     .load(conn.expect("do not pass a test dummy in production"))?
@@ -72,7 +76,10 @@ pub fn get_hashes_of_pairs_with_words_in(
     .collect();
 
     let seconds: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(pairs, schema::pairs::second_word.eq(any(second_words))),
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
+        ),
         crate::schema::pairs::pair_hash,
     )
     .load(conn.expect("do not pass a test dummy in production"))?
@@ -80,18 +87,31 @@ pub fn get_hashes_of_pairs_with_words_in(
     .cloned()
     .collect();
 
+    
     Ok(firsts.intersection(&seconds).cloned().collect())
 }
 
 fn create_todo_entry(
     conn: &PgConnection,
-    to_insert: &[NewTodo],
+    all_todos: Vec<NewTodo>,
 ) -> Result<(), diesel::result::Error> {
-    if !to_insert.is_empty() {
+    
+    if all_todos.is_empty() {
+        return Ok(());
+    }
+
+    let to_insert: Vec<Vec<NewTodo>> = Vec::from_iter(all_todos)
+        .chunks(1000)
+        .map(|x| x.to_vec())
+        .collect();
+
+    for chunk in to_insert {
         diesel::insert_into(todos::table)
-            .values(to_insert)
+            .values(chunk)
             .execute(conn)?;
     }
+
+    
     Ok(())
 }
 
@@ -137,18 +157,33 @@ fn project_backward(
 
 pub fn insert_orthotopes(
     conn: &PgConnection,
-    new_orthos: &[NewOrthotope],
+    new_orthos: HashSet<NewOrthotope>,
 ) -> Result<Vec<Orthotope>, diesel::result::Error> {
-    diesel::insert_into(orthotopes::table)
-        .values(new_orthos)
-        .on_conflict_do_nothing()
-        .get_results(conn)
+    
+    let to_insert: Vec<Vec<NewOrthotope>> = Vec::from_iter(new_orthos)
+        .chunks(1000)
+        .map(|x| x.to_vec())
+        .collect();
+
+    let mut res = vec![];
+    for chunk in to_insert {
+        let chunk_res: Vec<Orthotope> = diesel::insert_into(orthotopes::table)
+            .values(chunk)
+            .on_conflict_do_nothing()
+            .get_results(conn)?;
+        res.push(chunk_res);
+    }
+    let final_res = res.into_iter().flatten().collect();
+
+    
+    Ok(final_res)
 }
 
 pub fn get_ortho_by_origin(
     conn: Option<&PgConnection>,
     o: &str,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
     use crate::schema::orthotopes::{origin, table as orthotopes};
     use diesel::query_dsl::filter_dsl::FilterDsl;
     let results: Vec<Orthotope> = SelectDsl::select(
@@ -161,6 +196,7 @@ pub fn get_ortho_by_origin(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+    
     Ok(res)
 }
 
@@ -183,6 +219,7 @@ fn get_ortho_by_hop(
     conn: Option<&PgConnection>,
     other_hop: Vec<String>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
     use crate::schema::orthotopes::{hop, table as orthotopes};
     let results: Vec<Orthotope> = SelectDsl::select(
         orthotopes.filter(hop.overlaps_with(other_hop)),
@@ -194,6 +231,7 @@ fn get_ortho_by_hop(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+    
     Ok(res)
 }
 
@@ -201,6 +239,7 @@ fn get_ortho_by_contents(
     conn: Option<&PgConnection>,
     other_contents: Vec<String>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
     use crate::schema::orthotopes::{contents, table as orthotopes};
     let results: Vec<Orthotope> = SelectDsl::select(
         orthotopes.filter(contents.overlaps_with(other_contents)),
@@ -212,6 +251,7 @@ fn get_ortho_by_contents(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+    
     Ok(res)
 }
 

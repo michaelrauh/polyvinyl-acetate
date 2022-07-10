@@ -7,7 +7,6 @@ use crate::{
 };
 use anyhow::Error;
 use diesel::PgConnection;
-use itertools::Itertools;
 
 pub fn up(
     conn: Option<&PgConnection>,
@@ -18,8 +17,8 @@ pub fn up(
     ortho_by_contents: FailableStringVecToOrthoVec,
     db_filter: fn(
         conn: Option<&PgConnection>,
-        first_words: Vec<String>,
-        second_words: Vec<String>,
+        first_words: HashSet<String>,
+        second_words: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
@@ -34,12 +33,12 @@ pub fn up(
         .iter()
         .flat_map(|(lo, _ro)| lo.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
     let origin_right_vocabulary = ortho_origin_pairings
         .iter()
         .flat_map(|(_lo, ro)| ro.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
 
     let origin_filtered_pairs =
         db_filter(conn, origin_left_vocabulary, origin_right_vocabulary)?.clone();
@@ -63,12 +62,12 @@ pub fn up(
         .iter()
         .flat_map(|(lo, _ro)| lo.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
     let hop_right_vocabulary = hop_potential_pairings_with_untested_origins
         .iter()
         .flat_map(|(_lo, ro)| ro.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
 
     let hop_filtered_pairs = db_filter(conn, hop_left_vocabulary, hop_right_vocabulary)?.clone();
 
@@ -101,12 +100,12 @@ pub fn up(
         .iter()
         .flat_map(|(lo, _ro)| lo.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
     let contents_right_vocabulary = contents_potential_pairings_with_untested_origins
         .iter()
         .flat_map(|(_lo, ro)| ro.to_vec())
         .map(|(_l, r)| r)
-        .collect_vec();
+        .collect();
 
     let contents_filtered_pairs =
         db_filter(conn, contents_left_vocabulary, contents_right_vocabulary)?.clone();
@@ -345,8 +344,8 @@ mod tests {
 
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
-        _to_filter: Vec<String>,
-        _second: Vec<String>,
+        _to_filter: HashSet<String>,
+        _second: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
             ("a", "b"),
@@ -371,8 +370,8 @@ mod tests {
 
     fn fake_pair_hash_db_filter_two(
         _conn: Option<&PgConnection>,
-        _to_filter: Vec<String>,
-        _second: Vec<String>,
+        _to_filter: HashSet<String>,
+        _second: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
             ("a", "b"),

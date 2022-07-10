@@ -6,12 +6,7 @@ use itertools::{zip, Itertools};
 
 use std::collections::{BTreeMap, HashSet};
 
-pub fn attempt_up(
-    all_pairs: HashSet<i64>,
-    ans: &mut Vec<Ortho>,
-    lo: Ortho,
-    ro: Ortho,
-) {
+pub fn attempt_up(all_pairs: HashSet<i64>, ans: &mut Vec<Ortho>, lo: Ortho, ro: Ortho) {
     let lo_hop = lo.get_hop();
     let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
     let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();

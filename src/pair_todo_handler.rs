@@ -1,5 +1,5 @@
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{hash_map::DefaultHasher, HashSet},
     hash::{Hash, Hasher},
 };
 
@@ -25,7 +25,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes(&conn, pair)?;
-        let inserted_orthos = insert_orthotopes(&conn, &new_orthos)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
             .map(|s| NewTodo {
@@ -33,7 +33,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
                 other: s.id,
             })
             .collect();
-        create_todo_entry(&conn, &todos)?;
+        create_todo_entry(&conn, todos)?;
         Ok(())
     })
 }
@@ -43,6 +43,7 @@ fn single_ffbb(
     first: &str,
     second: &str,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
     let query = format!(
         "SELECT CD.first_word, CD.second_word
         FROM pairs CD
@@ -66,7 +67,7 @@ fn single_ffbb(
             )
         })
         .collect();
-
+    
     Ok(res)
 }
 
@@ -75,6 +76,7 @@ fn single_fbbf(
     first: &str,
     second: &str,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    
     let query = format!(
         "SELECT AC.first_word, AC.second_word
         FROM pairs AC
@@ -100,6 +102,7 @@ fn single_fbbf(
         })
         .collect();
 
+    
     Ok(res)
 }
 

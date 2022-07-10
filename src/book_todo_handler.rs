@@ -19,7 +19,7 @@ pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
                 other: s.id,
             })
             .collect();
-        create_todo_entry(&conn, &todos)?;
+        create_todo_entry(&conn, todos)?;
         Ok(())
     })
 }
