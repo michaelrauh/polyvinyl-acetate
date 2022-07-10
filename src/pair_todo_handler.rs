@@ -43,7 +43,6 @@ fn single_ffbb(
     first: &str,
     second: &str,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    
     let query = format!(
         "SELECT CD.first_word, CD.second_word
         FROM pairs CD
@@ -67,7 +66,7 @@ fn single_ffbb(
             )
         })
         .collect();
-    
+
     Ok(res)
 }
 
@@ -76,7 +75,6 @@ fn single_fbbf(
     first: &str,
     second: &str,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    
     let query = format!(
         "SELECT AC.first_word, AC.second_word
         FROM pairs AC
@@ -102,7 +100,6 @@ fn single_fbbf(
         })
         .collect();
 
-    
     Ok(res)
 }
 

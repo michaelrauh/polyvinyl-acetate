@@ -6,24 +6,27 @@ use itertools::{zip, Itertools};
 
 use std::collections::{BTreeMap, HashSet};
 
-pub fn attempt_up(all_pairs: HashSet<i64>, ans: &mut Vec<Ortho>, lo: Ortho, ro: Ortho) {
+pub fn attempt_up(all_pairs: HashSet<i64>, lo: Ortho, ro: Ortho) -> Vec<Ortho> {
     let lo_hop = lo.get_hop();
-    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
+    let left_hand_coordinate_configurations: Vec<_> =
+        Itertools::permutations(lo_hop.iter(), lo_hop.len()).collect();
     let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
-    for left_mapping in left_hand_coordinate_configurations {
-        if mapping_works(
-            left_mapping.clone(),
-            fixed_right_hand.clone(),
-            all_pairs.clone(),
-        ) {
-            let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-            if mapping_is_complete(all_pairs.clone(), mapping.clone(), lo.clone(), ro.clone())
+    left_hand_coordinate_configurations
+        .iter()
+        .filter(|left_mapping| {
+            mapping_works(
+                left_mapping.to_vec(),
+                fixed_right_hand.clone(),
+                all_pairs.clone(),
+            )
+        })
+        .map(|left_mapping| make_mapping(left_mapping.to_vec(), fixed_right_hand.clone()))
+        .filter(|mapping| {
+            mapping_is_complete(all_pairs.clone(), mapping.clone(), lo.clone(), ro.clone())
                 && diagonals_do_not_conflict(lo.clone(), ro.clone())
-            {
-                ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
-            }
-        }
-    }
+        })
+        .map(|mapping| Ortho::zip_up(lo.clone(), ro.clone(), mapping))
+        .collect()
 }
 
 fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
