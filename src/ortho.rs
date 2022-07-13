@@ -262,6 +262,10 @@ impl Ortho {
             .collect()
     }
 
+    pub(crate) fn get_vocabulary(&self) -> impl Iterator<Item = &String> + '_ {
+        self.info.iter().map(|(_, b)| b)
+    }
+
     pub(crate) fn phrases(&self, shift_axis: String) -> Vec<Vec<String>> {
         let length = self.axis_length(&shift_axis);
         self.info
