@@ -1,4 +1,5 @@
 use anyhow::Error;
+use itertools::iproduct;
 use std::collections::HashSet;
 
 use crate::ortho::Ortho;
@@ -27,18 +28,28 @@ pub fn up(
     let right_orthos_by_origin: Vec<Ortho> =
         up_helper::filter_base(ortho_by_origin(conn, second_w)?);
 
-    let potential_pairings_by_origin =
-        up_helper::make_potential_pairings(left_orthos_by_origin, right_orthos_by_origin);
-
-    let ortho_origin_pairings: Vec<(Ortho, Ortho)> = potential_pairings_by_origin
+    let origin_left_vocabulary = left_orthos_by_origin
         .iter()
-        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-        .cloned()
+        .flat_map(|lo| lo.to_vec())
+        .map(|(_l, r)| r)
         .collect();
-    let origin_filtered_pairs = get_relevant_pair_hashes(conn, db_filter, &ortho_origin_pairings)?;
+    let origin_right_vocabulary = right_orthos_by_origin
+        .iter()
+        .flat_map(|ro| ro.to_vec())
+        .map(|(_l, r)| r)
+        .collect();
 
-    for (lo, ro) in ortho_origin_pairings {
-        ans.extend(up_helper::attempt_up(origin_filtered_pairs.clone(), lo, ro));
+    let origin_filtered_pairs =
+        db_filter(conn, origin_left_vocabulary, origin_right_vocabulary)?.clone();
+
+    for (lo, ro) in iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
+        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
+    {
+        ans.extend(up_helper::attempt_up(
+            origin_filtered_pairs.clone(),
+            lo.to_owned(),
+            ro.to_owned(),
+        )); // remove clone later
     }
 
     let hop_left_orthos: Vec<Ortho> =
@@ -46,57 +57,24 @@ pub fn up(
     let hop_right_orthos: Vec<Ortho> =
         up_helper::filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
 
-    let hop_potential_pairings_with_untested_origins: Vec<(Ortho, Ortho)> =
-        up_helper::make_potential_pairings(hop_left_orthos, hop_right_orthos)
-            .iter()
-            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-            .cloned()
-            .collect();
+    let hop_left_vocabulary = hop_left_orthos
+        .iter()
+        .flat_map(|lo| lo.to_vec()) // stop to vec - make a get vocab
+        .map(|(_l, r)| r)
+        .collect();
+    let hop_right_vocabulary = hop_right_orthos
+        .iter()
+        .flat_map(|ro| ro.to_vec())
+        .map(|(_l, r)| r)
+        .collect();
 
-    let hop_filtered_pairs = get_relevant_pair_hashes(conn, db_filter, &hop_potential_pairings_with_untested_origins)?;
-    let hop_origin_pairings = filter_untested_pairings(
-        hop_potential_pairings_with_untested_origins,
-        &hop_filtered_pairs,
-    );
+    let hop_filtered_pairs = db_filter(conn, hop_left_vocabulary, hop_right_vocabulary)?.clone();
 
-    for (lo, ro) in hop_origin_pairings {
-        ans.extend(up_helper::attempt_up(hop_filtered_pairs.clone(), lo, ro));
-    }
+    let hop_potential_pairings_with_untested_origins =
+        iproduct!(hop_left_orthos.iter(), hop_right_orthos.iter())
+            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
 
-    let contents_left_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
-    let contents_right_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![second_w.to_string()])?);
-
-    let contents_potential_pairings_with_untested_origins: Vec<(Ortho, Ortho)> =
-        up_helper::make_potential_pairings(contents_left_orthos, contents_right_orthos)
-            .iter()
-            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-            .cloned()
-            .collect();
-    let contents_filtered_pairs =
-        get_relevant_pair_hashes(conn, db_filter, &contents_potential_pairings_with_untested_origins)?;
-
-    let contents_origin_pairings = filter_untested_pairings(
-        contents_potential_pairings_with_untested_origins,
-        &contents_filtered_pairs,
-    );
-
-    for (lo, ro) in contents_origin_pairings {
-        ans.extend(up_helper::attempt_up(
-            contents_filtered_pairs.clone(),
-            lo,
-            ro,
-        ));
-    }
-
-    Ok(ans)
-}
-
-fn filter_untested_pairings(
-    hop_potential_pairings_with_untested_origins: Vec<(Ortho, Ortho)>,
-    hop_filtered_pairs: &HashSet<i64>,
-) -> Vec<(Ortho, Ortho)> {
+    let hop_filtered_pairs = &hop_filtered_pairs;
     let mut hop_origin_pairings = vec![];
     for (l, r) in hop_potential_pairings_with_untested_origins {
         if hop_filtered_pairs.contains(&vec_of_strings_to_signed_int(vec![
@@ -106,32 +84,58 @@ fn filter_untested_pairings(
             hop_origin_pairings.push((l, r))
         }
     }
-    hop_origin_pairings
-}
 
-fn get_relevant_pair_hashes(
-    conn: Option<&PgConnection>,
-    db_filter: fn(
-        Option<&PgConnection>,
-        HashSet<String>,
-        HashSet<String>,
-    ) -> Result<HashSet<i64>, Error>,
-    ortho_origin_pairings: &Vec<(Ortho, Ortho)>,
-) -> Result<HashSet<i64>, anyhow::Error>{
-    let origin_left_vocabulary = ortho_origin_pairings
+    for (lo, ro) in hop_origin_pairings {
+        ans.extend(up_helper::attempt_up(
+            hop_filtered_pairs.clone(),
+            lo.to_owned(),
+            ro.to_owned(),
+        ));
+    }
+
+    let contents_left_orthos: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
+    let contents_right_orthos: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_contents(conn, vec![second_w.to_string()])?);
+
+    let contents_potential_pairings_with_untested_origins =
+        iproduct!(contents_left_orthos.iter(), contents_right_orthos.iter())
+            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
+
+    let contents_left_vocabulary: HashSet<String> = contents_left_orthos
         .iter()
-        .flat_map(|(lo, _ro)| lo.to_vec())
+        .flat_map(|lo| lo.to_vec())
         .map(|(_l, r)| r)
         .collect();
-    let origin_right_vocabulary = ortho_origin_pairings
+    let contents_right_vocabulary: HashSet<String> = contents_right_orthos
         .iter()
-        .flat_map(|(_lo, ro)| ro.to_vec())
+        .flat_map(|ro| ro.to_vec())
         .map(|(_l, r)| r)
         .collect();
 
-    let origin_filtered_pairs =
-        db_filter(conn, origin_left_vocabulary, origin_right_vocabulary)?.clone();
-    Ok(origin_filtered_pairs)
+    let contents_filtered_pairs =
+        db_filter(conn, contents_left_vocabulary, contents_right_vocabulary)?.clone();
+
+    let mut contents_origin_pairings = vec![];
+    for (l, r) in contents_potential_pairings_with_untested_origins {
+        if contents_filtered_pairs.contains(&vec_of_strings_to_signed_int(vec![
+            l.get_origin(),
+            r.get_origin(),
+        ])) {
+            contents_origin_pairings.push((l, r))
+        }
+    }
+
+    for (lo, ro) in contents_origin_pairings {
+        // since this is infallible it can be a flatmap. explore chaining. think about dumping inputs somehow
+        ans.extend(up_helper::attempt_up(
+            contents_filtered_pairs.clone(),
+            lo.to_owned(),
+            ro.to_owned(),
+        ));
+    }
+
+    Ok(ans)
 }
 
 #[cfg(test)]
