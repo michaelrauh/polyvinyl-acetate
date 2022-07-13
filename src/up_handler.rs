@@ -36,7 +36,7 @@ pub fn up(
     let origin_results = iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
         .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
         .flat_map(|(lo, ro)| {
-            up_helper::attempt_up(origin_filtered_pairs.clone(), lo.to_owned(), ro.to_owned())
+            up_helper::attempt_up(origin_filtered_pairs.clone(), lo.to_owned(), ro.to_owned()) // pass refs instead
         });
 
     let hop_left_orthos: Vec<Ortho> =

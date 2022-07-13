@@ -172,7 +172,11 @@ impl Ortho {
             .collect();
         let combined: BTreeMap<Location, String> =
             l.info.into_iter().chain(shifted_right).collect();
-        Ortho { info: combined }
+        let res = Ortho { info: combined };
+        if !res.is_base() {
+            panic!();
+        }
+        res
     }
 
     pub(crate) fn name_at_location(&self, location: Location) -> String {
