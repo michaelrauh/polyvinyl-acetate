@@ -18,7 +18,7 @@ pub(crate) fn up(
         second_words: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    if !old_ortho.is_base() {
+    if !old_ortho.is_base() { // todo come back to here to performance adjust
         return Ok(vec![]);
     }
 
@@ -55,11 +55,7 @@ pub(crate) fn up(
     )?;
 
     for ro in orthos_to_right {
-        ans.extend(up_helper::attempt_up(
-            forward_hashes.clone(),
-            old_ortho.clone(),
-            ro,
-        ));
+        ans.extend(up_helper::attempt_up(&forward_hashes, &old_ortho, &ro));
     }
 
     let mut orthos_to_left = vec![];
@@ -81,11 +77,7 @@ pub(crate) fn up(
         get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
 
     for lo in orthos_to_left {
-        ans.extend(up_helper::attempt_up(
-            backward_hashes.clone(),
-            lo,
-            old_ortho.clone(),
-        ));
+        ans.extend(up_helper::attempt_up(&backward_hashes, &lo, &old_ortho));
     }
 
     Ok(ans)
@@ -93,7 +85,7 @@ pub(crate) fn up(
 
 #[cfg(test)]
 mod tests {
-    use crate::{ortho::Ortho, up_on_ortho_found_handler::up, vec_of_strings_to_signed_int};
+    use crate::{ortho::Ortho, string_refs_to_signed_int, up_on_ortho_found_handler::up};
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
@@ -198,7 +190,7 @@ mod tests {
         ];
         let res = pairs
             .iter()
-            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .map(|(l, r)| string_refs_to_signed_int(&l.to_string(), &r.to_string()))
             .collect();
         Ok(res)
     }
@@ -229,9 +221,9 @@ mod tests {
         )
         .unwrap();
         let expected = Ortho::zip_up(
-            left_ortho,
-            right_ortho,
-            btreemap! {
+            &left_ortho,
+            &right_ortho,
+            &btreemap! {
                 "e".to_string() => "a".to_string(),
                 "f".to_string() => "b".to_string(),
                 "g".to_string() => "c".to_string()
@@ -267,9 +259,9 @@ mod tests {
         )
         .unwrap();
         let expected = Ortho::zip_up(
-            left_ortho,
-            right_ortho,
-            btreemap! {
+            &left_ortho,
+            &right_ortho,
+            &btreemap! {
                 "e".to_string() => "a".to_string(),
                 "f".to_string() => "b".to_string(),
                 "g".to_string() => "c".to_string()

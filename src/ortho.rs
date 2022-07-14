@@ -10,13 +10,13 @@ pub struct Ortho {
 }
 
 impl Ortho {
-    pub(crate) fn get_origin(&self) -> String {
+    pub(crate) fn get_origin(&self) -> &String {
         let (_k, v) = self
             .info
             .iter()
             .find(|(k, _v)| k.length() == 0)
             .expect("all orthos should have an origin");
-        v.to_string()
+        v
     }
 
     pub(crate) fn get_hop(&self) -> HashSet<String> {
@@ -156,27 +156,23 @@ impl Ortho {
     }
 
     pub(crate) fn zip_up(
-        l: Ortho,
-        r: Ortho,
-        old_axis_to_new_axis: BTreeMap<String, String>,
+        l: &Ortho,
+        r: &Ortho,
+        old_axis_to_new_axis: &BTreeMap<String, String>,
     ) -> Ortho {
         let shift_axis = r.get_origin();
         let right_with_lefts_coordinate_system: BTreeMap<Location, String> = r
             .info
             .iter()
-            .map(|(k, v)| (k.map_location(old_axis_to_new_axis.clone()), v.to_owned()))
+            .map(|(k, v)| (k.map_location(&old_axis_to_new_axis), v.to_owned()))
             .collect();
         let shifted_right: BTreeMap<Location, String> = right_with_lefts_coordinate_system
             .iter()
             .map(|(k, v)| (k.shift_location(shift_axis.clone()), v.to_owned()))
             .collect();
         let combined: BTreeMap<Location, String> =
-            l.info.into_iter().chain(shifted_right).collect();
-        let res = Ortho { info: combined };
-        if !res.is_base() {
-            panic!();
-        }
-        res
+            l.info.clone().into_iter().chain(shifted_right).collect();
+        Ortho { info: combined }
     }
 
     pub(crate) fn name_at_location(&self, location: Location) -> String {
@@ -226,7 +222,7 @@ impl Ortho {
             .collect();
         let mapped = shifted
             .iter()
-            .map(|(k, v)| (k.map_location(mapping.clone()), v.to_string()));
+            .map(|(k, v)| (k.map_location(&mapping), v.to_string()));
         let combined: BTreeMap<Location, String> = l.info.into_iter().chain(mapped).collect();
 
         Ortho { info: combined }
@@ -274,7 +270,7 @@ impl Ortho {
         let length = self.axis_length(&shift_axis);
         self.info
             .iter()
-            .filter(|(loc, _name)| loc.does_not_have_axis(shift_axis.clone()))
+            .filter(|(loc, _name)| loc.does_not_have_axis(&shift_axis))
             .map(|(loc, _name)| self.extract_phrase_along(shift_axis.clone(), length, loc))
             .collect()
     }
@@ -392,7 +388,7 @@ mod tests {
             "c".to_string(),
             "d".to_string(),
         );
-        assert_eq!(example_ortho.get_origin(), "a".to_string());
+        assert_eq!(example_ortho.get_origin(), &"a".to_string());
     }
 
     #[test]
@@ -556,7 +552,7 @@ mod tests {
             "g".to_string() => "c".to_string()
         };
 
-        let actual = Ortho::zip_up(l, r, mapping).info;
+        let actual = Ortho::zip_up(&l, &r, &mapping).info;
         let expected = btreemap! {
             Location { info: btreemap!{} } => "a".to_string(),
             Location { info: btreemap!{"b".to_string() => 1} } => "b".to_string(),
@@ -708,7 +704,7 @@ mod tests {
             "g".to_string() => "c".to_string()
         };
 
-        let up_zipped = Ortho::zip_up(l_up, r_up, mapping);
+        let up_zipped = Ortho::zip_up(&l_up, &r_up, &mapping);
 
         assert_eq!(l.is_base(), true);
         assert_eq!(over_zipped.is_base(), false);
@@ -761,7 +757,7 @@ impl Location {
         self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
     }
 
-    pub fn map_location(&self, old_axis_to_new_axis: BTreeMap<String, String>) -> Location {
+    pub fn map_location(&self, old_axis_to_new_axis: &BTreeMap<String, String>) -> Location {
         Location {
             info: self
                 .info
@@ -827,11 +823,11 @@ impl Location {
         Location { info: btreemap! {} }
     }
 
-    fn does_not_have_axis(&self, shift_axis: String) -> bool {
-        !self.info.contains_key(&shift_axis)
+    fn does_not_have_axis(&self, shift_axis: &String) -> bool {
+        !self.info.contains_key(shift_axis)
     }
 
-    fn subtract_adjacent_for_single_axis_name(&self, other: Location) -> String {
+    fn subtract_adjacent_for_single_axis_name(&self, other: Location) -> String { // todo come back to that
         self.info
             .clone()
             .into_iter()

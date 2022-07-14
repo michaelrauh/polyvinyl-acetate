@@ -9,11 +9,11 @@ pub fn ex_nihilo(
     ffbber: fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>,
     fbbfer: fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let ffbb: Vec<Ortho> = ffbber(conn, first, second)?;
-    let fbbf = fbbfer(conn, first, second)?;
+    let mut ffbb: Vec<Ortho> = ffbber(conn, first, second)?;
+    let mut fbbf: Vec<Ortho> = fbbfer(conn, first, second)?;
 
-    let res = Vec::from_iter(ffbb.iter().chain(fbbf.iter()).cloned());
-    Ok(res)
+    ffbb.append(&mut fbbf);
+    Ok(ffbb)
 }
 
 #[cfg(test)]

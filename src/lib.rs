@@ -40,10 +40,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-extern crate flame;
-#[macro_use]
-extern crate flamer;
-
 type FailableStringVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
 type FailableStringToOrthoVec =
@@ -120,6 +116,13 @@ pub fn string_to_signed_int(t: &str) -> i64 {
 pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
     let mut hasher = DefaultHasher::new();
     v.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
+pub fn string_refs_to_signed_int(l: &String, r: &String) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    l.hash(&mut hasher);
+    r.hash(&mut hasher);
     hasher.finish() as i64
 }
 
@@ -201,7 +204,7 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
     NewOrthotope {
         information,
-        origin,
+        origin: origin.to_owned(),
         hop,
         contents,
         info_hash,

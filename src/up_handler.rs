@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use crate::ortho::Ortho;
 
 use crate::{
-    up_helper, vec_of_strings_to_signed_int, FailableStringToOrthoVec, FailableStringVecToOrthoVec,
+    string_refs_to_signed_int, up_helper, FailableStringToOrthoVec, FailableStringVecToOrthoVec,
 };
 use diesel::PgConnection;
 
@@ -35,9 +35,7 @@ pub fn up(
 
     let origin_results = iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
         .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-        .flat_map(|(lo, ro)| {
-            up_helper::attempt_up(origin_filtered_pairs.clone(), lo.to_owned(), ro.to_owned()) // pass refs instead
-        });
+        .flat_map(|(lo, ro)| up_helper::attempt_up(&origin_filtered_pairs, lo, ro));
 
     let hop_left_orthos: Vec<Ortho> =
         up_helper::filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
@@ -56,13 +54,8 @@ pub fn up(
         &hop_filtered_pairs,
     );
 
-    let hop_results = hop_origin_pairings.flat_map(|(lo, ro)| {
-        up_helper::attempt_up(
-            hop_filtered_pairs.clone(),
-            lo.to_owned().to_owned(),
-            ro.to_owned().to_owned(),
-        )
-    });
+    let hop_results =
+        hop_origin_pairings.flat_map(|(lo, ro)| up_helper::attempt_up(&hop_filtered_pairs, lo, ro));
 
     let contents_left_orthos: Vec<Ortho> =
         up_helper::filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
@@ -85,13 +78,8 @@ pub fn up(
         &contents_filtered_pairs,
     );
 
-    let contents_results = contents_origin_pairings.flat_map(|(lo, ro)| {
-        up_helper::attempt_up(
-            contents_filtered_pairs.clone(),
-            lo.to_owned().to_owned(),
-            ro.to_owned().to_owned(),
-        )
-    });
+    let contents_results = contents_origin_pairings
+        .flat_map(|(lo, ro)| up_helper::attempt_up(&contents_filtered_pairs, lo, ro));
 
     Ok(origin_results
         .chain(hop_results)
@@ -104,10 +92,10 @@ fn get_valid_pairings<'a>(
     hop_filtered_pairs: &'a HashSet<i64>,
 ) -> impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a {
     hop_potential_pairings_with_untested_origins.filter_map(|(lo, ro)| {
-        if hop_filtered_pairs.contains(&vec_of_strings_to_signed_int(vec![
-            lo.get_origin(),
-            ro.get_origin(),
-        ])) {
+        if hop_filtered_pairs.contains(&string_refs_to_signed_int(
+            &lo.get_origin(),
+            &ro.get_origin(),
+        )) {
             Some((lo, ro))
         } else {
             None
@@ -144,8 +132,9 @@ fn get_relevant_pairs(
 mod tests {
     use std::collections::HashSet;
 
+    use crate::ortho::Ortho;
+    use crate::string_refs_to_signed_int;
     use crate::up_handler::up;
-    use crate::{ortho::Ortho, vec_of_strings_to_signed_int};
     use diesel::PgConnection;
     use maplit::btreemap;
 
@@ -199,9 +188,9 @@ mod tests {
         );
 
         let combined = Ortho::zip_up(
-            l_one,
-            r_one,
-            btreemap! { "j".to_string() => "f".to_string(), "k".to_string() => "g".to_string() },
+            &l_one,
+            &r_one,
+            &btreemap! { "j".to_string() => "f".to_string(), "k".to_string() => "g".to_string() },
         );
 
         let mut pairs = btreemap! { "a" => vec![single], "e" => vec![combined]};
@@ -361,7 +350,7 @@ mod tests {
         ];
         let res = pairs
             .iter()
-            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .map(|(l, r)| string_refs_to_signed_int(&l.to_string(), &r.to_string()))
             .collect();
         Ok(res)
     }
@@ -386,7 +375,7 @@ mod tests {
         ];
         let res = pairs
             .iter()
-            .map(|(l, r)| vec_of_strings_to_signed_int(vec![l.to_string(), r.to_string()]))
+            .map(|(l, r)| string_refs_to_signed_int(&l.to_string(), &r.to_string()))
             .collect();
         Ok(res)
     }
@@ -404,19 +393,19 @@ mod tests {
         )
         .unwrap();
         let expected = Ortho::zip_up(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "e".to_string(),
                 "f".to_string(),
                 "g".to_string(),
                 "h".to_string(),
             ),
-            btreemap! {
+            &btreemap! {
                 "e".to_string() => "a".to_string(),
                 "f".to_string() => "b".to_string(),
                 "g".to_string() => "c".to_string()
@@ -505,19 +494,19 @@ mod tests {
         .unwrap();
 
         let expected = Ortho::zip_up(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "e".to_string(),
                 "f".to_string(),
                 "g".to_string(),
                 "h".to_string(),
             ),
-            btreemap! {
+            &btreemap! {
                 "e".to_string() => "a".to_string(),
                 "f".to_string() => "b".to_string(),
                 "g".to_string() => "c".to_string()
@@ -542,19 +531,19 @@ mod tests {
         .unwrap();
 
         let expected = Ortho::zip_up(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "e".to_string(),
                 "f".to_string(),
                 "g".to_string(),
                 "h".to_string(),
             ),
-            btreemap! {
+            &btreemap! {
                 "e".to_string() => "a".to_string(),
                 "f".to_string() => "b".to_string(),
                 "g".to_string() => "c".to_string()

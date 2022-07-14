@@ -232,7 +232,7 @@ fn mapping_works(
         if location.count_axis(origin_shift_axis) == shift_axis_length {
             continue;
         }
-        let mapped = location.map_location(mapping.clone());
+        let mapped = location.map_location(&mapping);
         let augmented = mapped.add(origin_lhs_known_mapping_member.to_string());
         let name_at_location = lo.name_at_location(augmented);
 

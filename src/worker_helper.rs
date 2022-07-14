@@ -15,6 +15,5 @@ pub fn handle_todo(todo: Todo) -> amiquip::Result<(), anyhow::Error> {
             panic!("getting unexpected todo with domain: {other}")
         }
     };
-    flame::dump_stdout();
     res
 }
