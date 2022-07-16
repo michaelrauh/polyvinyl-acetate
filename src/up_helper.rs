@@ -16,7 +16,7 @@ pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho
                 &all_pairs,
             )
         })
-        .map(|left_mapping| make_mapping(left_mapping.to_vec(), fixed_right_hand.clone()))
+        .map(|left_mapping| make_mapping(left_mapping, fixed_right_hand.clone()))
         .filter(|mapping| {
             diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
         })
