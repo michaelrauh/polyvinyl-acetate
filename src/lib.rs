@@ -5,8 +5,10 @@ pub mod schema;
 extern crate diesel;
 extern crate dotenv;
 
+use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+
 use schema::{sentences, todos};
 mod book_todo_handler;
 mod ex_nihilo_handler;
@@ -38,10 +40,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-extern crate flame;
-#[macro_use]
-extern crate flamer;
-
 type FailableStringVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
 type FailableStringToOrthoVec =
@@ -55,15 +53,57 @@ pub fn establish_connection() -> PgConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
+pub fn get_hashes_of_pairs_with_words_in(
+    conn: Option<&PgConnection>,
+    first_words: HashSet<String>,
+    second_words: HashSet<String>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    let firsts: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
+        ),
+        crate::schema::pairs::pair_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    let seconds: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
+        ),
+        crate::schema::pairs::pair_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
 fn create_todo_entry(
     conn: &PgConnection,
-    to_insert: &[NewTodo],
+    all_todos: Vec<NewTodo>,
 ) -> Result<(), diesel::result::Error> {
-    if !to_insert.is_empty() {
+    if all_todos.is_empty() {
+        return Ok(());
+    }
+
+    let to_insert: Vec<Vec<NewTodo>> = Vec::from_iter(all_todos)
+        .chunks(1000)
+        .map(|x| x.to_vec())
+        .collect();
+
+    for chunk in to_insert {
         diesel::insert_into(todos::table)
-            .values(to_insert)
+            .values(chunk)
             .execute(conn)?;
     }
+
     Ok(())
 }
 
@@ -76,6 +116,13 @@ pub fn string_to_signed_int(t: &str) -> i64 {
 pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
     let mut hasher = DefaultHasher::new();
     v.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
+pub fn string_refs_to_signed_int(l: &String, r: &String) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    l.hash(&mut hasher);
+    r.hash(&mut hasher);
     hasher.finish() as i64
 }
 
@@ -109,12 +156,24 @@ fn project_backward(
 
 pub fn insert_orthotopes(
     conn: &PgConnection,
-    new_orthos: &[NewOrthotope],
+    new_orthos: HashSet<NewOrthotope>,
 ) -> Result<Vec<Orthotope>, diesel::result::Error> {
-    diesel::insert_into(orthotopes::table)
-        .values(new_orthos)
-        .on_conflict_do_nothing()
-        .get_results(conn)
+    let to_insert: Vec<Vec<NewOrthotope>> = Vec::from_iter(new_orthos)
+        .chunks(1000)
+        .map(|x| x.to_vec())
+        .collect();
+
+    let mut res = vec![];
+    for chunk in to_insert {
+        let chunk_res: Vec<Orthotope> = diesel::insert_into(orthotopes::table)
+            .values(chunk)
+            .on_conflict_do_nothing()
+            .get_results(conn)?;
+        res.push(chunk_res);
+    }
+    let final_res = res.into_iter().flatten().collect();
+
+    Ok(final_res)
 }
 
 pub fn get_ortho_by_origin(
@@ -133,6 +192,7 @@ pub fn get_ortho_by_origin(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+
     Ok(res)
 }
 
@@ -144,7 +204,7 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
     NewOrthotope {
         information,
-        origin,
+        origin: origin.to_owned(),
         hop,
         contents,
         info_hash,
@@ -166,6 +226,7 @@ fn get_ortho_by_hop(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+
     Ok(res)
 }
 
@@ -184,6 +245,7 @@ fn get_ortho_by_contents(
         .iter()
         .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
         .collect();
+
     Ok(res)
 }
 

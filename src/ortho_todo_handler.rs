@@ -1,7 +1,9 @@
+use std::collections::HashSet;
+
 use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, establish_connection, insert_orthotopes,
+    create_todo_entry, establish_connection, get_hashes_of_pairs_with_words_in, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope},
     ortho::Ortho,
     over_on_ortho_found_handler,
@@ -9,7 +11,6 @@ use crate::{
         self,
         orthotopes::{self, id},
     },
-    up_helper::{self},
     up_on_ortho_found_handler,
 };
 
@@ -18,7 +19,7 @@ pub(crate) fn handle_ortho_todo(todo: crate::models::Todo) -> Result<(), anyhow:
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
         let new_orthos = new_orthotopes(&conn, old_orthotope)?;
-        let inserted_orthos = insert_orthotopes(&conn, &new_orthos)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
             .map(|s| NewTodo {
@@ -26,7 +27,7 @@ pub(crate) fn handle_ortho_todo(todo: crate::models::Todo) -> Result<(), anyhow:
                 other: s.id,
             })
             .collect();
-        create_todo_entry(&conn, &todos)?;
+        create_todo_entry(&conn, todos)?;
         Ok(())
     })
 }
@@ -39,9 +40,9 @@ fn new_orthotopes(
         Some(conn),
         old_orthotope.clone(),
         crate::get_ortho_by_origin,
-        up_helper::pair_exists,
         crate::project_forward,
         crate::project_backward,
+        get_hashes_of_pairs_with_words_in,
     )?;
 
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over(

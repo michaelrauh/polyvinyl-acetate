@@ -1,16 +1,15 @@
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{hash_map::DefaultHasher, HashSet},
     hash::{Hash, Hasher},
 };
 
-use crate::{insert_orthotopes, ortho::Ortho, models::ExNihilo};
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
-    ex_nihilo_handler,
+    ex_nihilo_handler, get_hashes_of_pairs_with_words_in,
     models::{NewOrthotope, NewTodo},
     schema::pairs::{dsl::pairs, id},
-    up_handler, up_helper,
+    up_handler,
 };
 use crate::{
     diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
@@ -18,14 +17,15 @@ use crate::{
     models::{Pair, Todo},
     schema,
 };
-use diesel::{PgConnection, sql_query};
+use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
+use diesel::{sql_query, PgConnection};
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes(&conn, pair)?;
-        let inserted_orthos = insert_orthotopes(&conn, &new_orthos)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
             .map(|s| NewTodo {
@@ -33,7 +33,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
                 other: s.id,
             })
             .collect();
-        create_todo_entry(&conn, &todos)?;
+        create_todo_entry(&conn, todos)?;
         Ok(())
     })
 }
@@ -78,8 +78,8 @@ fn single_fbbf(
     let query = format!(
         "SELECT AC.first_word, AC.second_word
         FROM pairs AC
-        INNER JOIN pairs AB ON AC.first_word_hash=AB.first_word_hash AND AB.second_word_hash<>AC.second_word_hash
-        INNER JOIN pairs CD ON AC.second_word_hash=CD.first_word_hash 
+        INNER JOIN pairs AB ON AC.first_word=AB.first_word AND AB.second_word<>AC.second_word
+        INNER JOIN pairs CD ON AC.second_word=CD.first_word 
         WHERE AB.second_word='{}'
         AND CD.second_word='{}';",
         first, second
@@ -103,7 +103,6 @@ fn single_fbbf(
     Ok(res)
 }
 
-
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(
         Some(conn),
@@ -120,7 +119,7 @@ fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, 
         crate::get_ortho_by_origin,
         crate::get_ortho_by_hop,
         crate::get_ortho_by_contents,
-        up_helper::pair_exists,
+        get_hashes_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();
     let both = nihilo_iter.chain(up_iter);

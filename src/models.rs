@@ -22,7 +22,7 @@ pub struct Book {
     pub body: String,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, Clone, PartialEq, Eq, Hash)]
 #[table_name = "todos"]
 pub struct NewTodo {
     pub domain: String,
@@ -55,8 +55,7 @@ pub struct Sentence {
 pub struct NewPair {
     pub first_word: String,
     pub second_word: String,
-    pub first_word_hash: i64,
-    pub second_word_hash: i64,
+    pub pair_hash: i64,
 }
 
 #[derive(Queryable, Debug)]
@@ -64,11 +63,10 @@ pub struct Pair {
     pub id: i32,
     pub first_word: String,
     pub second_word: String,
-    pub first_word_hash: i64,
-    pub second_word_hash: i64,
+    pub pair_hash: i64,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, PartialEq, Eq, Hash, Clone)]
 #[table_name = "orthotopes"]
 pub struct NewOrthotope {
     pub information: Vec<u8>,

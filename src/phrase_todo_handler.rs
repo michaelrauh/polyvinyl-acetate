@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use diesel::PgConnection;
 
 use crate::diesel::ExpressionMethods;
@@ -19,7 +21,7 @@ pub(crate) fn handle_phrase_todo(todo: crate::models::Todo) -> Result<(), anyhow
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes(&conn, phrase)?;
-        let inserted_orthos = insert_orthotopes(&conn, &new_orthos)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
             .map(|s| NewTodo {
@@ -27,7 +29,7 @@ pub(crate) fn handle_phrase_todo(todo: crate::models::Todo) -> Result<(), anyhow
                 other: s.id,
             })
             .collect();
-        create_todo_entry(&conn, &todos)?;
+        create_todo_entry(&conn, todos)?;
         Ok(())
     })
 }

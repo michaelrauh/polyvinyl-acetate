@@ -1,50 +1,33 @@
-use crate::ortho::Ortho;
-use crate::schema::pairs::{first_word, second_word, table as pairs};
-use diesel::dsl::exists;
-use diesel::query_dsl::filter_dsl::FilterDsl;
-use diesel::{BoolExpressionMethods, ExpressionMethods, PgConnection, RunQueryDsl};
+use crate::{ortho::Ortho, string_refs_to_signed_int};
+
 use itertools::{zip, Itertools};
-use std::collections::BTreeMap;
 
-pub type FailableBoolOnPair =
-    fn(Option<&PgConnection>, try_left: &str, try_right: &str) -> Result<bool, anyhow::Error>;
+use std::collections::{BTreeMap, HashSet};
 
-pub fn attempt_up(
-    conn: Option<&PgConnection>,
-    pair_checker: FailableBoolOnPair,
-    ans: &mut Vec<Ortho>,
-    lo: Ortho,
-    ro: Ortho,
-) -> Result<(), anyhow::Error> {
-    if lo.get_dims() == ro.get_dims() {
-        let lo_hop = lo.get_hop();
-        let left_hand_coordinate_configurations =
-            Itertools::permutations(lo_hop.iter(), lo_hop.len());
-        let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
-        for left_mapping in left_hand_coordinate_configurations {
-            if mapping_works(
-                conn,
-                pair_checker,
-                left_mapping.clone(),
-                fixed_right_hand.clone(),
-            )? {
-                let mapping = make_mapping(left_mapping, fixed_right_hand.clone());
-                if mapping_is_complete(conn, pair_checker, mapping.clone(), lo.clone(), ro.clone())?
-                    && diagonals_do_not_conflict(lo.clone(), ro.clone())
-                {
-                    ans.push(Ortho::zip_up(lo.clone(), ro.clone(), mapping));
-                }
-            }
-        }
-    }
-    Ok(())
+pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
+    let lo_hop = lo.get_hop();
+    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
+    let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+    left_hand_coordinate_configurations
+        .filter(|left_mapping| {
+            mapping_works(
+                left_mapping,
+                &fixed_right_hand,
+                &all_pairs,
+            )
+        })
+        .map(|left_mapping| make_mapping(left_mapping.to_vec(), fixed_right_hand.clone()))
+        .filter(|mapping| {
+            diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
+        })
+        .map(|mapping| Ortho::zip_up(lo, ro, &mapping)) 
+        .collect()
 }
 
-fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
-    for dist in 0..lo.get_dimensionality() + 1 {
-        let lns = lo.get_names_at_distance(dist);
+fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
+    for dist in 0..lo.get_dimensionality() {
+        let lns = lo.get_names_at_distance(dist + 1);
         let rns = ro.get_names_at_distance(dist);
-
         if !lns.is_disjoint(&rns) {
             return false;
         }
@@ -53,36 +36,31 @@ fn diagonals_do_not_conflict(lo: Ortho, ro: Ortho) -> bool {
 }
 
 fn mapping_is_complete(
-    conn: Option<&PgConnection>,
-    pair_checker: FailableBoolOnPair,
-    mapping: BTreeMap<String, String>,
-    lo: Ortho,
-    ro: Ortho,
-) -> Result<bool, anyhow::Error> {
-    for (right_location, right_name) in ro.info {
+    all_pairs: &HashSet<i64>,
+    mapping: &BTreeMap<String, String>,
+    lo: &Ortho,
+    ro: &Ortho,
+) -> bool {
+    for (right_location, right_name) in &ro.info {
         if right_location.length() > 1 {
-            let mapped = right_location.map_location(mapping.clone());
+            let mapped = right_location.map_location(&mapping);
             let left_name = lo.name_at_location(mapped);
-            if !pair_checker(conn, &left_name, &right_name)? {
-                return Ok(false);
+            if !all_pairs.contains(&string_refs_to_signed_int(&left_name, &right_name)) {
+                return false;
             }
         }
     }
-    Ok(true)
+    true
 }
 
 fn mapping_works(
-    conn: Option<&PgConnection>,
-    pair_checker: FailableBoolOnPair,
-    left_mapping: Vec<&String>,
-    fixed_right_hand: Vec<String>,
-) -> Result<bool, anyhow::Error> {
-    for (try_left, try_right) in zip(left_mapping, fixed_right_hand) {
-        if !pair_checker(conn, try_left, &try_right)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+    left_mapping: &Vec<&String>,
+    fixed_right_hand: &Vec<String>,
+    all_pairs: &HashSet<i64>,
+) -> bool {
+    zip(left_mapping, fixed_right_hand)
+        .map(|(try_left, try_right)| string_refs_to_signed_int(try_left, try_right))
+        .all(|d| all_pairs.contains(&d))
 }
 
 fn make_mapping(
@@ -91,19 +69,6 @@ fn make_mapping(
 ) -> BTreeMap<String, String> {
     let left_hand_owned: Vec<String> = good_left_hand.iter().map(|x| x.to_string()).collect();
     zip(fixed_right_hand, left_hand_owned).collect()
-}
-
-pub fn pair_exists(
-    conn: Option<&PgConnection>,
-    try_left: &str,
-    try_right: &str,
-) -> Result<bool, anyhow::Error> {
-    let res: bool = diesel::select(exists(
-        pairs.filter(first_word.eq(try_left).and(second_word.eq(try_right))),
-    ))
-    .get_result(conn.expect("don't use the test connection"))?;
-
-    Ok(res)
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
@@ -120,4 +85,31 @@ pub fn make_potential_pairings(
     )
     .collect();
     potential_pairings_by_origin
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ortho::Ortho;
+
+    use super::diagonals_do_not_conflict;
+
+    #[test]
+    fn diagonals_do_not_conflict_works_on_tricky_inputs() {
+        let diagonals_dont_conflict = diagonals_do_not_conflict(
+            &Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string(),
+            ),
+            &Ortho::new(
+                "c".to_string(),
+                "d".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+        );
+
+        assert!(!diagonals_dont_conflict)
+    }
 }
