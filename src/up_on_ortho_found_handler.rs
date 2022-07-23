@@ -18,7 +18,7 @@ pub(crate) fn up(
         second_words: HashSet<String>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    if !old_ortho.is_base() { // todo come back to here to performance adjust
+    if !old_ortho.is_base() {
         return Ok(vec![]);
     }
 
@@ -211,6 +211,13 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let actual = up(
             None,
             left_ortho.clone(),
@@ -224,9 +231,9 @@ mod tests {
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 
@@ -249,6 +256,13 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let actual = up(
             None,
             right_ortho.clone(),
@@ -262,9 +276,9 @@ mod tests {
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 

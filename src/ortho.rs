@@ -158,13 +158,13 @@ impl Ortho {
     pub(crate) fn zip_up(
         l: &Ortho,
         r: &Ortho,
-        old_axis_to_new_axis: &BTreeMap<String, String>,
+        old_axis_to_new_axis: &BTreeMap<&String, &String>,
     ) -> Ortho {
         let shift_axis = r.get_origin();
         let right_with_lefts_coordinate_system: BTreeMap<Location, String> = r
             .info
             .iter()
-            .map(|(k, v)| (k.map_location(&old_axis_to_new_axis), v.to_owned()))
+            .map(|(k, v)| (k.map_location_lean(old_axis_to_new_axis), v.to_owned()))
             .collect();
         let shifted_right: BTreeMap<Location, String> = right_with_lefts_coordinate_system
             .iter()
@@ -546,10 +546,16 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
         let mapping = btreemap! {
-            "e".to_string() => "a".to_string(),
-            "f".to_string() => "b".to_string(),
-            "g".to_string() => "c".to_string()
+            e => a,
+            f => b,
+            g => c
         };
 
         let actual = Ortho::zip_up(&l, &r, &mapping).info;
@@ -698,10 +704,16 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
         let mapping = btreemap! {
-            "e".to_string() => "a".to_string(),
-            "f".to_string() => "b".to_string(),
-            "g".to_string() => "c".to_string()
+            e => a,
+            f => b,
+            g => c
         };
 
         let up_zipped = Ortho::zip_up(&l_up, &r_up, &mapping);
@@ -772,6 +784,21 @@ impl Location {
         }
     }
 
+    pub fn map_location_lean(&self, old_axis_to_new_axis: &BTreeMap<&String, &String>) -> Location {
+        Location {
+            info: self
+                .info
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        old_axis_to_new_axis.get(k).unwrap_or(&k).to_owned().to_owned(),
+                        v.to_owned(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
     fn shift_location(&self, axis: String) -> Location {
         let mut other: BTreeMap<String, usize> = self.info.clone();
         *other.entry(axis).or_insert(0) += 1;
@@ -827,7 +854,7 @@ impl Location {
         !self.info.contains_key(shift_axis)
     }
 
-    fn subtract_adjacent_for_single_axis_name(&self, other: Location) -> String { // todo come back to that
+    fn subtract_adjacent_for_single_axis_name(&self, other: Location) -> String {
         self.info
             .clone()
             .into_iter()

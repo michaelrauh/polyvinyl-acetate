@@ -187,10 +187,15 @@ mod tests {
             "l".to_string(),
         );
 
+        let j = &"j".to_string();
+        let f = &"f".to_string();
+        let k = &"k".to_string();
+        let g = &"g".to_string();
+        
         let combined = Ortho::zip_up(
             &l_one,
             &r_one,
-            &btreemap! { "j".to_string() => "f".to_string(), "k".to_string() => "g".to_string() },
+            &btreemap! { j => f, k => g },
         );
 
         let mut pairs = btreemap! { "a" => vec![single], "e" => vec![combined]};
@@ -392,6 +397,16 @@ mod tests {
             fake_pair_hash_db_filter,
         )
         .unwrap();
+
+
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
+
         let expected = Ortho::zip_up(
             &Ortho::new(
                 "a".to_string(),
@@ -406,9 +421,9 @@ mod tests {
                 "h".to_string(),
             ),
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 
@@ -493,6 +508,13 @@ mod tests {
         )
         .unwrap();
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let expected = Ortho::zip_up(
             &Ortho::new(
                 "a".to_string(),
@@ -507,9 +529,9 @@ mod tests {
                 "h".to_string(),
             ),
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 
@@ -530,6 +552,13 @@ mod tests {
         )
         .unwrap();
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let expected = Ortho::zip_up(
             &Ortho::new(
                 "a".to_string(),
@@ -544,9 +573,9 @@ mod tests {
                 "h".to_string(),
             ),
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 

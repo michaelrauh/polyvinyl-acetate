@@ -16,7 +16,7 @@ pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho
                 &all_pairs,
             )
         })
-        .map(|left_mapping| make_mapping(left_mapping, fixed_right_hand.clone()))
+        .map(|left_mapping| make_mapping(left_mapping, &fixed_right_hand))
         .filter(|mapping| {
             diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
         })
@@ -37,13 +37,13 @@ fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
 
 fn mapping_is_complete(
     all_pairs: &HashSet<i64>,
-    mapping: &BTreeMap<String, String>,
+    mapping: &BTreeMap<&String, &String>,
     lo: &Ortho,
     ro: &Ortho,
 ) -> bool {
     for (right_location, right_name) in &ro.info {
         if right_location.length() > 1 {
-            let mapped = right_location.map_location(&mapping);
+            let mapped = right_location.map_location_lean(mapping);
             let left_name = lo.name_at_location(mapped);
             if !all_pairs.contains(&string_refs_to_signed_int(&left_name, &right_name)) {
                 return false;
@@ -63,12 +63,11 @@ fn mapping_works(
         .all(|d| all_pairs.contains(&d))
 }
 
-fn make_mapping(
-    good_left_hand: Vec<&String>,
-    fixed_right_hand: Vec<String>,
-) -> BTreeMap<String, String> {
-    let left_hand_owned: Vec<String> = good_left_hand.iter().map(|x| x.to_string()).collect();
-    zip(fixed_right_hand, left_hand_owned).collect()
+fn make_mapping<'a>(
+    good_left_hand: Vec<&'a String>,
+    fixed_right_hand: &'a Vec<String>,
+) -> BTreeMap<&'a String, &'a String> {
+    zip(fixed_right_hand, good_left_hand).collect()
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
