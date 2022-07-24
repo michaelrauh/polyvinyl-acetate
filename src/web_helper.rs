@@ -7,6 +7,7 @@ use crate::{
     schema::{self, books, phrases},
     Book, NewTodo,
 };
+use amiquip::{FieldTable, AmqpValue, QueueDeclareOptions};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 
 pub fn create_book(
@@ -139,11 +140,15 @@ pub fn show_depth() -> Result<String, amiquip::Error> {
     let mut connection = Connection::insecure_open(&rabbit_url)?;
 
     let channel = connection.open_channel(None)?;
+    let mut arguments = FieldTable::new();
+    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(5));
+
     let queue = channel.queue_declare(
         "work",
-        amiquip::QueueDeclareOptions {
+        QueueDeclareOptions {
             durable: true,
-            ..amiquip::QueueDeclareOptions::default()
+            arguments,
+            ..QueueDeclareOptions::default()
         },
     )?;
 

@@ -1,6 +1,6 @@
 use std::{env, thread::sleep};
 
-use amiquip::{AmqpProperties, Exchange, Publish, QueueDeclareOptions};
+use amiquip::{AmqpProperties, Exchange, Publish, QueueDeclareOptions, FieldTable, AmqpValue};
 use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl};
 use polyvinyl_acetate::{
     establish_connection,
@@ -18,7 +18,7 @@ fn main() {
             }
             Err(e) => println!("failure: {}", e),
         }
-        sleep(core::time::Duration::from_secs(1))
+        sleep(core::time::Duration::from_millis(100))
     }
 }
 
@@ -58,10 +58,14 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
 
     let channel = connection.open_channel(None)?;
 
+    let mut arguments = FieldTable::new();
+    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(5));
+
     let _ = channel.queue_declare(
         "work",
         QueueDeclareOptions {
             durable: true,
+            arguments,
             ..QueueDeclareOptions::default()
         },
     )?;
@@ -73,10 +77,23 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
         exchange.publish(Publish::with_properties(
             &data,
             "work",
-            AmqpProperties::default().with_delivery_mode(2),
+            AmqpProperties::default().with_delivery_mode(2).with_priority(domain_to_priority(&todo.domain)),
         ))?;
     }
 
     connection.close()?;
     Ok(todos.len())
+}
+
+fn domain_to_priority(domain: &String) -> u8 {
+    match domain.as_str() {
+        "books" => 1,
+        "sentences" => 2,
+        "pairs" => 3,
+        "orthotopes" => 5,
+        "phrases" => 4,
+        other => {
+            panic!("getting unexpected todo with domain: {other}")
+        }
+    }
 }
