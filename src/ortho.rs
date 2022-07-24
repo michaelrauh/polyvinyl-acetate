@@ -19,12 +19,12 @@ impl Ortho {
         v
     }
 
-    pub(crate) fn get_hop(&self) -> HashSet<String> {
+    pub(crate) fn get_hop(&self) -> HashSet<&String> {
         self.info
             .iter()
             .filter_map(|(k, v)| {
                 if k.length() == 1 {
-                    Some(v.to_string())
+                    Some(v)
                 } else {
                     None
                 }
@@ -297,7 +297,7 @@ impl Ortho {
             .filter(|loc| loc.length() == 2)
             .collect::<Vec<_>>()[0];
         let from_location = Location::default().add(from_name);
-        let missing_axes = from_location.missing_axes(to_location.info.keys().cloned().collect());
+        let missing_axes = from_location.missing_axes(to_location.info.keys().collect());
         missing_axes
             .iter()
             .next()
@@ -332,7 +332,7 @@ impl Ortho {
         self.get_hop()
             .iter()
             .flat_map(|axis| {
-                let phrases_for_axis = self.phrases(axis.to_owned());
+                let phrases_for_axis = self.phrases(axis.to_owned().to_string());
                 let axis_length = self.axis_length(axis);
                 phrases_for_axis
                     .iter()
@@ -468,8 +468,10 @@ mod tests {
             "d".to_string(),
         );
         let mut expected = HashSet::default();
-        expected.insert("b".to_string());
-        expected.insert("c".to_string());
+        let b = "b".to_string();
+        let c = "c".to_string();
+        expected.insert(&b);
+        expected.insert(&c);
         assert_eq!(example_ortho.get_hop(), expected);
     }
 
@@ -729,7 +731,9 @@ mod tests {
             info: btreemap! {"b".to_string() => 5},
         };
 
-        let actual = loc.missing_axes(hashset! {"b".to_string(), "c".to_string()});
+        let b = "b".to_string();
+        let c = "c".to_string();
+        let actual = loc.missing_axes(hashset! {&b, &c});
         let expected = hashset! {"c".to_string()};
 
         assert_eq!(actual, expected)
@@ -833,13 +837,13 @@ impl Location {
         self.info.values().all(|v| *v == 1)
     }
 
-    fn is_edge(&self, axes: HashSet<String>) -> bool {
+    fn is_edge(&self, axes: HashSet<&String>) -> bool {
         !self.missing_axes(axes).is_empty()
     }
 
-    fn missing_axes(&self, axes: HashSet<String>) -> HashSet<String> {
-        let kset: HashSet<String> = self.info.keys().cloned().collect();
-        axes.difference(&kset).cloned().collect()
+    fn missing_axes(&self, axes: HashSet<&String>) -> HashSet<String> {
+        let kset: HashSet<&String> = self.info.keys().collect();
+        axes.difference(&kset).cloned().cloned().collect()
     }
 
     fn is_contents(&self) -> bool {

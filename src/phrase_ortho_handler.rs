@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
-use maplit::hashset;
 
 use crate::{
     ortho::Ortho, up_helper::make_potential_pairings, FailableStringToOrthoVec,
@@ -134,19 +133,20 @@ pub fn attempt_combine_over(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
     for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes {
-        let lo_hop: Vec<String> = lo
-            .get_hop()
-            .difference(&hashset! {left_shift_axis.clone()})
-            .cloned()
-            .collect();
-        let fixed_right_hand: Vec<String> = ro
-            .get_hop()
-            .difference(&hashset! {right_shift_axis.to_owned().to_owned()})
-            .cloned()
-            .collect();
+        let mut lo_hop_set = lo
+            .get_hop();
 
+        lo_hop_set.remove(&left_shift_axis);
+        let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
+
+        let mut ro_hop_set = ro.get_hop();
+        ro_hop_set.remove(&right_shift_axis);
+
+        let fixed_right_hand:  Vec<&String> = ro_hop_set.iter().cloned().collect();
+
+        let lo_hop_len = lo_hop.len();
         let left_hand_coordinate_configurations =
-            Itertools::permutations(lo_hop.iter(), lo_hop.len());
+            Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
 
         for left_mapping in left_hand_coordinate_configurations {
             if axis_lengths_match(
@@ -209,7 +209,7 @@ fn phrases_work(
 
 fn axis_lengths_match(
     left_axes: Vec<&String>,
-    right_axes: Vec<String>,
+    right_axes: Vec<&String>,
     lo: Ortho,
     ro: Ortho,
 ) -> bool {
@@ -245,12 +245,13 @@ fn mapping_works(
 
 fn make_mapping(
     left_mapping: Vec<&String>,
-    fixed_right_hand: Vec<String>,
+    fixed_right_hand: Vec<&String>,
     origin_shift_axis: &str,
     origin_lhs_known_mapping_member: String,
 ) -> std::collections::BTreeMap<String, String> {
     let left_hand_owned: Vec<String> = left_mapping.iter().map(|x| x.to_string()).collect();
-    let mut almost: BTreeMap<String, String> = zip(fixed_right_hand, left_hand_owned).collect();
+    let right_hand_owned: Vec<String> = fixed_right_hand.iter().map(|x| x.to_string()).collect();
+    let mut almost: BTreeMap<String, String> = zip(right_hand_owned, left_hand_owned).collect();
     almost.insert(
         origin_shift_axis.to_string(),
         origin_lhs_known_mapping_member,
@@ -852,14 +853,14 @@ mod tests {
         // d f e   i j g
         let yes = axis_lengths_match(
             vec![&"e".to_string(), &"d".to_string()],
-            vec!["f".to_string(), "i".to_string()],
+            vec![&"f".to_string(), &"i".to_string()],
             bebdfe.clone(),
             dfeijg.clone(),
         );
 
         let no = axis_lengths_match(
             vec![&"d".to_string(), &"e".to_string()],
-            vec!["f".to_string(), "i".to_string()],
+            vec![&"f".to_string(), &"i".to_string()],
             bebdfe,
             dfeijg,
         );

@@ -6,8 +6,9 @@ use std::collections::{BTreeMap, HashSet};
 
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
     let lo_hop = lo.get_hop();
-    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
-    let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+    let lo_hop_len = lo_hop.len();
+    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
+    let fixed_right_hand: Vec<&String> = ro.get_hop().into_iter().collect();
     left_hand_coordinate_configurations
         .filter(|left_mapping| {
             mapping_works(
@@ -16,7 +17,7 @@ pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho
                 &all_pairs,
             )
         })
-        .map(|left_mapping| make_mapping(left_mapping, &fixed_right_hand))
+        .map(|left_mapping| make_mapping(&left_mapping, &fixed_right_hand))
         .filter(|mapping| {
             diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
         })
@@ -55,7 +56,7 @@ fn mapping_is_complete(
 
 fn mapping_works(
     left_mapping: &Vec<&String>,
-    fixed_right_hand: &Vec<String>,
+    fixed_right_hand: &Vec<&String>,
     all_pairs: &HashSet<i64>,
 ) -> bool {
     zip(left_mapping, fixed_right_hand)
@@ -64,10 +65,10 @@ fn mapping_works(
 }
 
 fn make_mapping<'a>(
-    good_left_hand: Vec<&'a String>,
-    fixed_right_hand: &'a Vec<String>,
+    good_left_hand: &Vec<&'a String>,
+    fixed_right_hand: &'a Vec<& 'a String>,
 ) -> BTreeMap<&'a String, &'a String> {
-    zip(fixed_right_hand, good_left_hand).collect()
+    zip(fixed_right_hand.iter().cloned(), good_left_hand.iter().cloned()).collect()
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {

@@ -198,13 +198,13 @@ pub fn get_ortho_by_origin(
 
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
-    let origin = ortho.get_origin();
-    let hop = Vec::from_iter(ortho.get_hop());
+    let origin = ortho.get_origin().to_owned();
+    let hop = Vec::from_iter(ortho.get_hop().into_iter().cloned());
     let contents = Vec::from_iter(ortho.get_contents());
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
     NewOrthotope {
         information,
-        origin: origin.to_owned(),
+        origin,
         hop,
         contents,
         info_hash,
