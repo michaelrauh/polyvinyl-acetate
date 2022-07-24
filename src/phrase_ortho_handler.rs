@@ -133,8 +133,7 @@ pub fn attempt_combine_over(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
     for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes {
-        let mut lo_hop_set = lo
-            .get_hop();
+        let mut lo_hop_set = lo.get_hop();
 
         lo_hop_set.remove(&left_shift_axis);
         let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
@@ -142,7 +141,7 @@ pub fn attempt_combine_over(
         let mut ro_hop_set = ro.get_hop();
         ro_hop_set.remove(&right_shift_axis);
 
-        let fixed_right_hand:  Vec<&String> = ro_hop_set.iter().cloned().collect();
+        let fixed_right_hand: Vec<&String> = ro_hop_set.iter().cloned().collect();
 
         let lo_hop_len = lo_hop.len();
         let left_hand_coordinate_configurations =

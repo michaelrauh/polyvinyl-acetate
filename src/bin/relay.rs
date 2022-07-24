@@ -1,6 +1,6 @@
 use std::{env, thread::sleep};
 
-use amiquip::{AmqpProperties, Exchange, Publish, QueueDeclareOptions, FieldTable, AmqpValue};
+use amiquip::{AmqpProperties, AmqpValue, Exchange, FieldTable, Publish, QueueDeclareOptions};
 use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl};
 use polyvinyl_acetate::{
     establish_connection,
@@ -77,7 +77,9 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
         exchange.publish(Publish::with_properties(
             &data,
             "work",
-            AmqpProperties::default().with_delivery_mode(2).with_priority(domain_to_priority(&todo.domain)),
+            AmqpProperties::default()
+                .with_delivery_mode(2)
+                .with_priority(domain_to_priority(&todo.domain)),
         ))?;
     }
 

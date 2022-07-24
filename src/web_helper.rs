@@ -7,7 +7,7 @@ use crate::{
     schema::{self, books, phrases},
     Book, NewTodo,
 };
-use amiquip::{FieldTable, AmqpValue, QueueDeclareOptions};
+use amiquip::{AmqpValue, FieldTable, QueueDeclareOptions};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 
 pub fn create_book(

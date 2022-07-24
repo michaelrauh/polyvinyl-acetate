@@ -22,26 +22,14 @@ impl Ortho {
     pub(crate) fn get_hop(&self) -> HashSet<&String> {
         self.info
             .iter()
-            .filter_map(|(k, v)| {
-                if k.length() == 1 {
-                    Some(v)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(k, v)| if k.length() == 1 { Some(v) } else { None })
             .collect()
     }
 
-    pub(crate) fn get_contents(&self) -> HashSet<String> {
+    pub(crate) fn get_contents(&self) -> HashSet<&String> {
         self.info
             .iter()
-            .filter_map(|(k, v)| {
-                if k.length() > 1 {
-                    Some(v.to_string())
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(k, v)| if k.length() > 1 { Some(v) } else { None })
             .collect()
     }
 
@@ -50,28 +38,15 @@ impl Ortho {
     }
 
     pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
-        let inner_loc_a = BTreeMap::default();
-        let mut inner_loc_b = BTreeMap::default();
-        let mut inner_loc_c = BTreeMap::default();
-        let mut inner_loc_d = BTreeMap::default();
-        let mut info = BTreeMap::default();
-
-        inner_loc_b.insert(b.clone(), 1);
-        inner_loc_c.insert(c.clone(), 1);
-        inner_loc_d.insert(b.clone(), 1);
-        inner_loc_d.insert(c.clone(), 1);
-
-        let loc_a = Location { info: inner_loc_a };
-        let loc_b = Location { info: inner_loc_b };
-        let loc_c = Location { info: inner_loc_c };
-        let loc_d = Location { info: inner_loc_d };
-
-        info.insert(loc_a, a);
-        info.insert(loc_b, b);
-        info.insert(loc_c, c);
-        info.insert(loc_d, d);
-
-        Ortho { info }
+        Ortho {
+            info: btreemap! {Location { info: btreemap! {} } => a, Location {
+                info: btreemap! {b.clone() => 1},
+            } => b.clone(), Location {
+                info: btreemap! {c.clone() => 1},
+            } => c.clone(), Location {
+                info: btreemap! {b.clone() => 1, c.clone() => 1},
+            } => d},
+        }
     }
 
     pub(crate) fn contents_has_phrase(&self, phrase: &[String]) -> bool {
@@ -484,7 +459,8 @@ mod tests {
             "d".to_string(),
         );
         let mut expected = HashSet::default();
-        expected.insert("d".to_string());
+        let d = "d".to_string();
+        expected.insert(&d);
         assert_eq!(example_ortho.get_contents(), expected);
 
         let tricky_example = Ortho::new(
@@ -493,8 +469,8 @@ mod tests {
             "c".to_string(),
             "a".to_string(),
         );
-
-        assert_eq!(tricky_example.get_contents(), hashset! {"a".to_string()});
+        let a = "a".to_string();
+        assert_eq!(tricky_example.get_contents(), hashset! {&a});
     }
 
     #[test]
@@ -795,7 +771,11 @@ impl Location {
                 .iter()
                 .map(|(k, v)| {
                     (
-                        old_axis_to_new_axis.get(k).unwrap_or(&k).to_owned().to_owned(),
+                        old_axis_to_new_axis
+                            .get(k)
+                            .unwrap_or(&k)
+                            .to_owned()
+                            .to_owned(),
                         v.to_owned(),
                     )
                 })

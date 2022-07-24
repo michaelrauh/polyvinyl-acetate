@@ -1,4 +1,7 @@
-use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result, FieldTable, AmqpValue};
+use amiquip::{
+    AmqpValue, Connection, ConsumerMessage, ConsumerOptions, FieldTable, QueueDeclareOptions,
+    Result,
+};
 use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
 use std::env;

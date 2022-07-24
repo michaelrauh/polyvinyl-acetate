@@ -191,12 +191,8 @@ mod tests {
         let f = &"f".to_string();
         let k = &"k".to_string();
         let g = &"g".to_string();
-        
-        let combined = Ortho::zip_up(
-            &l_one,
-            &r_one,
-            &btreemap! { j => f, k => g },
-        );
+
+        let combined = Ortho::zip_up(&l_one, &r_one, &btreemap! { j => f, k => g });
 
         let mut pairs = btreemap! { "a" => vec![single], "e" => vec![combined]};
 
@@ -398,14 +394,12 @@ mod tests {
         )
         .unwrap();
 
-
         let e = &"e".to_string();
         let a = &"a".to_string();
         let f = &"f".to_string();
         let b = &"b".to_string();
         let g = &"g".to_string();
         let c = &"c".to_string();
-
 
         let expected = Ortho::zip_up(
             &Ortho::new(

@@ -7,21 +7,16 @@ use std::collections::{BTreeMap, HashSet};
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
     let lo_hop = lo.get_hop();
     let lo_hop_len = lo_hop.len();
-    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
+    let left_hand_coordinate_configurations =
+        Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
     let fixed_right_hand: Vec<&String> = ro.get_hop().into_iter().collect();
     left_hand_coordinate_configurations
-        .filter(|left_mapping| {
-            mapping_works(
-                left_mapping,
-                &fixed_right_hand,
-                &all_pairs,
-            )
-        })
+        .filter(|left_mapping| mapping_works(left_mapping, &fixed_right_hand, &all_pairs))
         .map(|left_mapping| make_mapping(&left_mapping, &fixed_right_hand))
         .filter(|mapping| {
             diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
         })
-        .map(|mapping| Ortho::zip_up(lo, ro, &mapping)) 
+        .map(|mapping| Ortho::zip_up(lo, ro, &mapping))
         .collect()
 }
 
@@ -66,9 +61,13 @@ fn mapping_works(
 
 fn make_mapping<'a>(
     good_left_hand: &Vec<&'a String>,
-    fixed_right_hand: &'a Vec<& 'a String>,
+    fixed_right_hand: &'a Vec<&'a String>,
 ) -> BTreeMap<&'a String, &'a String> {
-    zip(fixed_right_hand.iter().cloned(), good_left_hand.iter().cloned()).collect()
+    zip(
+        fixed_right_hand.iter().cloned(),
+        good_left_hand.iter().cloned(),
+    )
+    .collect()
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
