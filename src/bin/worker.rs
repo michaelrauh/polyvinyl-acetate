@@ -1,4 +1,4 @@
-use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
+use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result, FieldTable, AmqpValue};
 use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
 use std::env;
@@ -14,10 +14,14 @@ fn get() -> Result<(), anyhow::Error> {
 
     let channel = connection.open_channel(None)?;
 
+    let mut arguments = FieldTable::new();
+    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(5));
+
     let queue = channel.queue_declare(
         "work",
         QueueDeclareOptions {
             durable: true,
+            arguments,
             ..QueueDeclareOptions::default()
         },
     )?;
