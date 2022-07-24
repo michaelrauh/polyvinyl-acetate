@@ -50,37 +50,31 @@ impl Ortho {
     }
 
     pub(crate) fn contents_has_phrase(&self, phrase: &[String]) -> bool {
-        let head = phrase
-            .get(0)
-            .expect("nonempty lists must have a first element");
+        let head = &phrase[0];
+        let hop = self.get_hop();
 
-        for loc in self.location_at_name(head) {
-            if loc.is_contents() && loc.is_edge(self.get_hop()) {
-                let missing_axes = loc.missing_axes(self.get_hop());
-
-                for axis in missing_axes {
-                    if self.axis_has_phrase(phrase, loc.clone(), axis) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
+        self.location_at_name(&head)
+            .into_iter()
+            .filter(|loc| loc.is_contents() && loc.is_edge(&hop))
+            .flat_map(|loc| {
+                loc.missing_axes(&hop)
+                    .into_iter()
+                    .find(|axis| self.axis_has_phrase(phrase, &loc, axis))
+            })
+            .next()
+            .is_some()
     }
 
     pub(crate) fn hop_has_phrase(&self, phrase: &[String]) -> bool {
-        let head = phrase
-            .get(0)
-            .expect("nonempty lists must have a first element");
+        let head = &phrase[0];
 
         let loc = Location {
             info: btreemap! {head.to_string() => 1},
         };
-        let axes_to_search = loc.missing_axes(self.get_hop());
+        let axes_to_search = loc.missing_axes(&self.get_hop());
 
         for axis in axes_to_search {
-            if self.axis_has_phrase(phrase, loc.clone(), axis) {
+            if self.axis_has_phrase(phrase, &loc, &axis) {
                 return true;
             }
         }
@@ -88,7 +82,7 @@ impl Ortho {
         false
     }
 
-    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: Location, axis: String) -> bool {
+    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &String) -> bool {
         for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
             let desired = loc.add_n(axis.clone(), i + 1);
             if self
@@ -107,11 +101,7 @@ impl Ortho {
             .get(1)
             .expect("lists of length greater than one have a second element");
 
-        self.axis_has_phrase(
-            phrase,
-            Location { info: btreemap! {} },
-            axis_name.to_string(),
-        )
+        self.axis_has_phrase(phrase, &Location::default(), axis_name)
     }
 
     pub(crate) fn get_bottom_right_corner(&self) -> Location {
@@ -272,7 +262,7 @@ impl Ortho {
             .filter(|loc| loc.length() == 2)
             .collect::<Vec<_>>()[0];
         let from_location = Location::default().add(from_name);
-        let missing_axes = from_location.missing_axes(to_location.info.keys().collect());
+        let missing_axes = from_location.missing_axes(&to_location.info.keys().collect());
         missing_axes
             .iter()
             .next()
@@ -288,7 +278,7 @@ impl Ortho {
         let from_name_location = self.location_at_name(&from_name);
         let from_locations = from_name_location
             .iter()
-            .filter(|name| name.is_edge(self.get_hop()));
+            .filter(|name| name.is_edge(&self.get_hop()));
 
         let to_locations = self.location_at_name(&to_name);
         let potentials =
@@ -709,7 +699,7 @@ mod tests {
 
         let b = "b".to_string();
         let c = "c".to_string();
-        let actual = loc.missing_axes(hashset! {&b, &c});
+        let actual = loc.missing_axes(&hashset! {&b, &c});
         let expected = hashset! {"c".to_string()};
 
         assert_eq!(actual, expected)
@@ -817,11 +807,11 @@ impl Location {
         self.info.values().all(|v| *v == 1)
     }
 
-    fn is_edge(&self, axes: HashSet<&String>) -> bool {
+    fn is_edge(&self, axes: &HashSet<&String>) -> bool {
         !self.missing_axes(axes).is_empty()
     }
 
-    fn missing_axes(&self, axes: HashSet<&String>) -> HashSet<String> {
+    fn missing_axes(&self, axes: &HashSet<&String>) -> HashSet<String> {
         let kset: HashSet<&String> = self.info.keys().collect();
         axes.difference(&kset).cloned().cloned().collect()
     }

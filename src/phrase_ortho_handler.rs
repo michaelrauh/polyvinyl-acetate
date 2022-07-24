@@ -80,7 +80,7 @@ pub(crate) fn over(
 
     let lhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[0].clone()])?
         .iter()
-        .filter(|o| o.contents_has_phrase(&lhs_phrase_head.clone()))
+        .filter(|o| o.contents_has_phrase(&lhs_phrase_head))
         .map(|o| {
             (
                 o,
@@ -94,7 +94,7 @@ pub(crate) fn over(
 
     let rhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[1].clone()])?
         .iter()
-        .filter(|o| o.contents_has_phrase(&rhs_phrase_head.clone()))
+        .filter(|o| o.contents_has_phrase(&rhs_phrase_head))
         .map(|o| {
             (
                 o,
