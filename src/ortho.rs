@@ -44,7 +44,7 @@ impl Ortho {
             } => b.clone(), Location {
                 info: btreemap! {c.clone() => 1},
             } => c.clone(), Location {
-                info: btreemap! {b.clone() => 1, c.clone() => 1},
+                info: btreemap! {b => 1, c => 1},
             } => d},
         }
     }
@@ -53,7 +53,7 @@ impl Ortho {
         let head = &phrase[0];
         let hop = self.get_hop();
 
-        self.location_at_name(&head)
+        self.location_at_name(head)
             .into_iter()
             .filter(|loc| loc.is_contents() && loc.is_edge(&hop))
             .flat_map(|loc| {
@@ -70,13 +70,13 @@ impl Ortho {
 
         loc.missing_axes(&self.get_hop())
             .iter()
-            .find(|axis| self.axis_has_phrase(phrase, &loc, &axis))
-            .is_some()
+            .any(|axis| self.axis_has_phrase(phrase, &loc, axis))
     }
 
-    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &String) -> bool {
+    // todo continue here
+    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &str) -> bool {
         for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
-            let desired = loc.add_n(axis.clone(), i + 1);
+            let desired = loc.add_n(axis.to_string(), i + 1);
             if self
                 .optional_name_at_location(desired)
                 .unwrap_or(&"".to_string())
@@ -822,7 +822,7 @@ impl Location {
         }
     }
 
-    fn does_not_have_axis(&self, shift_axis: &String) -> bool {
+    fn does_not_have_axis(&self, shift_axis: &str) -> bool {
         !self.info.contains_key(shift_axis)
     }
 

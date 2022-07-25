@@ -45,6 +45,12 @@ type FailableStringVecToOrthoVec =
 type FailableStringToOrthoVec =
     fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>;
 
+type FailableHashsetStringsToHashsetNumbers = fn(
+    conn: Option<&PgConnection>,
+    first_words: HashSet<String>,
+    second_words: HashSet<String>,
+) -> Result<HashSet<i64>, anyhow::Error>;
+
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
@@ -119,7 +125,7 @@ pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
     hasher.finish() as i64
 }
 
-pub fn string_refs_to_signed_int(l: &String, r: &String) -> i64 {
+pub fn string_refs_to_signed_int(l: &str, r: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     l.hash(&mut hasher);
     r.hash(&mut hasher);

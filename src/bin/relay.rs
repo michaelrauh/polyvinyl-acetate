@@ -87,8 +87,8 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
     Ok(todos.len())
 }
 
-fn domain_to_priority(domain: &String) -> u8 {
-    match domain.as_str() {
+fn domain_to_priority(domain: &str) -> u8 {
+    match domain {
         "books" => 1,
         "sentences" => 2,
         "pairs" => 3,

@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use crate::ortho::Ortho;
 
 use crate::{
-    string_refs_to_signed_int, up_helper, FailableStringToOrthoVec, FailableStringVecToOrthoVec,
+    string_refs_to_signed_int, up_helper, FailableHashsetStringsToHashsetNumbers,
+    FailableStringToOrthoVec, FailableStringVecToOrthoVec,
 };
 use diesel::PgConnection;
 
@@ -16,11 +17,7 @@ pub fn up(
     ortho_by_origin: FailableStringToOrthoVec,
     ortho_by_hop: FailableStringVecToOrthoVec,
     ortho_by_contents: FailableStringVecToOrthoVec,
-    db_filter: fn(
-        conn: Option<&PgConnection>,
-        first_words: HashSet<String>,
-        second_words: HashSet<String>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    db_filter: FailableHashsetStringsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
     let right_orthos_by_origin: Vec<Ortho> =
@@ -92,10 +89,8 @@ fn get_valid_pairings<'a>(
     hop_filtered_pairs: &'a HashSet<i64>,
 ) -> impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a {
     hop_potential_pairings_with_untested_origins.filter_map(|(lo, ro)| {
-        if hop_filtered_pairs.contains(&string_refs_to_signed_int(
-            &lo.get_origin(),
-            &ro.get_origin(),
-        )) {
+        if hop_filtered_pairs.contains(&string_refs_to_signed_int(lo.get_origin(), ro.get_origin()))
+        {
             Some((lo, ro))
         } else {
             None
@@ -103,14 +98,10 @@ fn get_valid_pairings<'a>(
     })
 }
 fn get_relevant_pairs(
-    db_filter: fn(
-        Option<&PgConnection>,
-        HashSet<String>,
-        HashSet<String>,
-    ) -> Result<HashSet<i64>, Error>,
+    db_filter: FailableHashsetStringsToHashsetNumbers,
     conn: Option<&PgConnection>,
-    left_orthos_by_origin: &Vec<Ortho>,
-    right_orthos_by_origin: &Vec<Ortho>,
+    left_orthos_by_origin: &[Ortho],
+    right_orthos_by_origin: &[Ortho],
 ) -> Result<HashSet<i64>, Error> {
     let origin_filtered_pairs = db_filter(
         conn,

@@ -1,13 +1,15 @@
 use crate::ortho::Ortho;
 
 use diesel::PgConnection;
+type FailableSlicesToOrthoVec =
+    fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub fn ex_nihilo(
     conn: Option<&PgConnection>,
     first: &str,
     second: &str,
-    ffbber: fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>,
-    fbbfer: fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>,
+    ffbber: FailableSlicesToOrthoVec,
+    fbbfer: FailableSlicesToOrthoVec,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ffbb: Vec<Ortho> = ffbber(conn, first, second)?;
     let mut fbbf: Vec<Ortho> = fbbfer(conn, first, second)?;

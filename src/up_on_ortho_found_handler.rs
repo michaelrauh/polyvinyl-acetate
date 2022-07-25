@@ -1,4 +1,4 @@
-use crate::{ortho::Ortho, up_helper};
+use crate::{ortho::Ortho, up_helper, FailableHashsetStringsToHashsetNumbers};
 use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
@@ -12,11 +12,7 @@ pub(crate) fn up(
     ortho_by_origin: FailableStringToOrthoVec,
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    get_pair_hashes_relevant_to_vocabularies: fn(
-        conn: Option<&PgConnection>,
-        first_words: HashSet<String>,
-        second_words: HashSet<String>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    get_pair_hashes_relevant_to_vocabularies: FailableHashsetStringsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
         return Ok(vec![]);
@@ -24,8 +20,8 @@ pub(crate) fn up(
 
     let mut ans = vec![];
 
-    let projected_forward = forward(conn, &old_ortho.get_origin())?;
-    let projected_backward = backward(conn, &old_ortho.get_origin())?;
+    let projected_forward = forward(conn, old_ortho.get_origin())?;
+    let projected_backward = backward(conn, old_ortho.get_origin())?;
 
     let mut orthos_to_right = vec![];
     for f in projected_forward {
