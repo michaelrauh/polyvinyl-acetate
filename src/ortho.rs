@@ -66,20 +66,12 @@ impl Ortho {
     }
 
     pub(crate) fn hop_has_phrase(&self, phrase: &[String]) -> bool {
-        let head = &phrase[0];
+        let loc = Location::singleton(phrase[0].to_string());
 
-        let loc = Location {
-            info: btreemap! {head.to_string() => 1},
-        };
-        let axes_to_search = loc.missing_axes(&self.get_hop());
-
-        for axis in axes_to_search {
-            if self.axis_has_phrase(phrase, &loc, &axis) {
-                return true;
-            }
-        }
-
-        false
+        loc.missing_axes(&self.get_hop())
+            .iter()
+            .find(|axis| self.axis_has_phrase(phrase, &loc, &axis))
+            .is_some()
     }
 
     pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &String) -> bool {
@@ -822,6 +814,12 @@ impl Location {
 
     pub(crate) fn default() -> Location {
         Location { info: btreemap! {} }
+    }
+
+    pub(crate) fn singleton(name: String) -> Location {
+        Location {
+            info: btreemap! {name => 1},
+        }
     }
 
     fn does_not_have_axis(&self, shift_axis: &String) -> bool {
