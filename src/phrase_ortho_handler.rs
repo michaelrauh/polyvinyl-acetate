@@ -21,8 +21,8 @@ pub(crate) fn over(
         return Ok(vec![]);
     }
 
-    let lhs_phrase_head: Vec<String> = phrase[..phrase.len() - 1].to_vec();
-    let rhs_phrase_head: Vec<String> = phrase[1..].to_vec();
+    let lhs_phrase_head: Vec<&String> = phrase[..phrase.len() - 1].iter().collect();
+    let rhs_phrase_head: Vec<&String> = phrase[1..].iter().collect();
 
     let lhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[0])?
         .iter()

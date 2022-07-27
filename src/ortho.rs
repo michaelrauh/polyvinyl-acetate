@@ -49,7 +49,7 @@ impl Ortho {
         }
     }
 
-    pub(crate) fn contents_has_phrase(&self, phrase: &[String]) -> bool {
+    pub(crate) fn contents_has_phrase(&self, phrase: &[&String]) -> bool {
         let head = &phrase[0];
         let hop = self.get_hop();
 
@@ -65,7 +65,7 @@ impl Ortho {
             .is_some()
     }
 
-    pub(crate) fn hop_has_phrase(&self, phrase: &[String]) -> bool {
+    pub(crate) fn hop_has_phrase(&self, phrase: &[&String]) -> bool {
         let loc = Location::singleton(phrase[0].to_string());
 
         loc.missing_axes(&self.get_hop())
@@ -73,7 +73,7 @@ impl Ortho {
             .any(|axis| self.axis_has_phrase(phrase, &loc, axis))
     }
 
-    pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &str) -> bool {
+    pub(crate) fn axis_has_phrase(&self, phrase: &[&String], loc: &Location, axis: &str) -> bool {
         phrase
             .iter()
             .skip(1)
@@ -82,16 +82,15 @@ impl Ortho {
                 if let Some(name) =
                     self.optional_name_at_location(loc.add_n(axis.to_string(), i + 1))
                 {
-                    name == current_phrase_word
+                    &name == current_phrase_word
                 } else {
                     false
                 }
             })
     }
 
-    pub(crate) fn origin_has_phrase(&self, phrase: &[String]) -> bool {
-        // todo come back to see if this can be a string ref
-        self.axis_has_phrase(phrase, &Location::default(), &phrase[1])
+    pub(crate) fn origin_has_phrase(&self, phrase: &[&String]) -> bool {
+        self.axis_has_phrase(phrase, &Location::default(), phrase[1])
     }
 
     pub(crate) fn get_bottom_right_corner(&self) -> &Location {
@@ -397,16 +396,22 @@ mod tests {
             "b".to_string(),
         );
 
-        assert!(example_ortho.origin_has_phrase(&vec!["a".to_string(), "b".to_string()]));
-        assert!(example_ortho.hop_has_phrase(&vec!["c".to_string(), "d".to_string()]));
-        assert!(example_ortho.origin_has_phrase(&vec!["a".to_string(), "c".to_string()]));
-        assert!(example_ortho.hop_has_phrase(&vec!["b".to_string(), "d".to_string()]));
-        assert!(!example_ortho.origin_has_phrase(&vec!["a".to_string(), "e".to_string()]));
-        assert!(!example_ortho.hop_has_phrase(&vec!["b".to_string(), "a".to_string()]));
-        assert!(wider.contents_has_phrase(&vec!["e".to_string(), "f".to_string()]));
-        assert!(!wider.contents_has_phrase(&vec!["f".to_string(), "e".to_string()]));
-        assert!(tricky_ortho.hop_has_phrase(&vec!["b".to_owned(), "e".to_owned()]));
-        assert!(tricky_two.contents_has_phrase(&vec!["b".to_owned(), "e".to_owned()]));
+        let a = &"a".to_owned();
+        let b = &"b".to_owned();
+        let c = &"c".to_owned();
+        let d = &"d".to_owned();
+        let e = &"e".to_owned();
+        let f = &"f".to_owned();
+        assert!(example_ortho.origin_has_phrase(&vec![a, b]));
+        assert!(example_ortho.hop_has_phrase(&vec![c, d]));
+        assert!(example_ortho.origin_has_phrase(&vec![a, c]));
+        assert!(example_ortho.hop_has_phrase(&vec![b, d]));
+        assert!(!example_ortho.origin_has_phrase(&vec![a, e]));
+        assert!(!example_ortho.hop_has_phrase(&vec![b, a]));
+        assert!(wider.contents_has_phrase(&vec![e, f]));
+        assert!(!wider.contents_has_phrase(&vec![f, e]));
+        assert!(tricky_ortho.hop_has_phrase(&vec![b, e]));
+        assert!(tricky_two.contents_has_phrase(&vec![b, e]));
     }
 
     #[test]

@@ -27,11 +27,11 @@ pub(crate) fn over(
                 .collect::<Vec<_>>();
             if phrase_exists(conn, current_phrase.clone())? {
                 let phrase = current_phrase.to_vec();
-                for potential_ortho in get_ortho_by_origin(conn, &phrase[1])? {
-                    let phrase_tail: Vec<String> =
-                        phrase[1..].iter().map(|x| x.to_string()).collect();
+                for potential_ortho in get_ortho_by_origin(conn, phrase[1])? {
+                    let phrase_tail: Vec<&String> =
+                        phrase[1..].iter().map(|x| x.to_owned()).collect();
                     if potential_ortho.origin_has_phrase(&phrase_tail)
-                        && potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2
+                        && potential_ortho.axis_length(phrase[2]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
                         forward_potential_pairings.push((
@@ -49,7 +49,7 @@ pub(crate) fn over(
     let mut backward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
 
     for old_phrase in all_phrases {
-        let prevs = project_backward(conn, &old_phrase[0])?;
+        let prevs = project_backward(conn, old_phrase[0])?;
         for prev in prevs {
             let current_phrase: Vec<&String> = vec![&prev]
                 .iter()
@@ -58,13 +58,13 @@ pub(crate) fn over(
                 .collect::<Vec<_>>();
             if phrase_exists(conn, current_phrase.clone())? {
                 let phrase = current_phrase.to_vec();
-                for potential_ortho in get_ortho_by_origin(conn, &phrase[0])? {
-                    let phrase_head: Vec<String> = phrase[..phrase.len() - 1]
+                for potential_ortho in get_ortho_by_origin(conn, phrase[0])? {
+                    let phrase_head: Vec<&String> = phrase[..phrase.len() - 1]
                         .iter()
-                        .map(|x| x.to_string())
+                        .map(|x| x.to_owned())
                         .collect();
                     if potential_ortho.origin_has_phrase(&phrase_head)
-                        && potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2
+                        && potential_ortho.axis_length(phrase[1]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
                         backward_potential_pairings.push((
