@@ -73,70 +73,63 @@ impl Ortho {
             .any(|axis| self.axis_has_phrase(phrase, &loc, axis))
     }
 
-    // todo continue here
     pub(crate) fn axis_has_phrase(&self, phrase: &[String], loc: &Location, axis: &str) -> bool {
-        for (i, current_phrase_word) in phrase.iter().skip(1).enumerate() {
-            let desired = loc.add_n(axis.to_string(), i + 1);
-            if self
-                .optional_name_at_location(desired)
-                .unwrap_or(&"".to_string())
-                != current_phrase_word
-            {
-                return false;
-            }
-        }
-        true
+        phrase
+            .iter()
+            .skip(1)
+            .enumerate()
+            .all(|(i, current_phrase_word)| {
+                if let Some(name) =
+                    self.optional_name_at_location(loc.add_n(axis.to_string(), i + 1))
+                {
+                    name == current_phrase_word
+                } else {
+                    false
+                }
+            })
     }
 
     pub(crate) fn origin_has_phrase(&self, phrase: &[String]) -> bool {
-        let axis_name = phrase
-            .get(1)
-            .expect("lists of length greater than one have a second element");
-
-        self.axis_has_phrase(phrase, &Location::default(), axis_name)
+        // todo come back to see if this can be a string ref
+        self.axis_has_phrase(phrase, &Location::default(), &phrase[1])
     }
 
-    pub(crate) fn get_bottom_right_corner(&self) -> Location {
-        let mut max = 0;
-        let mut res = Location { info: btreemap! {} };
-        for loc in self.info.keys() {
-            if loc.length() > max {
-                max = loc.length();
-                res = loc.clone();
-            }
-        }
-        res
+    pub(crate) fn get_bottom_right_corner(&self) -> &Location {
+        self.info
+            .keys()
+            .max_by(|left, right| left.length().cmp(&right.length()))
+            .expect("don't get the bottom right corner of empty orthos")
     }
 
     pub(crate) fn get_dims(&self) -> BTreeMap<usize, usize> {
         self.get_bottom_right_corner().dims()
     }
 
+    // todo come back here
     pub(crate) fn zip_up(
         l: &Ortho,
         r: &Ortho,
         old_axis_to_new_axis: &BTreeMap<&String, &String>,
     ) -> Ortho {
         let shift_axis = r.get_origin();
-        let right_with_lefts_coordinate_system: BTreeMap<Location, String> = r
+        let right_with_lefts_coordinate_system: BTreeMap<Location, &String> = r
             .info
             .iter()
-            .map(|(k, v)| (k.map_location_lean(old_axis_to_new_axis), v.to_owned()))
+            .map(|(k, v)| (k.map_location_lean(old_axis_to_new_axis), v))
             .collect();
         let shifted_right: BTreeMap<Location, String> = right_with_lefts_coordinate_system
             .iter()
-            .map(|(k, v)| (k.shift_location(shift_axis.clone()), v.to_owned()))
+            .map(|(k, v)| (k.shift_location(shift_axis.clone()), v.to_string()))
             .collect();
         let combined: BTreeMap<Location, String> =
             l.info.clone().into_iter().chain(shifted_right).collect();
         Ortho { info: combined }
     }
 
-    pub(crate) fn name_at_location(&self, location: Location) -> String {
+    pub(crate) fn name_at_location(&self, location: Location) -> &String {
         self.info
             .get(&location)
             .expect("locations must be present to be queried")
-            .to_string()
     }
 
     pub(crate) fn optional_name_at_location(&self, location: Location) -> Option<&String> {
@@ -223,7 +216,7 @@ impl Ortho {
         self.info.iter().map(|(_, b)| b)
     }
 
-    pub(crate) fn phrases(&self, shift_axis: String) -> Vec<Vec<String>> {
+    pub(crate) fn phrases(&self, shift_axis: String) -> Vec<Vec<&String>> {
         let length = self.axis_length(&shift_axis);
         self.info
             .iter()
@@ -232,7 +225,7 @@ impl Ortho {
             .collect()
     }
 
-    fn extract_phrase_along(&self, axis: String, length: usize, loc: &Location) -> Vec<String> {
+    fn extract_phrase_along(&self, axis: String, length: usize, loc: &Location) -> Vec<&String> {
         let mut res = vec![self.name_at_location(loc.to_owned())];
 
         for i in 1..length + 1 {
@@ -285,7 +278,7 @@ impl Ortho {
         missing_axeses.collect()
     }
 
-    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<String>> {
+    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<&String>> {
         self.get_hop()
             .iter()
             .flat_map(|axis| {
@@ -545,7 +538,7 @@ mod tests {
         let actual = o.name_at_location(Location {
             info: btreemap! {"b".to_string() => 1, "c".to_string() => 1},
         });
-        assert_eq!(actual, "d".to_string());
+        assert_eq!(actual, &"d".to_string());
     }
 
     #[test]
@@ -710,8 +703,8 @@ mod tests {
         assert_eq!(
             ans,
             vec![
-                vec!["a".to_owned(), "b".to_owned()],
-                vec!["c".to_owned(), "d".to_owned()]
+                vec![&"a".to_owned(), &"b".to_owned()],
+                vec![&"c".to_owned(), &"d".to_owned()]
             ]
         );
 
@@ -719,8 +712,8 @@ mod tests {
         assert_eq!(
             ans_two,
             vec![
-                vec!["a".to_owned(), "c".to_owned()],
-                vec!["b".to_owned(), "d".to_owned()]
+                vec![&"a".to_owned(), &"c".to_owned()],
+                vec![&"b".to_owned(), &"d".to_owned()]
             ]
         );
     }

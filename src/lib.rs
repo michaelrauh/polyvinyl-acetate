@@ -125,6 +125,12 @@ pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
     hasher.finish() as i64
 }
 
+pub fn lean_vec_of_strings_to_signed_int(v: Vec<&String>) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    v.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
 pub fn string_refs_to_signed_int(l: &str, r: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     l.hash(&mut hasher);
@@ -257,11 +263,11 @@ fn get_ortho_by_contents(
 
 pub(crate) fn phrase_exists(
     conn: Option<&PgConnection>,
-    phrase: Vec<String>,
+    phrase: Vec<&String>,
 ) -> Result<bool, anyhow::Error> {
     use crate::schema::phrases::dsl::phrases;
     let res: bool = diesel::select(diesel::dsl::exists(
-        phrases.filter(schema::phrases::words_hash.eq(vec_of_strings_to_signed_int(phrase))),
+        phrases.filter(schema::phrases::words_hash.eq(lean_vec_of_strings_to_signed_int(phrase))),
     ))
     .get_result(conn.expect("don't use the test connection"))?;
 

@@ -9,76 +9,72 @@ pub(crate) fn over(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
     get_ortho_by_origin: FailableStringToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, anyhow::Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
     project_forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     project_backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
-    // considering old_orthotope to be the left hand side
     let all_phrases = old_orthotope.all_full_length_phrases();
-    let mut rhs_phrases = vec![]; // phrase with extension into the next ortho going to the right
 
+    let mut forward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
     for old_phrase in all_phrases.clone() {
         let last = &old_phrase.last().expect("orthos cannot have empty phrases");
         let nexts = project_forward(conn, last)?;
         for next in nexts {
             let current_phrase = old_phrase
                 .iter()
-                .chain(vec![next].iter())
+                .chain(vec![&next].iter())
                 .map(|s| s.to_owned())
                 .collect::<Vec<_>>();
             if phrase_exists(conn, current_phrase.clone())? {
-                rhs_phrases.push(current_phrase.to_vec());
-            }
-        }
-    }
-
-    let mut forward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
-    for phrase in rhs_phrases {
-        for potential_ortho in get_ortho_by_origin(conn, &phrase[1])? {
-            if potential_ortho.origin_has_phrase(&phrase[1..].to_vec())
-                && potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2
-                && old_orthotope.get_dims() == potential_ortho.get_dims()
-            {
-                forward_potential_pairings.push((
-                    old_orthotope.clone(),
-                    potential_ortho,
-                    phrase[1].clone(),
-                    phrase[2].clone(),
-                ));
-            }
-        }
-    }
-
-    // considering old orthotope to be on the right hand side
-    let mut lhs_phrases = vec![]; // phrase with extension into the previous ortho going to the left
-
-    for old_phrase in all_phrases {
-        let prevs = project_backward(conn, &old_phrase[0])?;
-        for prev in prevs {
-            let current_phrase = vec![prev]
-                .iter()
-                .chain(old_phrase.iter())
-                .map(|s| s.to_owned())
-                .collect::<Vec<_>>();
-            if phrase_exists(conn, current_phrase.clone())? {
-                lhs_phrases.push(current_phrase.to_vec());
+                let phrase = current_phrase.to_vec();
+                for potential_ortho in get_ortho_by_origin(conn, &phrase[1])? {
+                    let phrase_tail: Vec<String> =
+                        phrase[1..].iter().map(|x| x.to_string()).collect();
+                    if potential_ortho.origin_has_phrase(&phrase_tail)
+                        && potential_ortho.axis_length(&phrase[2]) == phrase.len() - 2
+                        && old_orthotope.get_dims() == potential_ortho.get_dims()
+                    {
+                        forward_potential_pairings.push((
+                            old_orthotope.clone(),
+                            potential_ortho,
+                            phrase[1].clone(),
+                            phrase[2].clone(),
+                        ));
+                    }
+                }
             }
         }
     }
 
     let mut backward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
-    for phrase in lhs_phrases {
-        for potential_ortho in get_ortho_by_origin(conn, &phrase[0])? {
-            if potential_ortho.origin_has_phrase(&phrase[..phrase.len() - 1].to_vec())
-                && potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2
-                && old_orthotope.get_dims() == potential_ortho.get_dims()
-            {
-                backward_potential_pairings.push((
-                    potential_ortho,
-                    old_orthotope.clone(),
-                    phrase[1].clone(),
-                    phrase[2].clone(),
-                ));
+
+    for old_phrase in all_phrases {
+        let prevs = project_backward(conn, &old_phrase[0])?;
+        for prev in prevs {
+            let current_phrase: Vec<&String> = vec![&prev]
+                .iter()
+                .chain(old_phrase.iter())
+                .map(|s| s.to_owned())
+                .collect::<Vec<_>>();
+            if phrase_exists(conn, current_phrase.clone())? {
+                let phrase = current_phrase.to_vec();
+                for potential_ortho in get_ortho_by_origin(conn, &phrase[0])? {
+                    let phrase_head: Vec<String> = phrase[..phrase.len() - 1]
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect();
+                    if potential_ortho.origin_has_phrase(&phrase_head)
+                        && potential_ortho.axis_length(&phrase[1]) == phrase.len() - 2
+                        && old_orthotope.get_dims() == potential_ortho.get_dims()
+                    {
+                        backward_potential_pairings.push((
+                            potential_ortho,
+                            old_orthotope.clone(),
+                            phrase[1].clone(),
+                            phrase[2].clone(),
+                        ));
+                    }
+                }
             }
         }
     }
@@ -165,11 +161,17 @@ mod tests {
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
-        phrase: Vec<String>,
+        phrase: Vec<&String>,
     ) -> Result<bool, anyhow::Error> {
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let c = &"c".to_string();
+        let d = &"d".to_string();
         let ps = hashset! {
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
-            vec!["c".to_owned(),"d".to_owned(), "f".to_owned()]
+            vec![a, b, e],
+            vec![c,d, f]
         };
         Ok(ps.contains(&phrase))
     }

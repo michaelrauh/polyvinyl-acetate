@@ -15,7 +15,7 @@ pub(crate) fn over(
     ortho_by_origin: FailableStringToOrthoVec,
     ortho_by_hop: FailableStringVecToOrthoVec,
     ortho_by_contents: FailableStringVecToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, anyhow::Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if phrase.len() < 3 {
         return Ok(vec![]);
@@ -128,7 +128,7 @@ pub(crate) fn over(
 
 pub fn attempt_combine_over(
     conn: Option<&PgConnection>,
-    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, Error>,
     potential_pairings_and_shift_axes: Vec<(Ortho, Ortho, String, String)>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
@@ -191,7 +191,7 @@ pub fn attempt_combine_over(
 }
 
 fn phrases_work(
-    phrase_exists: fn(Option<&PgConnection>, Vec<String>) -> Result<bool, anyhow::Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
     ortho_to_add: Ortho,
     shift_axis: String,
     conn: Option<&PgConnection>,
@@ -235,7 +235,7 @@ fn mapping_works(
         let augmented = mapped.add(origin_lhs_known_mapping_member.to_string());
         let name_at_location = lo.name_at_location(augmented);
 
-        if name != name_at_location {
+        if &name != name_at_location {
             return false;
         }
     }
@@ -269,33 +269,51 @@ mod tests {
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
-        phrase: Vec<String>,
+        phrase: Vec<&String>,
     ) -> Result<bool, anyhow::Error> {
+        let a = "a".to_owned();
+        let b = "b".to_owned();
+        let c = "c".to_owned();
+        let d = "d".to_owned();
+        let e = "e".to_owned();
+        let f = "f".to_owned();
         let ps = hashset! {
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
-            vec!["c".to_owned(), "d".to_owned(), "f".to_owned()]
+            vec![&a, &b, &e],
+            vec![&c, &d, &f]
         };
         Ok(ps.contains(&phrase))
     }
 
     fn fake_phrase_exists_two(
         _conn: Option<&PgConnection>,
-        phrase: Vec<String>,
+        phrase: Vec<&String>,
     ) -> Result<bool, anyhow::Error> {
+        let a = "a".to_owned();
+        let b = "b".to_owned();
+        let e = "e".to_owned();
         let ps = hashset! {
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()]
+            vec![&a, &b, &e]
         };
         Ok(ps.contains(&phrase))
     }
 
     fn fake_phrase_exists_three(
         _conn: Option<&PgConnection>,
-        phrase: Vec<String>,
+        phrase: Vec<&String>,
     ) -> Result<bool, anyhow::Error> {
+        let a = "a".to_owned();
+        let b = "b".to_owned();
+        let c = "c".to_owned();
+        let d = "d".to_owned();
+        let e = "e".to_owned();
+        let f = "f".to_owned();
+        let g = "g".to_owned();
+        let h = "h".to_owned();
+        let i = "i".to_owned();
         let ps = hashset! {
-            vec!["a".to_owned(), "d".to_owned(), "g".to_owned()],
-            vec!["b".to_owned(), "e".to_owned(), "h".to_owned()],
-            vec!["c".to_owned(), "f".to_owned(), "i".to_owned()]
+            vec![&a, &d, &g],
+            vec![&b, &e, &h],
+            vec![&c, &f, &i]
         };
         Ok(ps.contains(&phrase))
     }
