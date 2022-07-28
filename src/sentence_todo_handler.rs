@@ -9,13 +9,13 @@ pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
-        create_pairs(&conn, sentence.sentence.clone())?;
+        create_pairs(&conn, &sentence.sentence)?;
         create_phrases(&conn, sentence.sentence)?;
         Ok(())
     })
 }
 
-pub fn split_sentence_to_pairs(sentence: String) -> Vec<(String, String)> {
+pub fn split_sentence_to_pairs(sentence: &str) -> Vec<(String, String)> {
     if sentence.len() < 2 {
         return vec![];
     }
@@ -48,6 +48,7 @@ fn create_phrases(conn: &PgConnection, sentence: String) -> Result<(), anyhow::E
     let ps: Vec<Vec<String>> = split_sentence_to_phrases(sentence);
     let new_phrases: Vec<NewPhrase> = ps
         .iter()
+        .filter(|phrase| phrase.len() > 2)
         .map(|v| NewPhrase {
             words: v.clone(),
             words_hash: vec_of_strings_to_signed_int(v.iter().collect()),
@@ -109,7 +110,7 @@ fn tails(words: Vec<String>) -> Vec<Vec<String>> {
     acc
 }
 
-fn create_pairs(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Error> {
+fn create_pairs(conn: &PgConnection, sentence: &str) -> Result<(), anyhow::Error> {
     let tuples = split_sentence_to_pairs(sentence);
     let new_pairs: Vec<NewPair> = tuples
         .iter()
@@ -154,18 +155,18 @@ mod tests {
 
     #[test]
     fn it_splits_sentence_to_pairs_empty() {
-        assert_eq!(split_sentence_to_pairs("".to_string()), vec![])
+        assert_eq!(split_sentence_to_pairs(""), vec![])
     }
 
     #[test]
     fn it_splits_sentence_to_pairs_one() {
-        assert_eq!(split_sentence_to_pairs("one".to_string()), vec![])
+        assert_eq!(split_sentence_to_pairs("one"), vec![])
     }
 
     #[test]
     fn it_splits_sentence_to_pairs_two() {
         assert_eq!(
-            split_sentence_to_pairs("one two".to_string()),
+            split_sentence_to_pairs("one two"),
             vec![("one".to_owned(), "two".to_owned())]
         )
     }
@@ -173,7 +174,7 @@ mod tests {
     #[test]
     fn it_splits_sentence_to_pairs_many() {
         assert_eq!(
-            split_sentence_to_pairs("one two three four five".to_string()),
+            split_sentence_to_pairs("one two three four five"),
             vec![
                 ("one".to_owned(), "two".to_owned()),
                 ("two".to_owned(), "three".to_owned()),

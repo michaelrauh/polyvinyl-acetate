@@ -79,9 +79,7 @@ impl Ortho {
             .skip(1)
             .enumerate()
             .all(|(i, current_phrase_word)| {
-                if let Some(name) =
-                    self.optional_name_at_location(&loc.add_n(axis, i + 1))
-                {
+                if let Some(name) = self.optional_name_at_location(&loc.add_n(axis, i + 1)) {
                     &name == current_phrase_word
                 } else {
                     false
@@ -250,13 +248,11 @@ impl Ortho {
             .filter(|name| name.is_edge(&self.get_hop()));
 
         let to_locations = self.location_at_name(to_name);
-        let potentials =
-            Itertools::cartesian_product(from_locations, to_locations.iter());
-        let valid_potentials = potentials
-            .filter(|(l, r)| (l.length() + 1) == r.length());
+        let potentials = Itertools::cartesian_product(from_locations, to_locations.iter());
+        let valid_potentials = potentials.filter(|(l, r)| (l.length() + 1) == r.length());
 
-        let missing_axeses = valid_potentials
-            .map(|(l, r)| r.subtract_adjacent_for_single_axis_name(l));
+        let missing_axeses =
+            valid_potentials.map(|(l, r)| r.subtract_adjacent_for_single_axis_name(l));
         missing_axeses.cloned().collect()
     }
 
@@ -292,10 +288,7 @@ impl Location {
                 .iter()
                 .map(|(k, v)| {
                     (
-                        old_axis_to_new_axis
-                            .get(k)
-                            .unwrap_or(&k)
-                            .to_string(),
+                        old_axis_to_new_axis.get(k).unwrap_or(&k).to_string(),
                         v.to_owned(),
                     )
                 })
@@ -311,9 +304,9 @@ impl Location {
 
     fn dims(&self) -> BTreeMap<usize, usize> {
         let mut res: BTreeMap<usize, usize> = btreemap! {};
-        self.info.values().for_each(|v| {
-            *res.entry(*v).or_insert(0) += 1
-        });
+        self.info
+            .values()
+            .for_each(|v| *res.entry(*v).or_insert(0) += 1);
         res
     }
 
@@ -322,7 +315,7 @@ impl Location {
     }
 
     pub(crate) fn add(&self, axis: &str) -> Location {
-     self.add_n(axis, 1)
+        self.add_n(axis, 1)
     }
 
     pub(crate) fn add_n(&self, axis: &str, n: usize) -> Location {
@@ -340,7 +333,10 @@ impl Location {
     }
 
     fn missing_axes<'a>(&self, axes: &HashSet<&'a String>) -> HashSet<&'a String> {
-        axes.iter().filter(|axis| { !self.info.keys().contains(axis.to_owned()) }).cloned().collect()
+        axes.iter()
+            .filter(|axis| !self.info.keys().contains(axis.to_owned()))
+            .cloned()
+            .collect()
     }
 
     fn is_contents(&self) -> bool {
@@ -361,15 +357,13 @@ impl Location {
         !self.info.contains_key(shift_axis)
     }
 
-  fn subtract_adjacent_for_single_axis_name(&self, other: &Location) -> &String {
-    self
-        .info
-        .iter()
-        .find(|(axis, count)| &other.info.get(axis.to_owned()).unwrap_or(&0) != count)
-        .expect("there must be an adjacent name")
-        .0
-}
-
+    fn subtract_adjacent_for_single_axis_name(&self, other: &Location) -> &String {
+        self.info
+            .iter()
+            .find(|(axis, count)| &other.info.get(axis.to_owned()).unwrap_or(&0) != count)
+            .expect("there must be an adjacent name")
+            .0
+    }
 }
 
 #[cfg(test)]

@@ -17,10 +17,6 @@ pub(crate) fn over(
     ortho_by_contents: FailableStringVecToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    if phrase.len() < 3 {
-        return Ok(vec![]);
-    }
-
     let lhs_phrase_head: Vec<&String> = phrase[..phrase.len() - 1].iter().collect();
     let rhs_phrase_head: Vec<&String> = phrase[1..].iter().collect();
 
@@ -718,21 +714,6 @@ mod tests {
         _o: Vec<String>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
-    }
-
-    #[test]
-    fn over_with_phrase_of_length_two_or_less_is_empty() {
-        let actual = over(
-            None,
-            vec!["a".to_owned(), "b".to_owned()],
-            fake_ortho_by_origin,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
-            fake_phrase_exists,
-        )
-        .unwrap();
-
-        assert_eq!(actual, vec![])
     }
 
     #[test]
