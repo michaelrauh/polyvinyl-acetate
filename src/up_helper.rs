@@ -39,8 +39,8 @@ fn mapping_is_complete(
 ) -> bool {
     for (right_location, right_name) in &ro.info {
         if right_location.length() > 1 {
-            let mapped = right_location.map_location_lean(mapping);
-            let left_name = lo.name_at_location(mapped);
+            let mapped = right_location.map_location(mapping);
+            let left_name = lo.name_at_location(&mapped);
             if !all_pairs.contains(&string_refs_to_signed_int(left_name, right_name)) {
                 return false;
             }

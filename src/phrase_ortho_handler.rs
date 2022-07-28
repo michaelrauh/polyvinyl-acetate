@@ -50,7 +50,7 @@ pub(crate) fn over(
         .iter()
         .filter(|o| o.hop_has_phrase(&lhs_phrase_head.clone()))
         .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(phrase[0].clone(), phrase[1].clone());
+            let axis = o.axis_of_change_between_names_for_hop(&phrase[0], &phrase[1]);
             if o.axis_length(&axis) == phrase.len() - 2 {
                 Some((o.to_owned(), axis))
             } else {
@@ -63,7 +63,7 @@ pub(crate) fn over(
         .iter()
         .filter(|o| o.hop_has_phrase(&rhs_phrase_head.clone()))
         .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(phrase[1].clone(), phrase[2].clone());
+            let axis = o.axis_of_change_between_names_for_hop(&phrase[1], &phrase[2]);
             if o.axis_length(&axis) == phrase.len() - 2 {
                 Some((o.to_owned(), axis))
             } else {
@@ -84,7 +84,7 @@ pub(crate) fn over(
         .map(|o| {
             (
                 o,
-                o.axes_of_change_between_names_for_contents(phrase[0].clone(), phrase[1].clone()),
+                o.axes_of_change_between_names_for_contents(&phrase[0], &phrase[1]),
             )
         })
         .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
@@ -98,7 +98,7 @@ pub(crate) fn over(
         .map(|o| {
             (
                 o,
-                o.axes_of_change_between_names_for_contents(phrase[1].clone(), phrase[2].clone()),
+                o.axes_of_change_between_names_for_contents(&phrase[1], &phrase[2]),
             )
         })
         .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
@@ -158,22 +158,12 @@ pub fn attempt_combine_over(
                     left_mapping,
                     fixed_right_hand.clone(),
                     &right_shift_axis,
-                    left_shift_axis.clone(),
+                    &left_shift_axis,
                 );
 
-                if mapping_works(
-                    mapping.clone(),
-                    lo.clone(),
-                    ro.clone(),
-                    &right_shift_axis,
-                    &left_shift_axis,
-                ) {
-                    let ortho_to_add = Ortho::zip_over(
-                        lo.clone(),
-                        ro.clone(),
-                        mapping.clone(),
-                        right_shift_axis.to_string(),
-                    );
+                if mapping_works(&mapping, &lo, &ro, &right_shift_axis, &left_shift_axis) {
+                    let ortho_to_add =
+                        Ortho::zip_over(&lo, &ro, &mapping, &right_shift_axis.to_string());
 
                     if phrases_work(
                         phrase_exists,
@@ -196,7 +186,7 @@ fn phrases_work(
     shift_axis: String,
     conn: Option<&PgConnection>,
 ) -> Result<bool, anyhow::Error> {
-    let phrases = ortho_to_add.phrases(shift_axis);
+    let phrases = ortho_to_add.phrases(&shift_axis);
 
     for phrase in phrases {
         if !phrase_exists(conn, phrase)? {
@@ -219,9 +209,9 @@ fn axis_lengths_match(
 }
 
 fn mapping_works(
-    mapping: BTreeMap<String, String>,
-    lo: Ortho,
-    ro: Ortho,
+    mapping: &BTreeMap<&String, &String>,
+    lo: &Ortho,
+    ro: &Ortho,
     origin_shift_axis: &str,
     origin_lhs_known_mapping_member: &str,
 ) -> bool {
@@ -231,30 +221,25 @@ fn mapping_works(
         if location.count_axis(origin_shift_axis) == shift_axis_length {
             continue;
         }
-        let mapped = location.map_location(&mapping);
-        let augmented = mapped.add(origin_lhs_known_mapping_member.to_string());
-        let name_at_location = lo.name_at_location(augmented);
+        let mapped = location.map_location(mapping);
+        let augmented = mapped.add(origin_lhs_known_mapping_member);
+        let name_at_location = lo.name_at_location(&augmented);
 
-        if &name != name_at_location {
+        if name != name_at_location {
             return false;
         }
     }
     true
 }
 
-fn make_mapping(
-    left_mapping: Vec<&String>,
-    fixed_right_hand: Vec<&String>,
-    origin_shift_axis: &str,
-    origin_lhs_known_mapping_member: String,
-) -> std::collections::BTreeMap<String, String> {
-    let left_hand_owned: Vec<String> = left_mapping.iter().map(|x| x.to_string()).collect();
-    let right_hand_owned: Vec<String> = fixed_right_hand.iter().map(|x| x.to_string()).collect();
-    let mut almost: BTreeMap<String, String> = zip(right_hand_owned, left_hand_owned).collect();
-    almost.insert(
-        origin_shift_axis.to_string(),
-        origin_lhs_known_mapping_member,
-    );
+fn make_mapping<'a>(
+    left_mapping: Vec<&'a String>,
+    fixed_right_hand: Vec<&'a String>,
+    origin_shift_axis: &'a String,
+    origin_lhs_known_mapping_member: &'a String,
+) -> std::collections::BTreeMap<&'a String, &'a String> {
+    let mut almost: BTreeMap<&String, &String> = zip(fixed_right_hand, left_mapping).collect();
+    almost.insert(origin_shift_axis, origin_lhs_known_mapping_member);
     almost
 }
 
@@ -372,14 +357,19 @@ mod tests {
             "d".to_string(),
             "f".to_string(),
         );
+
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let bigger = Ortho::zip_over(
-            l,
-            r,
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &l,
+            &r,
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            e,
         );
 
         let mut pairs = btreemap! { "a" => vec![bigger], "b" => vec![small]};
@@ -390,47 +380,53 @@ mod tests {
         _conn: Option<&PgConnection>,
         o: &str,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let l = Ortho::zip_over(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "b".to_string(),
                 "e".to_string(),
                 "d".to_string(),
                 "f".to_string(),
             ),
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            e,
         );
 
         // a b e   b e + e g
         // c d f   d f   f h
 
+        let g = &"g".to_string();
+        let f = &"f".to_string();
         let r = Ortho::zip_over(
-            Ortho::new(
+            &Ortho::new(
                 "b".to_string(),
                 "e".to_string(),
                 "d".to_string(),
                 "f".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "e".to_string(),
                 "g".to_string(),
                 "f".to_string(),
                 "h".to_string(),
             ),
-            btreemap! {
-                "g".to_string() => "e".to_string(),
-                "f".to_string() => "d".to_string()
+            &btreemap! {
+                g => e,
+                f => d
             },
-            "g".to_string(),
+            g,
         );
 
         let mut pairs = btreemap! { "a" => vec![l], "b" => vec![r]};
@@ -493,26 +489,33 @@ mod tests {
 
         // a b  b e
         // c d  d f
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let abecdf = Ortho::zip_over(
-            abcd,
-            bedf.clone(),
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &abcd,
+            &bedf,
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            e,
         );
 
         // c d   d f
         // h i   i j
+        let f = &"f".to_string();
+        let i = &"i".to_string();
+        let h = &"h".to_string();
         let cdfhij = Ortho::zip_over(
-            cdhi,
-            dfij.clone(),
-            btreemap! {
-                "f".to_string() => "d".to_string(),
-                "i".to_string() => "h".to_string()
+            &cdhi,
+            &dfij,
+            &btreemap! {
+                f => d,
+                i => h
             },
-            "f".to_string(),
+            f,
         );
 
         // a b e
@@ -521,37 +524,38 @@ mod tests {
         // c d f
         // h i j
         let abecdfhij = Ortho::zip_over(
-            abecdf,
-            cdfhij,
-            btreemap! {
-                "d".to_string() => "b".to_string(),
-                "h".to_string() => "c".to_string()
+            &abecdf,
+            &cdfhij,
+            &btreemap! {
+                d => b,
+                h => c
             },
-            "h".to_string(),
+            h,
         );
 
         // b e  e b
         // d f  f e
         let bebdfe = Ortho::zip_over(
-            bedf,
-            ebfe,
-            btreemap! {
-                "b".to_string() => "e".to_string(),
-                "f".to_string() => "d".to_string()
+            &bedf,
+            &ebfe,
+            &btreemap! {
+                b => e,
+                f => d
             },
-            "b".to_string(),
+            b,
         );
 
         // d f   f e
         // i j   j g
+        let j = &"j".to_string();
         let dfeijg = Ortho::zip_over(
-            dfij,
-            fejg,
-            btreemap! {
-                "e".to_string() => "f".to_string(),
-                "j".to_string() => "i".to_string()
+            &dfij,
+            &fejg,
+            &btreemap! {
+                e => f,
+                j => i
             },
-            "e".to_string(),
+            e,
         );
 
         //  b e b
@@ -560,13 +564,13 @@ mod tests {
         //  d f e
         //  i j g
         let bebdfeijg = Ortho::zip_over(
-            bebdfe,
-            dfeijg,
-            btreemap! {
-                "f".to_string() => "e".to_string(),
-                "i".to_string() => "d".to_string()
+            &bebdfe,
+            &dfeijg,
+            &btreemap! {
+                f => e,
+                i => d
             },
-            "i".to_string(),
+            i,
         );
 
         let mut pairs = btreemap! { "a" => vec![abecdfhij], "b" => vec![bebdfeijg]};
@@ -620,24 +624,31 @@ mod tests {
             "i".to_string(),
         );
 
+        let c = &"c".to_string();
+        let b = &"b".to_string();
+        let e = &"e".to_string();
+        let d = &"d".to_string();
         let abcdef = Ortho::zip_over(
-            abde,
-            bcef.clone(),
-            btreemap! {
-                "c".to_string() => "b".to_string(),
-                "e".to_string() => "d".to_string()
+            &abde,
+            &bcef,
+            &btreemap! {
+                c => b,
+                e => d
             },
-            "c".to_string(),
+            c,
         );
 
+        let f = &"f".to_string();
+        let h = &"h".to_string();
+        let g = &"g".to_string();
         let defghi = Ortho::zip_over(
-            degh,
-            efhi,
-            btreemap! {
-                "f".to_string() => "e".to_string(),
-                "h".to_string() => "g".to_string()
+            &degh,
+            &efhi,
+            &btreemap! {
+                f => e,
+                h => g
             },
-            "f".to_string(),
+            f,
         );
 
         if o.contains(&"c".to_string())
@@ -729,24 +740,28 @@ mod tests {
         // a b | b e    =   a b e
         // c d | d f        c d f
 
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "b".to_string(),
                 "e".to_string(),
                 "d".to_string(),
                 "f".to_string(),
             ),
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            e,
         );
 
         let actual = over(
@@ -844,26 +859,34 @@ mod tests {
 
         // b e  e b
         // d f  f e
+        let b = &"b".to_string();
+        let f = &"f".to_string();
+        let d = &"d".to_string();
+        let e = &"e".to_string();
         let bebdfe = Ortho::zip_over(
-            bedf,
-            ebfe,
-            btreemap! {
-                "b".to_string() => "e".to_string(),
-                "f".to_string() => "d".to_string()
+            &bedf,
+            &ebfe,
+            &btreemap! {
+                b => e,
+                f => d
             },
-            "b".to_string(),
+            b,
         );
 
         // d f   f e
         // i j   j g
+        let e = &"e".to_string();
+        let f = &"f".to_string();
+        let j = &"j".to_string();
+        let i = &"i".to_string();
         let dfeijg = Ortho::zip_over(
-            dfij,
-            fejg,
-            btreemap! {
-                "e".to_string() => "f".to_string(),
-                "j".to_string() => "i".to_string()
+            &dfij,
+            &fejg,
+            &btreemap! {
+                e => f,
+                j => i
             },
-            "e".to_string(),
+            e,
         );
 
         // b e b   d f e
@@ -905,25 +928,28 @@ mod tests {
     fn over_by_hop() {
         // a b | b e    =   a b e
         // c d | d f        c d f
-
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            Ortho::new(
+            &Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
                 "c".to_string(),
                 "d".to_string(),
             ),
-            Ortho::new(
+            &Ortho::new(
                 "b".to_string(),
                 "e".to_string(),
                 "d".to_string(),
                 "f".to_string(),
             ),
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            e,
         );
 
         let actual = over(
@@ -981,34 +1007,41 @@ mod tests {
             "i".to_string(),
         );
 
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let abcdef = Ortho::zip_over(
-            abde,
-            bcef.clone(),
-            btreemap! {
-                "c".to_string() => "b".to_string(),
-                "e".to_string() => "d".to_string()
+            &abde,
+            &bcef,
+            &btreemap! {
+                c => b,
+                e => d
             },
-            "c".to_string(),
+            c,
         );
 
+        let f = &"f".to_string();
+        let h = &"h".to_string();
+        let g = &"g".to_string();
         let defghi = Ortho::zip_over(
-            degh,
-            efhi,
-            btreemap! {
-                "f".to_string() => "e".to_string(),
-                "h".to_string() => "g".to_string()
+            &degh,
+            &efhi,
+            &btreemap! {
+                f => e,
+                h => g
             },
-            "f".to_string(),
+            f,
         );
 
         let expected = Ortho::zip_over(
-            abcdef,
-            defghi,
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "g".to_string() => "d".to_string()
+            &abcdef,
+            &defghi,
+            &btreemap! {
+                e => b,
+                g => d
             },
-            "g".to_string(),
+            g,
         );
 
         let actual = over(

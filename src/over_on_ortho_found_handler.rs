@@ -205,14 +205,18 @@ mod tests {
         )
         .unwrap();
 
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            left_ortho,
-            right_ortho,
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &left_ortho,
+            &right_ortho,
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            &"e".to_string(),
         );
 
         assert_eq!(actual, vec![expected]);
@@ -247,14 +251,18 @@ mod tests {
         )
         .unwrap();
 
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            left_ortho,
-            right_ortho,
-            btreemap! {
-                "e".to_string() => "b".to_string(),
-                "d".to_string() => "c".to_string()
+            &left_ortho,
+            &right_ortho,
+            &btreemap! {
+                e => b,
+                d => c
             },
-            "e".to_string(),
+            &"e".to_string(),
         );
 
         assert_eq!(actual, vec![expected]);

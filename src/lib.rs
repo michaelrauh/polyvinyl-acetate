@@ -47,8 +47,8 @@ type FailableStringToOrthoVec =
 
 type FailableHashsetStringsToHashsetNumbers = fn(
     conn: Option<&PgConnection>,
-    first_words: HashSet<String>,
-    second_words: HashSet<String>,
+    first_words: HashSet<&String>,
+    second_words: HashSet<&String>,
 ) -> Result<HashSet<i64>, anyhow::Error>;
 
 pub fn establish_connection() -> PgConnection {
@@ -61,8 +61,8 @@ pub fn establish_connection() -> PgConnection {
 
 pub fn get_hashes_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
-    first_words: HashSet<String>,
-    second_words: HashSet<String>,
+    first_words: HashSet<&String>,
+    second_words: HashSet<&String>,
 ) -> Result<HashSet<i64>, anyhow::Error> {
     let firsts: HashSet<i64> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(
@@ -119,13 +119,7 @@ pub fn string_to_signed_int(t: &str) -> i64 {
     hasher.finish() as i64
 }
 
-pub fn vec_of_strings_to_signed_int(v: Vec<String>) -> i64 {
-    let mut hasher = DefaultHasher::new();
-    v.hash(&mut hasher);
-    hasher.finish() as i64
-}
-
-pub fn lean_vec_of_strings_to_signed_int(v: Vec<&String>) -> i64 {
+pub fn vec_of_strings_to_signed_int(v: Vec<&String>) -> i64 {
     let mut hasher = DefaultHasher::new();
     v.hash(&mut hasher);
     hasher.finish() as i64
@@ -267,7 +261,7 @@ pub(crate) fn phrase_exists(
 ) -> Result<bool, anyhow::Error> {
     use crate::schema::phrases::dsl::phrases;
     let res: bool = diesel::select(diesel::dsl::exists(
-        phrases.filter(schema::phrases::words_hash.eq(lean_vec_of_strings_to_signed_int(phrase))),
+        phrases.filter(schema::phrases::words_hash.eq(vec_of_strings_to_signed_int(phrase))),
     ))
     .get_result(conn.expect("don't use the test connection"))?;
 

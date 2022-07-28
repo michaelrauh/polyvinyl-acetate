@@ -50,7 +50,7 @@ fn create_phrases(conn: &PgConnection, sentence: String) -> Result<(), anyhow::E
         .iter()
         .map(|v| NewPhrase {
             words: v.clone(),
-            words_hash: vec_of_strings_to_signed_int(v.to_vec()),
+            words_hash: vec_of_strings_to_signed_int(v.iter().collect()),
         })
         .collect();
 
