@@ -7,6 +7,7 @@ use super::schema::pairs;
 use super::schema::phrases;
 use super::schema::sentences;
 use super::schema::todos;
+use super::schema::words;
 
 #[derive(Insertable)]
 #[table_name = "books"]
@@ -84,6 +85,20 @@ pub struct Orthotope {
     pub hop: Vec<String>,
     pub contents: Vec<String>,
     pub info_hash: i64,
+}
+
+#[derive(Insertable, Debug, PartialEq, Eq, Hash, Clone)]
+#[table_name = "words"]
+pub struct NewWords {
+    pub word: String,
+    pub word_hash: i64
+}
+
+#[derive(Queryable, Debug)]
+pub struct Words {
+    pub id: i32,
+    pub word: String,
+    pub word_hash: i64
 }
 
 #[derive(Insertable, Debug)]

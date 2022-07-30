@@ -50,4 +50,20 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, phrases, sentences, todos,);
+table! {
+    words (id) {
+        id -> Int4,
+        word -> Text,
+        word_hash -> Int8,
+    }
+}
+
+allow_tables_to_appear_in_same_query!(
+    books,
+    orthotopes,
+    pairs,
+    phrases,
+    sentences,
+    todos,
+    words,
+);
