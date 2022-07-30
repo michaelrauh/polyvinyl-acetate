@@ -18,7 +18,7 @@ fn main() {
             }
             Err(e) => println!("failure: {}", e),
         }
-        sleep(core::time::Duration::from_millis(100))
+        sleep(core::time::Duration::from_secs(1))
     }
 }
 

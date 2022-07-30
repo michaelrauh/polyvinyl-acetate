@@ -15,8 +15,8 @@ pub(crate) fn over(
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.all_full_length_phrases();
 
-    let mut forward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
-    for old_phrase in all_phrases.clone() {
+    let mut ans: Vec<Ortho> = vec![];
+    for old_phrase in &all_phrases {
         let last = &old_phrase.last().expect("orthos cannot have empty phrases");
         let nexts = project_forward(conn, last)?;
         for next in nexts {
@@ -26,7 +26,7 @@ pub(crate) fn over(
                 .map(|s| s.to_owned())
                 .collect::<Vec<_>>();
             if phrase_exists(conn, current_phrase.clone())? {
-                let phrase = current_phrase.to_vec();
+                let phrase = current_phrase;
                 for potential_ortho in get_ortho_by_origin(conn, phrase[1])? {
                     let phrase_tail: Vec<&String> =
                         phrase[1..].iter().map(|x| x.to_owned()).collect();
@@ -34,19 +34,21 @@ pub(crate) fn over(
                         && potential_ortho.axis_length(phrase[2]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
-                        forward_potential_pairings.push((
-                            old_orthotope.clone(),
-                            potential_ortho,
-                            phrase[1].clone(),
-                            phrase[2].clone(),
-                        ));
+                        for found in attempt_combine_over(
+                            conn,
+                            phrase_exists,
+                            &old_orthotope,
+                            &potential_ortho,
+                            phrase[1].to_string(),
+                            phrase[2].to_string(),
+                        )? {
+                            ans.push(found);
+                        }
                     }
                 }
             }
         }
     }
-
-    let mut backward_potential_pairings: Vec<(Ortho, Ortho, String, String)> = vec![];
 
     for old_phrase in all_phrases {
         let prevs = project_backward(conn, old_phrase[0])?;
@@ -67,25 +69,21 @@ pub(crate) fn over(
                         && potential_ortho.axis_length(phrase[1]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
-                        backward_potential_pairings.push((
-                            potential_ortho,
-                            old_orthotope.clone(),
-                            phrase[1].clone(),
-                            phrase[2].clone(),
-                        ));
+                        for found in attempt_combine_over(
+                            conn,
+                            phrase_exists,
+                            &potential_ortho,
+                            &old_orthotope,
+                            phrase[1].to_string(),
+                            phrase[2].to_string(),
+                        )? {
+                            ans.push(found);
+                        }
                     }
                 }
             }
         }
     }
-
-    let potential_pairings: Vec<(Ortho, Ortho, String, String)> = backward_potential_pairings
-        .iter()
-        .chain(forward_potential_pairings.iter())
-        .map(|x| x.to_owned())
-        .collect();
-
-    let ans = attempt_combine_over(conn, phrase_exists, potential_pairings)?;
 
     Ok(ans)
 }

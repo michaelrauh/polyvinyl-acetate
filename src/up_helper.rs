@@ -74,18 +74,6 @@ pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
     orthos.into_iter().filter(|o| o.is_base()).collect()
 }
 
-pub fn make_potential_pairings(
-    left_orthos_by_origin: Vec<Ortho>,
-    right_orthos_by_origin: Vec<Ortho>,
-) -> Vec<(Ortho, Ortho)> {
-    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
-        left_orthos_by_origin.iter().cloned(),
-        right_orthos_by_origin.iter().cloned(),
-    )
-    .collect();
-    potential_pairings_by_origin
-}
-
 #[cfg(test)]
 mod tests {
     use crate::ortho::Ortho;

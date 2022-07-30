@@ -4,10 +4,7 @@ use std::collections::BTreeMap;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
-use crate::{
-    ortho::Ortho, up_helper::make_potential_pairings, FailableStringToOrthoVec,
-    FailableStringVecToOrthoVec,
-};
+use crate::{ortho::Ortho, FailableStringToOrthoVec, FailableStringVecToOrthoVec};
 
 pub(crate) fn over(
     conn: Option<&PgConnection>,
@@ -20,61 +17,54 @@ pub(crate) fn over(
     let lhs_phrase_head: Vec<&String> = phrase[..phrase.len() - 1].iter().collect();
     let rhs_phrase_head: Vec<&String> = phrase[1..].iter().collect();
 
-    let lhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[0])?
+    let foo = ortho_by_origin(conn, &phrase[0])?;
+    let lhs_by_origin = foo
         .iter()
-        .filter(|o| o.origin_has_phrase(&lhs_phrase_head.clone()))
-        .filter(|o| o.axis_length(&phrase[1]) == (phrase.len() - 2))
-        .cloned()
-        .collect();
+        .filter(|o| o.origin_has_phrase(&lhs_phrase_head))
+        .filter(|o| o.axis_length(&phrase[1]) == (phrase.len() - 2));
 
-    let rhs_by_origin: Vec<Ortho> = ortho_by_origin(conn, &phrase[1])?
+    let bar = ortho_by_origin(conn, &phrase[1])?;
+    let rhs_by_origin = bar
         .iter()
-        .filter(|o| o.origin_has_phrase(&rhs_phrase_head.clone()))
-        .filter(|o| o.axis_length(&phrase[2]) == (phrase.len() - 2))
-        .cloned()
-        .collect();
+        .filter(|o| o.origin_has_phrase(&rhs_phrase_head))
+        .filter(|o| o.axis_length(&phrase[2]) == (phrase.len() - 2));
 
-    let origin_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
-        make_potential_pairings(lhs_by_origin, rhs_by_origin)
-            .iter()
-            .filter(|(l, r)| l.get_dims() == r.get_dims())
-            .cloned()
-            .map(|(l, r)| (l, r, phrase[1].clone(), phrase[2].to_owned()))
-            .collect();
+    let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
+        .filter(|(l, r)| l.get_dims() == r.get_dims())
+        .map(|(l, r)| (l, r, phrase[1].clone(), phrase[2].clone()));
 
-    let lhs_by_hop: Vec<(Ortho, String)> = ortho_by_hop(conn, vec![phrase[0].clone()])?
+    let baz = ortho_by_hop(conn, vec![phrase[0].clone()])?;
+    let lhs_by_hop = baz
         .iter()
-        .filter(|o| o.hop_has_phrase(&lhs_phrase_head.clone()))
+        .filter(|o| o.hop_has_phrase(&lhs_phrase_head))
         .filter_map(|o| {
             let axis = o.axis_of_change_between_names_for_hop(&phrase[0], &phrase[1]);
             if o.axis_length(&axis) == phrase.len() - 2 {
-                Some((o.to_owned(), axis))
+                Some((o, axis))
             } else {
                 None
             }
-        })
-        .collect();
+        });
 
-    let rhs_by_hop: Vec<(Ortho, String)> = ortho_by_hop(conn, vec![phrase[1].clone()])?
+    let bang = ortho_by_hop(conn, vec![phrase[1].clone()])?;
+    let rhs_by_hop = bang
         .iter()
-        .filter(|o| o.hop_has_phrase(&rhs_phrase_head.clone()))
+        .filter(|o| o.hop_has_phrase(&rhs_phrase_head))
         .filter_map(|o| {
             let axis = o.axis_of_change_between_names_for_hop(&phrase[1], &phrase[2]);
             if o.axis_length(&axis) == phrase.len() - 2 {
-                Some((o.to_owned(), axis))
+                Some((o, axis))
             } else {
                 None
             }
-        })
-        .collect();
+        });
 
-    let hop_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
-        Itertools::cartesian_product(lhs_by_hop.iter().cloned(), rhs_by_hop.iter().cloned())
-            .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-            .map(|((l, lx), (r, rx))| (l, r, lx, rx))
-            .collect();
+    let hop_potential_pairings = Itertools::cartesian_product(lhs_by_hop, rhs_by_hop)
+        .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
+        .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let lhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[0].clone()])?
+    let qux = ortho_by_contents(conn, vec![phrase[0].clone()])?;
+    let lhs_by_contents = qux
         .iter()
         .filter(|o| o.contents_has_phrase(&lhs_phrase_head))
         .map(|o| {
@@ -83,12 +73,12 @@ pub(crate) fn over(
                 o.axes_of_change_between_names_for_contents(&phrase[0], &phrase[1]),
             )
         })
-        .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
+        .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
         .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
-        .map(|(o, a)| (o.to_owned(), a))
-        .collect();
+        .map(|(o, a)| (o, a));
 
-    let rhs_by_contents: Vec<(Ortho, String)> = ortho_by_contents(conn, vec![phrase[1].clone()])?
+    let quux = ortho_by_contents(conn, vec![phrase[1].clone()])?;
+    let rhs_by_contents = quux
         .iter()
         .filter(|o| o.contents_has_phrase(&rhs_phrase_head))
         .map(|o| {
@@ -97,82 +87,83 @@ pub(crate) fn over(
                 o.axes_of_change_between_names_for_contents(&phrase[1], &phrase[2]),
             )
         })
-        .flat_map(|(o, axs)| axs.iter().map(|axis| (o, axis.clone())).collect::<Vec<_>>())
+        .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
         .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
-        .map(|(o, a)| (o.to_owned(), a))
-        .collect();
+        .map(|(o, a)| (o, a));
 
-    let contents_potential_pairings: Vec<(Ortho, Ortho, String, String)> =
-        Itertools::cartesian_product(
-            lhs_by_contents.iter().cloned(),
-            rhs_by_contents.iter().cloned(),
-        )
-        .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-        .map(|((l, lx), (r, rx))| (l, r, lx, rx))
-        .collect();
+    let contents_potential_pairings =
+        Itertools::cartesian_product(lhs_by_contents, rhs_by_contents)
+            .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
+            .map(|((l, lx), (r, rx))| (l, r, lx.to_string(), rx.to_string()));
 
-    let potential_pairings = origin_potential_pairings
-        .iter()
-        .chain(hop_potential_pairings.iter())
-        .chain(contents_potential_pairings.iter())
-        .cloned()
-        .collect::<Vec<_>>();
-    let ans = attempt_combine_over(conn, phrase_exists, potential_pairings)?;
+    let all_inputs = origin_potential_pairings
+        .chain(hop_potential_pairings)
+        .chain(contents_potential_pairings);
 
-    Ok(ans)
+    let mut res = vec![];
+    for (lo, ro, lhs, rhs) in all_inputs {
+        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+            res.push(answer);
+        }
+    }
+    Ok(res)
 }
 
+// todo move the network call out
+// todo revisit clones here
 pub fn attempt_combine_over(
     conn: Option<&PgConnection>,
     phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, Error>,
-    potential_pairings_and_shift_axes: Vec<(Ortho, Ortho, String, String)>,
+    lo: &Ortho,
+    ro: &Ortho,
+    left_shift_axis: String,  // todo make this a ref
+    right_shift_axis: String, // todo make this a ref
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
-    for (lo, ro, left_shift_axis, right_shift_axis) in potential_pairings_and_shift_axes {
-        let mut lo_hop_set = lo.get_hop();
+    let mut lo_hop_set = lo.get_hop();
 
-        lo_hop_set.remove(&left_shift_axis);
-        let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
+    lo_hop_set.remove(&left_shift_axis);
+    let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
 
-        let mut ro_hop_set = ro.get_hop();
-        ro_hop_set.remove(&right_shift_axis);
+    let mut ro_hop_set = ro.get_hop();
+    ro_hop_set.remove(&right_shift_axis);
 
-        let fixed_right_hand: Vec<&String> = ro_hop_set.iter().cloned().collect();
+    let fixed_right_hand: Vec<&String> = ro_hop_set.iter().cloned().collect();
 
-        let lo_hop_len = lo_hop.len();
-        let left_hand_coordinate_configurations =
-            Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
+    let lo_hop_len = lo_hop.len();
+    let left_hand_coordinate_configurations =
+        Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
 
-        for left_mapping in left_hand_coordinate_configurations {
-            if axis_lengths_match(
-                left_mapping.clone(),
+    for left_mapping in left_hand_coordinate_configurations {
+        if axis_lengths_match(
+            left_mapping.clone(),
+            fixed_right_hand.clone(),
+            lo.clone(),
+            ro.clone(),
+        ) {
+            let mapping = make_mapping(
+                left_mapping,
                 fixed_right_hand.clone(),
-                lo.clone(),
-                ro.clone(),
-            ) {
-                let mapping = make_mapping(
-                    left_mapping,
-                    fixed_right_hand.clone(),
-                    &right_shift_axis,
-                    &left_shift_axis,
-                );
+                &right_shift_axis,
+                &left_shift_axis,
+            );
 
-                if mapping_works(&mapping, &lo, &ro, &right_shift_axis, &left_shift_axis) {
-                    let ortho_to_add =
-                        Ortho::zip_over(&lo, &ro, &mapping, &right_shift_axis.to_string());
+            if mapping_works(&mapping, &lo, &ro, &right_shift_axis, &left_shift_axis) {
+                let ortho_to_add =
+                    Ortho::zip_over(&lo, &ro, &mapping, &right_shift_axis.to_string());
 
-                    if phrases_work(
-                        phrase_exists,
-                        ortho_to_add.clone(),
-                        left_shift_axis.to_owned(),
-                        conn,
-                    )? {
-                        ans.push(ortho_to_add);
-                    }
+                if phrases_work(
+                    phrase_exists,
+                    ortho_to_add.clone(),
+                    left_shift_axis.to_owned(),
+                    conn,
+                )? {
+                    ans.push(ortho_to_add);
                 }
             }
         }
     }
+
     Ok(ans)
 }
 
