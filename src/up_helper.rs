@@ -6,21 +6,17 @@ use std::collections::{BTreeMap, HashSet};
 
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
     let lo_hop = lo.get_hop();
-    let left_hand_coordinate_configurations = Itertools::permutations(lo_hop.iter(), lo_hop.len());
-    let fixed_right_hand: Vec<String> = ro.get_hop().into_iter().collect();
+    let lo_hop_len = lo_hop.len();
+    let left_hand_coordinate_configurations =
+        Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
+    let fixed_right_hand: Vec<&String> = ro.get_hop().into_iter().collect();
     left_hand_coordinate_configurations
-        .filter(|left_mapping| {
-            mapping_works(
-                left_mapping,
-                &fixed_right_hand,
-                &all_pairs,
-            )
-        })
-        .map(|left_mapping| make_mapping(left_mapping.to_vec(), fixed_right_hand.clone()))
+        .filter(|left_mapping| mapping_works(left_mapping, &fixed_right_hand, all_pairs))
+        .map(|left_mapping| make_mapping(&left_mapping, &fixed_right_hand))
         .filter(|mapping| {
             diagonals_do_not_conflict(lo, ro) && mapping_is_complete(all_pairs, mapping, lo, ro)
         })
-        .map(|mapping| Ortho::zip_up(lo, ro, &mapping)) 
+        .map(|mapping| Ortho::zip_up(lo, ro, &mapping))
         .collect()
 }
 
@@ -37,15 +33,15 @@ fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
 
 fn mapping_is_complete(
     all_pairs: &HashSet<i64>,
-    mapping: &BTreeMap<String, String>,
+    mapping: &BTreeMap<&String, &String>,
     lo: &Ortho,
     ro: &Ortho,
 ) -> bool {
     for (right_location, right_name) in &ro.info {
         if right_location.length() > 1 {
-            let mapped = right_location.map_location(&mapping);
-            let left_name = lo.name_at_location(mapped);
-            if !all_pairs.contains(&string_refs_to_signed_int(&left_name, &right_name)) {
+            let mapped = right_location.map_location(mapping);
+            let left_name = lo.name_at_location(&mapped);
+            if !all_pairs.contains(&string_refs_to_signed_int(left_name, right_name)) {
                 return false;
             }
         }
@@ -54,8 +50,8 @@ fn mapping_is_complete(
 }
 
 fn mapping_works(
-    left_mapping: &Vec<&String>,
-    fixed_right_hand: &Vec<String>,
+    left_mapping: &[&String],
+    fixed_right_hand: &[&String],
     all_pairs: &HashSet<i64>,
 ) -> bool {
     zip(left_mapping, fixed_right_hand)
@@ -63,28 +59,19 @@ fn mapping_works(
         .all(|d| all_pairs.contains(&d))
 }
 
-fn make_mapping(
-    good_left_hand: Vec<&String>,
-    fixed_right_hand: Vec<String>,
-) -> BTreeMap<String, String> {
-    let left_hand_owned: Vec<String> = good_left_hand.iter().map(|x| x.to_string()).collect();
-    zip(fixed_right_hand, left_hand_owned).collect()
+fn make_mapping<'a>(
+    good_left_hand: &[&'a String],
+    fixed_right_hand: &'a [&'a String],
+) -> BTreeMap<&'a String, &'a String> {
+    zip(
+        fixed_right_hand.iter().cloned(),
+        good_left_hand.iter().cloned(),
+    )
+    .collect()
 }
 
 pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
     orthos.into_iter().filter(|o| o.is_base()).collect()
-}
-
-pub fn make_potential_pairings(
-    left_orthos_by_origin: Vec<Ortho>,
-    right_orthos_by_origin: Vec<Ortho>,
-) -> Vec<(Ortho, Ortho)> {
-    let potential_pairings_by_origin: Vec<(Ortho, Ortho)> = Itertools::cartesian_product(
-        left_orthos_by_origin.iter().cloned(),
-        right_orthos_by_origin.iter().cloned(),
-    )
-    .collect();
-    potential_pairings_by_origin
 }
 
 #[cfg(test)]

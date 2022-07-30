@@ -7,8 +7,9 @@ use crate::{
     schema::{self, books, phrases},
     Book, NewTodo,
 };
-use amiquip::{FieldTable, AmqpValue, QueueDeclareOptions};
+use amiquip::{AmqpValue, FieldTable, QueueDeclareOptions};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
+use itertools::Itertools;
 
 pub fn create_book(
     conn: &PgConnection,
@@ -87,10 +88,10 @@ pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error
     Ok(res)
 }
 
-fn phrases_to_string(all_full_length_phrases: Vec<Vec<String>>) -> String {
+fn phrases_to_string(all_full_length_phrases: Vec<Vec<&String>>) -> String {
     let phrases_in_string: Vec<String> = all_full_length_phrases
         .iter()
-        .map(|p| p.join(" "))
+        .map(|p| p.iter().cloned().join(" "))
         .collect();
     phrases_in_string.join("\n")
 }

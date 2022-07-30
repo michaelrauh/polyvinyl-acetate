@@ -1,6 +1,6 @@
 use std::{env, thread::sleep};
 
-use amiquip::{AmqpProperties, Exchange, Publish, QueueDeclareOptions, FieldTable, AmqpValue};
+use amiquip::{AmqpProperties, AmqpValue, Exchange, FieldTable, Publish, QueueDeclareOptions};
 use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl};
 use polyvinyl_acetate::{
     establish_connection,
@@ -18,7 +18,7 @@ fn main() {
             }
             Err(e) => println!("failure: {}", e),
         }
-        sleep(core::time::Duration::from_millis(100))
+        sleep(core::time::Duration::from_secs(1))
     }
 }
 
@@ -77,7 +77,9 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
         exchange.publish(Publish::with_properties(
             &data,
             "work",
-            AmqpProperties::default().with_delivery_mode(2).with_priority(domain_to_priority(&todo.domain)),
+            AmqpProperties::default()
+                .with_delivery_mode(2)
+                .with_priority(domain_to_priority(&todo.domain)),
         ))?;
     }
 
@@ -85,8 +87,8 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
     Ok(todos.len())
 }
 
-fn domain_to_priority(domain: &String) -> u8 {
-    match domain.as_str() {
+fn domain_to_priority(domain: &str) -> u8 {
+    match domain {
         "books" => 1,
         "sentences" => 2,
         "pairs" => 3,

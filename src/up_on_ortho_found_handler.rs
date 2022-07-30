@@ -1,4 +1,4 @@
-use crate::{ortho::Ortho, up_helper};
+use crate::{ortho::Ortho, up_helper, FailableHashsetStringsToHashsetNumbers};
 use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
@@ -12,20 +12,16 @@ pub(crate) fn up(
     ortho_by_origin: FailableStringToOrthoVec,
     forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
     backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    get_pair_hashes_relevant_to_vocabularies: fn(
-        conn: Option<&PgConnection>,
-        first_words: HashSet<String>,
-        second_words: HashSet<String>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    get_pair_hashes_relevant_to_vocabularies: FailableHashsetStringsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    if !old_ortho.is_base() { // todo come back to here to performance adjust
+    if !old_ortho.is_base() {
         return Ok(vec![]);
     }
 
     let mut ans = vec![];
 
-    let projected_forward = forward(conn, &old_ortho.get_origin())?;
-    let projected_backward = backward(conn, &old_ortho.get_origin())?;
+    let projected_forward = forward(conn, old_ortho.get_origin())?;
+    let projected_backward = backward(conn, old_ortho.get_origin())?;
 
     let mut orthos_to_right = vec![];
     for f in projected_forward {
@@ -36,13 +32,13 @@ pub(crate) fn up(
         }
     }
 
-    let forward_left_vocab: HashSet<String> = old_ortho
+    let forward_left_vocab: HashSet<&String> = old_ortho
         .to_vec()
         .iter()
         .map(|(_l, r)| r)
         .cloned()
         .collect();
-    let forward_right_vocab = orthos_to_right
+    let forward_right_vocab: HashSet<&String> = orthos_to_right
         .iter()
         .flat_map(|o| o.to_vec())
         .map(|(_l, r)| r)
@@ -128,6 +124,16 @@ mod tests {
         _conn: Option<&PgConnection>,
         o: &str,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
+
+        let i = &"i".to_string();
+        let h = &"h".to_string();
+        let l = &"l".to_string();
+        let j = &"j".to_string();
+
         let l_one = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -140,12 +146,7 @@ mod tests {
             "e".to_string(),
             "f".to_string(),
         );
-        let l = Ortho::zip_over(
-            l_one,
-            l_two,
-            btreemap! { "c".to_string() => "b".to_string(), "e".to_string() => "d".to_string() },
-            "c".to_string(),
-        );
+        let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { c => b, e => d }, c);
         let r_one = Ortho::new(
             "g".to_string(),
             "h".to_string(),
@@ -158,21 +159,16 @@ mod tests {
             "k".to_string(),
             "l".to_string(),
         );
-        let r = Ortho::zip_over(
-            r_one,
-            r_two,
-            btreemap! { "i".to_string() => "h".to_string(), "l".to_string() => "j".to_string() },
-            "i".to_string(),
-        );
-        let mut pairs = btreemap! { "a" => vec![l], "g" => vec![r]};
+        let r = Ortho::zip_over(&r_one, &r_two, &btreemap! { i => h, l => j }, i);
+        let mut pairs = btreemap! { "a" => vec![left_ortho], "g" => vec![r]};
 
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
-        _first_words: HashSet<String>,
-        _second_words: HashSet<String>,
+        _first_words: HashSet<&String>,
+        _second_words: HashSet<&String>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
             ("a", "b"),
@@ -211,6 +207,13 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let actual = up(
             None,
             left_ortho.clone(),
@@ -224,9 +227,9 @@ mod tests {
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 
@@ -249,6 +252,13 @@ mod tests {
             "h".to_string(),
         );
 
+        let e = &"e".to_string();
+        let a = &"a".to_string();
+        let f = &"f".to_string();
+        let b = &"b".to_string();
+        let g = &"g".to_string();
+        let c = &"c".to_string();
+
         let actual = up(
             None,
             right_ortho.clone(),
@@ -262,9 +272,9 @@ mod tests {
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                "e".to_string() => "a".to_string(),
-                "f".to_string() => "b".to_string(),
-                "g".to_string() => "c".to_string()
+                e => a,
+                f => b,
+                g => c
             },
         );
 
@@ -273,6 +283,11 @@ mod tests {
 
     #[test]
     fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
+        let e = &"e".to_string();
+        let b = &"b".to_string();
+        let d = &"d".to_string();
+        let c = &"c".to_string();
+
         let l_one = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -285,12 +300,7 @@ mod tests {
             "e".to_string(),
             "f".to_string(),
         );
-        let l = Ortho::zip_over(
-            l_one,
-            l_two,
-            btreemap! { "c".to_string() => "b".to_string(), "e".to_string() => "d".to_string() },
-            "c".to_string(),
-        );
+        let l = Ortho::zip_over(&l_one, &l_two, &btreemap! { c => b, e => d }, c);
 
         let actual = up(
             None,
