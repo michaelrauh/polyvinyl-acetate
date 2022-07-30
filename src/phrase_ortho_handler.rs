@@ -17,14 +17,14 @@ pub(crate) fn over(
     let lhs_phrase_head: Vec<&String> = phrase[..phrase.len() - 1].iter().collect();
     let rhs_phrase_head: Vec<&String> = phrase[1..].iter().collect();
 
-    let foo = ortho_by_origin(conn, &phrase[0])?;
-    let lhs_by_origin = foo
+    let orthos_by_origin_left = ortho_by_origin(conn, &phrase[0])?;
+    let lhs_by_origin = orthos_by_origin_left
         .iter()
         .filter(|o| o.origin_has_phrase(&lhs_phrase_head))
         .filter(|o| o.axis_length(&phrase[1]) == (phrase.len() - 2));
 
-    let bar = ortho_by_origin(conn, &phrase[1])?;
-    let rhs_by_origin = bar
+    let orthos_by_origin_right = ortho_by_origin(conn, &phrase[1])?;
+    let rhs_by_origin = orthos_by_origin_right
         .iter()
         .filter(|o| o.origin_has_phrase(&rhs_phrase_head))
         .filter(|o| o.axis_length(&phrase[2]) == (phrase.len() - 2));
@@ -33,8 +33,8 @@ pub(crate) fn over(
         .filter(|(l, r)| l.get_dims() == r.get_dims())
         .map(|(l, r)| (l, r, phrase[1].clone(), phrase[2].clone()));
 
-    let baz = ortho_by_hop(conn, vec![phrase[0].clone()])?;
-    let lhs_by_hop = baz
+    let orthos_by_hop_left = ortho_by_hop(conn, vec![phrase[0].clone()])?;
+    let lhs_by_hop = orthos_by_hop_left
         .iter()
         .filter(|o| o.hop_has_phrase(&lhs_phrase_head))
         .filter_map(|o| {
@@ -46,8 +46,8 @@ pub(crate) fn over(
             }
         });
 
-    let bang = ortho_by_hop(conn, vec![phrase[1].clone()])?;
-    let rhs_by_hop = bang
+    let orthos_by_hop_right = ortho_by_hop(conn, vec![phrase[1].clone()])?;
+    let rhs_by_hop = orthos_by_hop_right
         .iter()
         .filter(|o| o.hop_has_phrase(&rhs_phrase_head))
         .filter_map(|o| {
@@ -63,8 +63,8 @@ pub(crate) fn over(
         .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
         .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let qux = ortho_by_contents(conn, vec![phrase[0].clone()])?;
-    let lhs_by_contents = qux
+    let orthos_by_contents_left = ortho_by_contents(conn, vec![phrase[0].clone()])?;
+    let lhs_by_contents = orthos_by_contents_left
         .iter()
         .filter(|o| o.contents_has_phrase(&lhs_phrase_head))
         .map(|o| {
@@ -77,8 +77,8 @@ pub(crate) fn over(
         .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
         .map(|(o, a)| (o, a));
 
-    let quux = ortho_by_contents(conn, vec![phrase[1].clone()])?;
-    let rhs_by_contents = quux
+    let orthos_by_contents_right = ortho_by_contents(conn, vec![phrase[1].clone()])?;
+    let rhs_by_contents = orthos_by_contents_right
         .iter()
         .filter(|o| o.contents_has_phrase(&rhs_phrase_head))
         .map(|o| {
@@ -94,7 +94,7 @@ pub(crate) fn over(
     let contents_potential_pairings =
         Itertools::cartesian_product(lhs_by_contents, rhs_by_contents)
             .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-            .map(|((l, lx), (r, rx))| (l, r, lx.to_string(), rx.to_string()));
+            .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
     let all_inputs = origin_potential_pairings
         .chain(hop_potential_pairings)
@@ -109,15 +109,13 @@ pub(crate) fn over(
     Ok(res)
 }
 
-// todo move the network call out
-// todo revisit clones here
 pub fn attempt_combine_over(
     conn: Option<&PgConnection>,
     phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, Error>,
     lo: &Ortho,
     ro: &Ortho,
-    left_shift_axis: String,  // todo make this a ref
-    right_shift_axis: String, // todo make this a ref
+    left_shift_axis: String,
+    right_shift_axis: String,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
     let mut lo_hop_set = lo.get_hop();
@@ -136,10 +134,10 @@ pub fn attempt_combine_over(
 
     for left_mapping in left_hand_coordinate_configurations {
         if axis_lengths_match(
-            left_mapping.clone(),
-            fixed_right_hand.clone(),
-            lo.clone(),
-            ro.clone(),
+            &left_mapping,
+            &fixed_right_hand,
+            lo,
+            ro,
         ) {
             let mapping = make_mapping(
                 left_mapping,
@@ -148,14 +146,14 @@ pub fn attempt_combine_over(
                 &left_shift_axis,
             );
 
-            if mapping_works(&mapping, &lo, &ro, &right_shift_axis, &left_shift_axis) {
+            if mapping_works(&mapping, lo, ro, &right_shift_axis, &left_shift_axis) {
                 let ortho_to_add =
-                    Ortho::zip_over(&lo, &ro, &mapping, &right_shift_axis.to_string());
+                    Ortho::zip_over(lo, ro, &mapping, &right_shift_axis);
 
                 if phrases_work(
                     phrase_exists,
-                    ortho_to_add.clone(),
-                    left_shift_axis.to_owned(),
+                    &ortho_to_add,
+                    &left_shift_axis,
                     conn,
                 )? {
                     ans.push(ortho_to_add);
@@ -169,11 +167,11 @@ pub fn attempt_combine_over(
 
 fn phrases_work(
     phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
-    ortho_to_add: Ortho,
-    shift_axis: String,
+    ortho_to_add: &Ortho,
+    shift_axis: &str,
     conn: Option<&PgConnection>,
 ) -> Result<bool, anyhow::Error> {
-    let phrases = ortho_to_add.phrases(&shift_axis);
+    let phrases = ortho_to_add.phrases(shift_axis);
 
     for phrase in phrases {
         if !phrase_exists(conn, phrase)? {
@@ -184,10 +182,10 @@ fn phrases_work(
 }
 
 fn axis_lengths_match(
-    left_axes: Vec<&String>,
-    right_axes: Vec<&String>,
-    lo: Ortho,
-    ro: Ortho,
+    left_axes: &[&String],
+    right_axes: &[&String],
+    lo: &Ortho,
+    ro: &Ortho,
 ) -> bool {
     let left_lengths: Vec<usize> = left_axes.iter().map(|axis| lo.axis_length(axis)).collect();
     let right_lengths: Vec<usize> = right_axes.iter().map(|axis| ro.axis_length(axis)).collect();
@@ -864,17 +862,17 @@ mod tests {
         // b e b   d f e
         // d f e   i j g
         let yes = axis_lengths_match(
-            vec![&"e".to_string(), &"d".to_string()],
-            vec![&"f".to_string(), &"i".to_string()],
-            bebdfe.clone(),
-            dfeijg.clone(),
+            &vec![&"e".to_string(), &"d".to_string()],
+            &vec![&"f".to_string(), &"i".to_string()],
+            &bebdfe.clone(),
+            &dfeijg.clone(),
         );
 
         let no = axis_lengths_match(
-            vec![&"d".to_string(), &"e".to_string()],
-            vec![&"f".to_string(), &"i".to_string()],
-            bebdfe,
-            dfeijg,
+            &vec![&"d".to_string(), &"e".to_string()],
+            &vec![&"f".to_string(), &"i".to_string()],
+            &bebdfe,
+            &dfeijg,
         );
 
         assert!(yes);
