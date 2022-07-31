@@ -1,15 +1,17 @@
-use std::{collections::BTreeMap, env};
+use std::{
+    collections::{BTreeMap, HashSet},
+    env,
+};
 
 use crate::{
-    create_todo_entry, establish_connection,
+    create_todo_entry, establish_connection, get_relevant_vocabulary_reverse,
     models::{NewBook, Orthotope},
     ortho::Ortho,
     schema::{self, books, phrases},
-    Book, NewTodo,
+    Book, NewTodo, Word,
 };
 use amiquip::{AmqpValue, FieldTable, QueueDeclareOptions};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
-use itertools::Itertools;
 
 pub fn create_book(
     conn: &PgConnection,
@@ -88,22 +90,33 @@ pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error
     Ok(res)
 }
 
-fn phrases_to_string(all_full_length_phrases: Vec<Vec<&String>>) -> String {
-    let phrases_in_string: Vec<String> = all_full_length_phrases
-        .iter()
-        .map(|p| p.iter().cloned().join(" "))
-        .collect();
-    phrases_in_string.join("\n")
-}
-
 pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {
     let results = get_orthos_by_size(&establish_connection(), dims)?;
 
     let phrases: Vec<_> = results
         .iter()
-        .map(|o| phrases_to_string(o.all_full_length_phrases()))
+        .map(|o| o.all_full_length_phrases())
         .collect();
-    let res = phrases.join("\n\n");
+
+    let all_words: HashSet<Word> = phrases.iter().flatten().flatten().cloned().collect();
+    let mapping = get_relevant_vocabulary_reverse(&establish_connection(), all_words)?;
+
+    let res = phrases
+        .iter()
+        .map(|o| {
+            o.iter()
+                .map(|s| {
+                    s.iter()
+                        .map(|w| mapping.get(w).expect("do not look up new words"))
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
 
     Ok(res)
 }

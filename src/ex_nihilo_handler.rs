@@ -1,13 +1,13 @@
-use crate::ortho::Ortho;
+use crate::{ortho::Ortho, Word};
 
 use diesel::PgConnection;
 type FailableSlicesToOrthoVec =
-    fn(Option<&PgConnection>, &str, &str) -> Result<Vec<Ortho>, anyhow::Error>;
+    fn(Option<&PgConnection>, Word, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub fn ex_nihilo(
     conn: Option<&PgConnection>,
-    first: &str,
-    second: &str,
+    first: Word,
+    second: Word,
     ffbber: FailableSlicesToOrthoVec,
     fbbfer: FailableSlicesToOrthoVec,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -23,59 +23,30 @@ mod tests {
     use diesel::PgConnection;
 
     use crate::ortho::Ortho;
+    use crate::Word;
 
     use crate::ex_nihilo_handler::ex_nihilo;
 
     fn fake_fbbf(
         _conn: Option<&PgConnection>,
-        _first: &str,
-        _second: &str,
+        _first: Word,
+        _second: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![Ortho::new(
-            "a".to_owned(),
-            "b".to_owned(),
-            "c".to_owned(),
-            "d".to_owned(),
-        )])
+        Ok(vec![Ortho::new(1, 2, 3, 4)])
     }
 
     fn fake_ffbb(
         _conn: Option<&PgConnection>,
-        _first: &str,
-        _second: &str,
+        _first: Word,
+        _second: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![Ortho::new(
-            "e".to_owned(),
-            "f".to_owned(),
-            "g".to_owned(),
-            "h".to_owned(),
-        )])
+        Ok(vec![Ortho::new(5, 6, 7, 8)])
     }
 
     #[test]
     fn it_stitches_together_given_and_found_and_chains_ffbb_with_fbbf() {
-        let actual = ex_nihilo(
-            None,
-            &"a".to_string(),
-            &"b".to_string(),
-            fake_ffbb,
-            fake_fbbf,
-        )
-        .unwrap();
-        let expected = vec![
-            Ortho::new(
-                "e".to_owned(),
-                "f".to_owned(),
-                "g".to_owned(),
-                "h".to_owned(),
-            ),
-            Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-        ];
+        let actual = ex_nihilo(None, 1, 2, fake_ffbb, fake_fbbf).unwrap();
+        let expected = vec![Ortho::new(5, 6, 7, 8), Ortho::new(1, 2, 3, 4)];
         assert_eq!(actual, expected)
     }
 }

@@ -10,9 +10,9 @@ table! {
     orthotopes (id) {
         id -> Int4,
         information -> Bytea,
-        origin -> Text,
-        hop -> Array<Text>,
-        contents -> Array<Text>,
+        origin -> Int4,
+        hop -> Array<Int4>,
+        contents -> Array<Int4>,
         info_hash -> Int8,
     }
 }
@@ -20,8 +20,8 @@ table! {
 table! {
     pairs (id) {
         id -> Int4,
-        first_word -> Text,
-        second_word -> Text,
+        first_word -> Int4,
+        second_word -> Int4,
         pair_hash -> Int8,
     }
 }
@@ -29,7 +29,7 @@ table! {
 table! {
     phrases (id) {
         id -> Int4,
-        words -> Array<Text>,
+        words -> Array<Int4>,
         words_hash -> Int8,
     }
 }
@@ -50,4 +50,12 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, phrases, sentences, todos,);
+table! {
+    words (id) {
+        id -> Int4,
+        word -> Text,
+        word_hash -> Int8,
+    }
+}
+
+allow_tables_to_appear_in_same_query!(books, orthotopes, pairs, phrases, sentences, todos, words,);

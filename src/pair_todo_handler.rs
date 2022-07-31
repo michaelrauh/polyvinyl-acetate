@@ -9,7 +9,7 @@ use crate::{
     ex_nihilo_handler, get_hashes_of_pairs_with_words_in,
     models::{NewOrthotope, NewTodo},
     schema::pairs::{dsl::pairs, id},
-    up_handler,
+    up_handler, Word,
 };
 use crate::{
     diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
@@ -40,8 +40,8 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
 
 fn single_ffbb(
     conn: Option<&PgConnection>,
-    first: &str,
-    second: &str,
+    first: Word,
+    second: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let query = format!(
         "SELECT CD.first_word, CD.second_word
@@ -72,8 +72,8 @@ fn single_ffbb(
 
 fn single_fbbf(
     conn: Option<&PgConnection>,
-    first: &str,
-    second: &str,
+    first: Word,
+    second: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let query = format!(
         "SELECT AC.first_word, AC.second_word
@@ -106,16 +106,16 @@ fn single_fbbf(
 fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(
         Some(conn),
-        &pair.first_word,
-        &pair.second_word,
+        pair.first_word,
+        pair.second_word,
         single_ffbb,
         single_fbbf,
     )?;
     let nihilo_iter = ex_nihilo_orthos.iter();
     let up_orthos = up_handler::up(
         Some(conn),
-        &pair.first_word,
-        &pair.second_word,
+        pair.first_word,
+        pair.second_word,
         crate::get_ortho_by_origin,
         crate::get_ortho_by_hop,
         crate::get_ortho_by_contents,

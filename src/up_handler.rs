@@ -5,19 +5,19 @@ use std::collections::HashSet;
 use crate::ortho::Ortho;
 
 use crate::{
-    string_refs_to_signed_int, up_helper, FailableHashsetStringsToHashsetNumbers,
-    FailableStringToOrthoVec, FailableStringVecToOrthoVec,
+    ints_to_big_int, up_helper, FailableHashsetWordsToHashsetNumbers, FailableWordToOrthoVec,
+    FailableWordVecToOrthoVec, Word,
 };
 use diesel::PgConnection;
 
 pub fn up(
     conn: Option<&PgConnection>,
-    first_w: &str,
-    second_w: &str,
-    ortho_by_origin: FailableStringToOrthoVec,
-    ortho_by_hop: FailableStringVecToOrthoVec,
-    ortho_by_contents: FailableStringVecToOrthoVec,
-    db_filter: FailableHashsetStringsToHashsetNumbers,
+    first_w: Word,
+    second_w: Word,
+    ortho_by_origin: FailableWordToOrthoVec,
+    ortho_by_hop: FailableWordVecToOrthoVec,
+    ortho_by_contents: FailableWordVecToOrthoVec,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
     let right_orthos_by_origin: Vec<Ortho> =
@@ -34,10 +34,8 @@ pub fn up(
         .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
         .flat_map(|(lo, ro)| up_helper::attempt_up(&origin_filtered_pairs, lo, ro));
 
-    let hop_left_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_hop(conn, vec![first_w.to_string()])?);
-    let hop_right_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_hop(conn, vec![second_w.to_string()])?);
+    let hop_left_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![first_w])?);
+    let hop_right_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![second_w])?);
 
     let hop_filtered_pairs =
         get_relevant_pairs(db_filter, conn, &hop_left_orthos, &hop_right_orthos)?;
@@ -55,9 +53,9 @@ pub fn up(
         hop_origin_pairings.flat_map(|(lo, ro)| up_helper::attempt_up(&hop_filtered_pairs, lo, ro));
 
     let contents_left_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![first_w.to_string()])?);
+        up_helper::filter_base(ortho_by_contents(conn, vec![first_w])?);
     let contents_right_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![second_w.to_string()])?);
+        up_helper::filter_base(ortho_by_contents(conn, vec![second_w])?);
 
     let contents_potential_pairings_with_untested_origins =
         iproduct!(contents_left_orthos.iter(), contents_right_orthos.iter())
@@ -89,8 +87,7 @@ fn get_valid_pairings<'a>(
     hop_filtered_pairs: &'a HashSet<i64>,
 ) -> impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a {
     hop_potential_pairings_with_untested_origins.filter_map(|(lo, ro)| {
-        if hop_filtered_pairs.contains(&string_refs_to_signed_int(lo.get_origin(), ro.get_origin()))
-        {
+        if hop_filtered_pairs.contains(&ints_to_big_int(lo.get_origin(), ro.get_origin())) {
             Some((lo, ro))
         } else {
             None
@@ -98,7 +95,7 @@ fn get_valid_pairings<'a>(
     })
 }
 fn get_relevant_pairs(
-    db_filter: FailableHashsetStringsToHashsetNumbers,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
     conn: Option<&PgConnection>,
     left_orthos_by_origin: &[Ortho],
     right_orthos_by_origin: &[Ortho],
@@ -122,157 +119,97 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::ortho::Ortho;
-    use crate::string_refs_to_signed_int;
     use crate::up_handler::up;
+    use crate::{ints_to_big_int, Word};
     use diesel::PgConnection;
     use maplit::btreemap;
 
     fn fake_ortho_by_origin_two(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { "a" => vec![Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "c".to_string(),
-        )], "e" => vec![Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "c".to_string(),
-            "h".to_string(),
+        let mut pairs = btreemap! { 1 => vec![Ortho::new(
+            1,
+            2,
+            3,
+            3,
+        )], 5 => vec![Ortho::new(
+            5,
+            6,
+            3,
+            8,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn empty_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        _o: &str,
+        _o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn fake_ortho_by_origin_four(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let single = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-        let l_one = Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "g".to_string(),
-            "h".to_string(),
-        );
+        let single = Ortho::new(1, 2, 3, 4);
+        let l_one = Ortho::new(5, 6, 7, 8);
 
-        let r_one = Ortho::new(
-            "i".to_string(),
-            "j".to_string(),
-            "k".to_string(),
-            "l".to_string(),
-        );
+        let r_one = Ortho::new(9, 10, 11, 12);
 
-        let j = &"j".to_string();
-        let f = &"f".to_string();
-        let k = &"k".to_string();
-        let g = &"g".to_string();
+        let combined = Ortho::zip_up(&l_one, &r_one, &btreemap! { 10 => 6, 11 => 7 });
 
-        let combined = Ortho::zip_up(&l_one, &r_one, &btreemap! { j => f, k => g });
-
-        let mut pairs = btreemap! { "a" => vec![single], "e" => vec![combined]};
+        let mut pairs = btreemap! { 1 => vec![single], 5 => vec![combined]};
 
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin_three(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
-
-        let i = &"i".to_string();
-        let h = &"h".to_string();
-        let l = &"l".to_string();
-        let j = &"j".to_string();
-
-        let l_one = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "d".to_string(),
-            "e".to_string(),
-        );
-        let l_two = Ortho::new(
-            "b".to_string(),
-            "c".to_string(),
-            "e".to_string(),
-            "f".to_string(),
-        );
-        let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { c => b, e => d }, c);
-        let r_one = Ortho::new(
-            "g".to_string(),
-            "h".to_string(),
-            "j".to_string(),
-            "k".to_string(),
-        );
-        let r_two = Ortho::new(
-            "h".to_string(),
-            "i".to_string(),
-            "k".to_string(),
-            "l".to_string(),
-        );
-        let r = Ortho::zip_over(&r_one, &r_two, &btreemap! { i => h, l => j }, i);
-        let mut pairs = btreemap! { "a" => vec![left_ortho], "g" => vec![r]};
+        let l_one = Ortho::new(1, 2, 4, 5);
+        let l_two = Ortho::new(2, 3, 5, 6);
+        let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
+        let r_one = Ortho::new(7, 8, 10, 11);
+        let r_two = Ortho::new(8, 9, 11, 12);
+        let r = Ortho::zip_over(&r_one, &r_two, &btreemap! { 9 => 8, 12 => 10 }, 9);
+        let mut pairs = btreemap! { 1 => vec![left_ortho], 7 => vec![r]};
 
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { "a" => vec![Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        )], "e" => vec![Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "g".to_string(),
-            "h".to_string(),
+        let mut pairs = btreemap! { 1 => vec![Ortho::new(
+            1,
+            2,
+            3,
+            4,
+        )], 5 => vec![Ortho::new(
+            5,
+            6,
+            7,
+            8,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_hop(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         let mut ans = vec![];
 
-        if o.contains(&"b".to_string()) {
-            ans.push(Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ))
+        if o.contains(&2) {
+            ans.push(Ortho::new(1, 2, 3, 4))
         }
 
-        if o.contains(&"f".to_string()) {
-            ans.push(Ortho::new(
-                "e".to_string(),
-                "f".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ))
+        if o.contains(&6) {
+            ans.push(Ortho::new(5, 6, 7, 8))
         }
 
         Ok(ans)
@@ -280,26 +217,16 @@ mod tests {
 
     fn fake_ortho_by_contents(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         let mut ans = vec![];
 
-        if o.contains(&"d".to_string()) {
-            ans.push(Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ))
+        if o.contains(&4) {
+            ans.push(Ortho::new(1, 2, 3, 4))
         }
 
-        if o.contains(&"h".to_string()) {
-            ans.push(Ortho::new(
-                "e".to_string(),
-                "f".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ))
+        if o.contains(&8) {
+            ans.push(Ortho::new(5, 6, 7, 8))
         }
 
         Ok(ans)
@@ -307,66 +234,60 @@ mod tests {
 
     fn empty_ortho_by_hop(
         _conn: Option<&PgConnection>,
-        _o: Vec<String>,
+        _o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn empty_ortho_by_contents(
         _conn: Option<&PgConnection>,
-        _o: Vec<String>,
+        _o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
-        _to_filter: HashSet<&String>,
-        _second: HashSet<&String>,
+        _to_filter: HashSet<Word>,
+        _second: HashSet<Word>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
-            ("a", "b"),
-            ("c", "d"),
-            ("a", "c"),
-            ("b", "d"),
-            ("e", "f"),
-            ("g", "h"),
-            ("e", "g"),
-            ("f", "h"),
-            ("a", "e"),
-            ("b", "f"),
-            ("c", "g"),
-            ("d", "h"),
+            (1, 2),
+            (3, 4),
+            (1, 3),
+            (2, 4),
+            (5, 6),
+            (7, 8),
+            (5, 7),
+            (6, 8),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+            (4, 8),
         ];
-        let res = pairs
-            .iter()
-            .map(|(l, r)| string_refs_to_signed_int(&l.to_string(), &r.to_string()))
-            .collect();
+        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
         Ok(res)
     }
 
     fn fake_pair_hash_db_filter_two(
         _conn: Option<&PgConnection>,
-        _to_filter: HashSet<&String>,
-        _second: HashSet<&String>,
+        _to_filter: HashSet<Word>,
+        _second: HashSet<Word>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         let pairs = vec![
-            ("a", "b"),
-            ("c", "d"),
-            ("a", "c"),
-            ("b", "d"),
-            ("e", "f"),
-            ("g", "h"),
-            ("e", "g"),
-            ("f", "h"),
-            ("a", "e"),
-            ("b", "f"),
-            ("c", "g"),
+            (1, 2),
+            (3, 4),
+            (1, 3),
+            (2, 4),
+            (5, 6),
+            (7, 8),
+            (5, 7),
+            (6, 8),
+            (1, 5),
+            (2, 6),
+            (3, 7),
         ];
-        let res = pairs
-            .iter()
-            .map(|(l, r)| string_refs_to_signed_int(&l.to_string(), &r.to_string()))
-            .collect();
+        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
         Ok(res)
     }
 
@@ -374,8 +295,8 @@ mod tests {
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
         let actual = up(
             None,
-            "a",
-            "e",
+            1,
+            5,
             fake_ortho_by_origin,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -383,30 +304,13 @@ mod tests {
         )
         .unwrap();
 
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let g = &"g".to_string();
-        let c = &"c".to_string();
-
         let expected = Ortho::zip_up(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "e".to_string(),
-                "f".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(5, 6, 7, 8),
             &btreemap! {
-                e => a,
-                f => b,
-                g => c
+                5 => 1,
+                6 => 2,
+                7 => 3
             },
         );
 
@@ -417,8 +321,8 @@ mod tests {
     fn it_does_not_create_up_when_a_forward_is_missing() {
         let actual = up(
             None,
-            "a",
-            "e",
+            1,
+            5,
             fake_ortho_by_origin,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -433,8 +337,8 @@ mod tests {
     fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
         let actual = up(
             None,
-            "a",
-            "e",
+            1,
+            5,
             fake_ortho_by_origin_two,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -449,8 +353,8 @@ mod tests {
     fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
         let actual = up(
             None,
-            "a",
-            "g",
+            1,
+            7,
             fake_ortho_by_origin_three,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -465,8 +369,8 @@ mod tests {
     fn it_only_attempts_to_combine_same_dim_orthos() {
         let actual = up(
             None,
-            "a",
-            "e",
+            1,
+            5,
             fake_ortho_by_origin_four,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -482,8 +386,8 @@ mod tests {
         // same combine as before, but b -> f is the pair so it must index into hops
         let actual = up(
             None,
-            "b", // a b c d + e f g h
-            "f",
+            2, // a b c d + e f g h
+            6,
             empty_ortho_by_origin,
             fake_ortho_by_hop,
             empty_ortho_by_contents,
@@ -491,30 +395,13 @@ mod tests {
         )
         .unwrap();
 
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let g = &"g".to_string();
-        let c = &"c".to_string();
-
         let expected = Ortho::zip_up(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "e".to_string(),
-                "f".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(5, 6, 7, 8),
             &btreemap! {
-                e => a,
-                f => b,
-                g => c
+                5 => 1,
+                6 => 2,
+                7 => 3
             },
         );
 
@@ -526,8 +413,8 @@ mod tests {
         // same combine as before, but d -> h is the pair so it must index into contents
         let actual = up(
             None,
-            "d", // a b c d + e f g h
-            "h",
+            4, // a b c d + e f g h
+            8,
             empty_ortho_by_origin,
             empty_ortho_by_hop,
             fake_ortho_by_contents,
@@ -535,30 +422,13 @@ mod tests {
         )
         .unwrap();
 
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let g = &"g".to_string();
-        let c = &"c".to_string();
-
         let expected = Ortho::zip_up(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "e".to_string(),
-                "f".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(5, 6, 7, 8),
             &btreemap! {
-                e => a,
-                f => b,
-                g => c
+                5 => 1,
+                6 => 2,
+                7 => 3
             },
         );
 

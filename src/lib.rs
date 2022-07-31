@@ -33,23 +33,25 @@ use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
 use dotenv::dotenv;
 use models::Book;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
     env,
     hash::{Hash, Hasher},
 };
 
-type FailableStringVecToOrthoVec =
-    fn(Option<&PgConnection>, Vec<String>) -> Result<Vec<Ortho>, anyhow::Error>;
-type FailableStringToOrthoVec =
-    fn(Option<&PgConnection>, &str) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordVecToOrthoVec =
+    fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToOrthoVec =
+    fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
-type FailableHashsetStringsToHashsetNumbers = fn(
+type FailableHashsetWordsToHashsetNumbers = fn(
     conn: Option<&PgConnection>,
-    first_words: HashSet<&String>,
-    second_words: HashSet<&String>,
+    first_words: HashSet<Word>,
+    second_words: HashSet<Word>,
 ) -> Result<HashSet<i64>, anyhow::Error>;
+
+type Word = i32;
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -61,8 +63,8 @@ pub fn establish_connection() -> PgConnection {
 
 pub fn get_hashes_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
-    first_words: HashSet<&String>,
-    second_words: HashSet<&String>,
+    first_words: HashSet<Word>,
+    second_words: HashSet<Word>,
 ) -> Result<HashSet<i64>, anyhow::Error> {
     let firsts: HashSet<i64> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(
@@ -119,7 +121,7 @@ pub fn string_to_signed_int(t: &str) -> i64 {
     hasher.finish() as i64
 }
 
-pub fn vec_of_strings_to_signed_int(v: Vec<&String>) -> i64 {
+pub fn vec_of_words_to_big_int(v: Vec<Word>) -> i64 {
     let mut hasher = DefaultHasher::new();
     v.hash(&mut hasher);
     hasher.finish() as i64
@@ -132,11 +134,18 @@ pub fn string_refs_to_signed_int(l: &str, r: &str) -> i64 {
     hasher.finish() as i64
 }
 
+pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    l.hash(&mut hasher);
+    r.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
 fn project_forward(
     conn: Option<&PgConnection>,
-    from: &str,
-) -> Result<HashSet<String>, anyhow::Error> {
-    let seconds_vec: Vec<String> = diesel::QueryDsl::select(
+    from: Word,
+) -> Result<HashSet<Word>, anyhow::Error> {
+    let seconds_vec: Vec<Word> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(from)),
         crate::schema::pairs::second_word,
     )
@@ -148,13 +157,15 @@ fn project_forward(
 
 fn project_backward(
     conn: Option<&PgConnection>,
-    from: &str,
-) -> Result<HashSet<String>, anyhow::Error> {
-    let firsts_vec: Vec<String> = SelectDsl::select(
-        QueryDsl::filter(pairs, schema::pairs::second_word.eq(from)),
-        crate::schema::pairs::first_word,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?;
+    from: Word,
+) -> Result<HashSet<Word>, anyhow::Error> {
+    let firsts_vec: Vec<Word> = RunQueryDsl::load(
+        SelectDsl::select(
+            QueryDsl::filter(pairs, schema::pairs::second_word.eq(from)),
+            crate::schema::pairs::first_word,
+        ),
+        conn.expect("do not pass a test dummy in production"),
+    )?;
 
     let firsts = HashSet::from_iter(firsts_vec);
     Ok(firsts)
@@ -184,7 +195,7 @@ pub fn insert_orthotopes(
 
 pub fn get_ortho_by_origin(
     conn: Option<&PgConnection>,
-    o: &str,
+    o: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{origin, table as orthotopes};
     use diesel::query_dsl::filter_dsl::FilterDsl;
@@ -205,8 +216,8 @@ pub fn get_ortho_by_origin(
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
     let origin = ortho.get_origin().to_owned();
-    let hop = Vec::from_iter(ortho.get_hop().into_iter().cloned());
-    let contents = Vec::from_iter(ortho.get_contents().into_iter().cloned());
+    let hop = Vec::from_iter(ortho.get_hop());
+    let contents = Vec::from_iter(ortho.get_contents());
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
     NewOrthotope {
         information,
@@ -219,7 +230,7 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
 
 fn get_ortho_by_hop(
     conn: Option<&PgConnection>,
-    other_hop: Vec<String>,
+    other_hop: Vec<Word>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{hop, table as orthotopes};
     let results: Vec<Orthotope> = SelectDsl::select(
@@ -238,7 +249,7 @@ fn get_ortho_by_hop(
 
 fn get_ortho_by_contents(
     conn: Option<&PgConnection>,
-    other_contents: Vec<String>,
+    other_contents: Vec<Word>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{contents, table as orthotopes};
     let results: Vec<Orthotope> = SelectDsl::select(
@@ -257,13 +268,39 @@ fn get_ortho_by_contents(
 
 pub(crate) fn phrase_exists(
     conn: Option<&PgConnection>,
-    phrase: Vec<&String>,
+    phrase: Vec<Word>,
 ) -> Result<bool, anyhow::Error> {
     use crate::schema::phrases::dsl::phrases;
     let res: bool = diesel::select(diesel::dsl::exists(
-        phrases.filter(schema::phrases::words_hash.eq(vec_of_strings_to_signed_int(phrase))),
+        phrases.filter(schema::phrases::words_hash.eq(vec_of_words_to_big_int(phrase))),
     ))
     .get_result(conn.expect("don't use the test connection"))?;
 
     Ok(res)
+}
+
+fn get_relevant_vocabulary(
+    conn: &PgConnection,
+    words: HashSet<String>,
+) -> Result<HashMap<String, Word>, diesel::result::Error> {
+    let res: Vec<models::Words> = SelectDsl::select(
+        schema::words::table.filter(schema::words::word.eq(any(Vec::from_iter(words.into_iter())))),
+        schema::words::all_columns,
+    )
+    .load(conn)?;
+
+    Ok(res.into_iter().map(|w| (w.word, w.id)).collect())
+}
+
+fn get_relevant_vocabulary_reverse(
+    conn: &PgConnection,
+    words: HashSet<Word>,
+) -> Result<HashMap<Word, String>, diesel::result::Error> {
+    let res: Vec<models::Words> = SelectDsl::select(
+        schema::words::table.filter(schema::words::id.eq(any(Vec::from_iter(words.into_iter())))),
+        schema::words::all_columns,
+    )
+    .load(conn)?;
+
+    Ok(res.into_iter().map(|w| (w.id, w.word)).collect())
 }

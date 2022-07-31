@@ -1,12 +1,15 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::Word;
+
 use super::schema::books;
 use super::schema::orthotopes;
 use super::schema::pairs;
 use super::schema::phrases;
 use super::schema::sentences;
 use super::schema::todos;
+use super::schema::words;
 
 #[derive(Insertable)]
 #[table_name = "books"]
@@ -53,16 +56,16 @@ pub struct Sentence {
 #[derive(Insertable, Debug)]
 #[table_name = "pairs"]
 pub struct NewPair {
-    pub first_word: String,
-    pub second_word: String,
+    pub first_word: Word,
+    pub second_word: Word,
     pub pair_hash: i64,
 }
 
 #[derive(Queryable, Debug)]
 pub struct Pair {
     pub id: i32,
-    pub first_word: String,
-    pub second_word: String,
+    pub first_word: Word,
+    pub second_word: Word,
     pub pair_hash: i64,
 }
 
@@ -70,9 +73,9 @@ pub struct Pair {
 #[table_name = "orthotopes"]
 pub struct NewOrthotope {
     pub information: Vec<u8>,
-    pub origin: String,
-    pub hop: Vec<String>,
-    pub contents: Vec<String>,
+    pub origin: Word,
+    pub hop: Vec<Word>,
+    pub contents: Vec<Word>,
     pub info_hash: i64,
 }
 
@@ -80,29 +83,43 @@ pub struct NewOrthotope {
 pub struct Orthotope {
     pub id: i32,
     pub information: Vec<u8>,
-    pub origin: String,
-    pub hop: Vec<String>,
-    pub contents: Vec<String>,
+    pub origin: Word,
+    pub hop: Vec<Word>,
+    pub contents: Vec<Word>,
     pub info_hash: i64,
+}
+
+#[derive(Insertable, Debug, PartialEq, Eq, Hash, Clone)]
+#[table_name = "words"]
+pub struct NewWords {
+    pub word: String,
+    pub word_hash: i64,
+}
+
+#[derive(Queryable, Debug)]
+pub struct Words {
+    pub id: i32,
+    pub word: String,
+    pub word_hash: i64,
 }
 
 #[derive(Insertable, Debug)]
 #[table_name = "phrases"]
 pub struct NewPhrase {
-    pub words: Vec<String>,
+    pub words: Vec<Word>,
     pub words_hash: i64,
 }
 
 #[derive(Queryable, Debug)]
 pub struct Phrase {
     pub id: i32,
-    pub words: Vec<String>,
+    pub words: Vec<Word>,
     pub words_hash: i64,
 }
 
 #[derive(QueryableByName, Debug)]
 #[table_name = "pairs"]
 pub struct ExNihilo {
-    pub first_word: String,
-    pub second_word: String,
+    pub first_word: Word,
+    pub second_word: Word,
 }
