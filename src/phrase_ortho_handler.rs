@@ -4,14 +4,14 @@ use std::collections::BTreeMap;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
-use crate::{ortho::Ortho, FailableStringToOrthoVec, FailableStringVecToOrthoVec, Word};
+use crate::{ortho::Ortho, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 
 pub(crate) fn over(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
-    ortho_by_origin: FailableStringToOrthoVec,
-    ortho_by_hop: FailableStringVecToOrthoVec,
-    ortho_by_contents: FailableStringVecToOrthoVec,
+    ortho_by_origin: FailableWordToOrthoVec,
+    ortho_by_hop: FailableWordVecToOrthoVec,
+    ortho_by_contents: FailableWordVecToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];

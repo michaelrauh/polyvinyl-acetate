@@ -40,12 +40,12 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-type FailableStringVecToOrthoVec =
-    fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>; // todo rename types
-type FailableStringToOrthoVec =
+type FailableWordVecToOrthoVec =
+    fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToOrthoVec =
     fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
-type FailableHashsetStringsToHashsetNumbers = fn(
+type FailableHashsetWordsToHashsetNumbers = fn(
     conn: Option<&PgConnection>,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,

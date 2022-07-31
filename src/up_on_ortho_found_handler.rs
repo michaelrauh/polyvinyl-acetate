@@ -1,18 +1,18 @@
-use crate::{ortho::Ortho, up_helper, FailableHashsetStringsToHashsetNumbers, Word};
+use crate::{ortho::Ortho, up_helper, FailableHashsetWordsToHashsetNumbers, Word};
 use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
 
-type FailableStringToOrthoVec =
+type FailableWordToOrthoVec =
     fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
 pub(crate) fn up(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
-    ortho_by_origin: FailableStringToOrthoVec,
+    ortho_by_origin: FailableWordToOrthoVec,
     forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
-    get_pair_hashes_relevant_to_vocabularies: FailableHashsetStringsToHashsetNumbers,
+    get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
         return Ok(vec![]);

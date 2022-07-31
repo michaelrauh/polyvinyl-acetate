@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use crate::ortho::Ortho;
 
 use crate::{
-    ints_to_big_int, up_helper, FailableHashsetStringsToHashsetNumbers, FailableStringToOrthoVec,
-    FailableStringVecToOrthoVec, Word,
+    ints_to_big_int, up_helper, FailableHashsetWordsToHashsetNumbers, FailableWordToOrthoVec,
+    FailableWordVecToOrthoVec, Word,
 };
 use diesel::PgConnection;
 
@@ -14,10 +14,10 @@ pub fn up(
     conn: Option<&PgConnection>,
     first_w: Word,
     second_w: Word,
-    ortho_by_origin: FailableStringToOrthoVec,
-    ortho_by_hop: FailableStringVecToOrthoVec,
-    ortho_by_contents: FailableStringVecToOrthoVec,
-    db_filter: FailableHashsetStringsToHashsetNumbers,
+    ortho_by_origin: FailableWordToOrthoVec,
+    ortho_by_hop: FailableWordVecToOrthoVec,
+    ortho_by_contents: FailableWordVecToOrthoVec,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
     let right_orthos_by_origin: Vec<Ortho> =
@@ -95,7 +95,7 @@ fn get_valid_pairings<'a>(
     })
 }
 fn get_relevant_pairs(
-    db_filter: FailableHashsetStringsToHashsetNumbers,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
     conn: Option<&PgConnection>,
     left_orthos_by_origin: &[Ortho],
     right_orthos_by_origin: &[Ortho],

@@ -71,7 +71,7 @@ fn create_phrases(
         .filter(|phrase| phrase.len() > 2)
         .map(|v| NewPhrase {
             words: v.clone(),
-            words_hash: vec_of_words_to_big_int(v), // todo make sure hashing is consistent
+            words_hash: vec_of_words_to_big_int(v),
         })
         .collect();
 
@@ -145,7 +145,7 @@ fn create_pairs(
             NewPair {
                 first_word: first_number,
                 second_word: second_number,
-                pair_hash: ints_to_big_int(first_number, second_number), // todo make sure pairs are always hashed the same
+                pair_hash: ints_to_big_int(first_number, second_number),
             }
         })
         .collect();

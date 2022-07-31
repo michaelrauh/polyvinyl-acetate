@@ -4,13 +4,13 @@ use anyhow::Error;
 use diesel::PgConnection;
 
 use crate::{
-    ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableStringToOrthoVec, Word,
+    ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableWordToOrthoVec, Word,
 };
 
 pub(crate) fn over(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
-    get_ortho_by_origin: FailableStringToOrthoVec,
+    get_ortho_by_origin: FailableWordToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
