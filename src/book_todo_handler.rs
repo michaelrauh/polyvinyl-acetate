@@ -1,12 +1,12 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 
-use crate::models::{NewSentence, Sentence, Todo, NewWords, Words};
+use crate::models::{NewSentence, NewWords, Sentence, Todo};
 use crate::schema::books::{id, table as books};
-use crate::schema::words::{self, word};
+use crate::schema::words::{self};
 use crate::{
     create_todo_entry, establish_connection, schema, sentences, string_to_signed_int, Book, NewTodo,
 };
-use diesel::dsl::any;
+
 use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use itertools::Itertools;
 
@@ -30,21 +30,21 @@ pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
-fn insert_vocabulary(conn: &PgConnection, vocabulary: &HashSet<String>) -> Result<usize, diesel::result::Error> {
-    let to_insert: Vec<NewWords> = vocabulary.into_iter().map(|s| NewWords { word_hash: string_to_signed_int(&s), word: s.clone() } ).collect();
+fn insert_vocabulary(
+    conn: &PgConnection,
+    vocabulary: &HashSet<String>,
+) -> Result<usize, diesel::result::Error> {
+    let to_insert: Vec<NewWords> = vocabulary
+        .iter()
+        .map(|s| NewWords {
+            word_hash: string_to_signed_int(s),
+            word: s.clone(),
+        })
+        .collect();
     diesel::insert_into(words::table)
         .values(to_insert)
         .on_conflict_do_nothing()
         .execute(conn)
-}
-
-fn get_relevant_vocabulary(conn: &PgConnection, words: HashSet<String>) -> Result<HashMap<String, i32>, diesel::result::Error> {
-    let res: Vec<Words> = words::table
-        .filter(word.eq(any(Vec::from_iter(words.into_iter()))))
-        .select(schema::words::all_columns)
-        .load(conn)?;
-
-    Ok(res.into_iter().map(|w| { (w.word, w.id) } ).collect())
 }
 
 fn split_book_to_words(book: &Book) -> HashSet<String> {
@@ -60,7 +60,8 @@ fn split_book_to_words(book: &Book) -> HashSet<String> {
                         .filter(|c| c.is_alphabetic())
                         .collect::<String>()
                         .to_lowercase()
-                }).collect::<Vec<String>>()
+                })
+                .collect::<Vec<String>>()
         })
         .collect()
 }

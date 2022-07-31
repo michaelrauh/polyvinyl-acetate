@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
 use crate::{
-    create_todo_entry, establish_connection, string_refs_to_signed_int,
-    vec_of_strings_to_signed_int, NewTodo,
+    create_todo_entry, establish_connection, get_relevant_vocabulary, ints_to_big_int,
+    vec_of_words_to_big_int, NewTodo, Word,
 };
 use diesel::PgConnection;
 
@@ -9,10 +11,19 @@ pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
-        create_pairs(&conn, &sentence.sentence)?;
-        create_phrases(&conn, sentence.sentence)?;
+        let words = split_sentence(&sentence.sentence);
+        let vocab = get_relevant_vocabulary(&conn, words.into_iter().collect())?;
+        create_pairs(&conn, &sentence.sentence, &vocab)?;
+        create_phrases(&conn, sentence.sentence, &vocab)?;
         Ok(())
     })
+}
+
+fn split_sentence(sentence: &str) -> Vec<String> {
+    sentence
+        .split_ascii_whitespace()
+        .map(|x| x.to_string())
+        .collect()
 }
 
 pub fn split_sentence_to_pairs(sentence: &str) -> Vec<(String, String)> {
@@ -20,10 +31,7 @@ pub fn split_sentence_to_pairs(sentence: &str) -> Vec<(String, String)> {
         return vec![];
     }
 
-    let words: Vec<String> = sentence
-        .split_ascii_whitespace()
-        .map(|x| x.to_string())
-        .collect();
+    let words: Vec<String> = split_sentence(sentence);
 
     let mut shifted = words.iter();
     shifted.next().expect("there must be something here");
@@ -44,14 +52,26 @@ fn create_pair_entry(
         .get_results(conn)
 }
 
-fn create_phrases(conn: &PgConnection, sentence: String) -> Result<(), anyhow::Error> {
+fn create_phrases(
+    conn: &PgConnection,
+    sentence: String,
+    vocab: &HashMap<String, i32>,
+) -> Result<(), anyhow::Error> {
     let ps: Vec<Vec<String>> = split_sentence_to_phrases(sentence);
-    let new_phrases: Vec<NewPhrase> = ps
+    let pi32s: Vec<Vec<Word>> = ps
         .iter()
+        .map(|p| {
+            p.iter()
+                .map(|s| *vocab.get(s).expect("do not look up unknown words"))
+                .collect()
+        })
+        .collect();
+    let new_phrases: Vec<NewPhrase> = pi32s
+        .into_iter()
         .filter(|phrase| phrase.len() > 2)
         .map(|v| NewPhrase {
             words: v.clone(),
-            words_hash: vec_of_strings_to_signed_int(v.iter().collect()),
+            words_hash: vec_of_words_to_big_int(v), // todo make sure hashing is consistent
         })
         .collect();
 
@@ -81,10 +101,7 @@ fn create_phrase_entry(
 }
 
 fn split_sentence_to_phrases(sentence: String) -> Vec<Vec<String>> {
-    let words: Vec<String> = sentence
-        .split_ascii_whitespace()
-        .map(|x| x.to_string())
-        .collect();
+    let words: Vec<String> = split_sentence(&sentence);
 
     heads(words)
         .iter()
@@ -110,14 +127,26 @@ fn tails(words: Vec<String>) -> Vec<Vec<String>> {
     acc
 }
 
-fn create_pairs(conn: &PgConnection, sentence: &str) -> Result<(), anyhow::Error> {
+fn create_pairs(
+    conn: &PgConnection,
+    sentence: &str,
+    vocab: &HashMap<String, Word>,
+) -> Result<(), anyhow::Error> {
     let tuples = split_sentence_to_pairs(sentence);
     let new_pairs: Vec<NewPair> = tuples
         .iter()
-        .map(|(f, s)| NewPair {
-            first_word: f.clone(),
-            second_word: s.clone(),
-            pair_hash: string_refs_to_signed_int(f, s),
+        .map(|(f, s)| {
+            let first_number = *vocab
+                .get(f)
+                .expect("all words should be in the relevant vocab");
+            let second_number = *vocab
+                .get(s)
+                .expect("all words should be in the relevant vocab");
+            NewPair {
+                first_word: first_number,
+                second_word: second_number,
+                pair_hash: ints_to_big_int(first_number, second_number), // todo make sure pairs are always hashed the same
+            }
         })
         .collect();
 

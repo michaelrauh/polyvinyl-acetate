@@ -1,4 +1,4 @@
-use crate::{ortho::Ortho, string_refs_to_signed_int};
+use crate::{ints_to_big_int, ortho::Ortho, Word};
 
 use itertools::{zip, Itertools};
 
@@ -9,7 +9,7 @@ pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho
     let lo_hop_len = lo_hop.len();
     let left_hand_coordinate_configurations =
         Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
-    let fixed_right_hand: Vec<&String> = ro.get_hop().into_iter().collect();
+    let fixed_right_hand: Vec<Word> = ro.get_hop().into_iter().collect();
     left_hand_coordinate_configurations
         .filter(|left_mapping| mapping_works(left_mapping, &fixed_right_hand, all_pairs))
         .map(|left_mapping| make_mapping(&left_mapping, &fixed_right_hand))
@@ -33,7 +33,7 @@ fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
 
 fn mapping_is_complete(
     all_pairs: &HashSet<i64>,
-    mapping: &BTreeMap<&String, &String>,
+    mapping: &BTreeMap<Word, Word>,
     lo: &Ortho,
     ro: &Ortho,
 ) -> bool {
@@ -41,7 +41,7 @@ fn mapping_is_complete(
         if right_location.length() > 1 {
             let mapped = right_location.map_location(mapping);
             let left_name = lo.name_at_location(&mapped);
-            if !all_pairs.contains(&string_refs_to_signed_int(left_name, right_name)) {
+            if !all_pairs.contains(&ints_to_big_int(left_name, *right_name)) {
                 return false;
             }
         }
@@ -50,19 +50,16 @@ fn mapping_is_complete(
 }
 
 fn mapping_works(
-    left_mapping: &[&String],
-    fixed_right_hand: &[&String],
+    left_mapping: &[Word],
+    fixed_right_hand: &[Word],
     all_pairs: &HashSet<i64>,
 ) -> bool {
     zip(left_mapping, fixed_right_hand)
-        .map(|(try_left, try_right)| string_refs_to_signed_int(try_left, try_right))
+        .map(|(try_left, try_right)| ints_to_big_int(*try_left, *try_right))
         .all(|d| all_pairs.contains(&d))
 }
 
-fn make_mapping<'a>(
-    good_left_hand: &[&'a String],
-    fixed_right_hand: &'a [&'a String],
-) -> BTreeMap<&'a String, &'a String> {
+fn make_mapping(good_left_hand: &[Word], fixed_right_hand: &[Word]) -> BTreeMap<Word, Word> {
     zip(
         fixed_right_hand.iter().cloned(),
         good_left_hand.iter().cloned(),
@@ -82,20 +79,8 @@ mod tests {
 
     #[test]
     fn diagonals_do_not_conflict_works_on_tricky_inputs() {
-        let diagonals_dont_conflict = diagonals_do_not_conflict(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "c".to_string(),
-                "d".to_string(),
-                "g".to_string(),
-                "h".to_string(),
-            ),
-        );
+        let diagonals_dont_conflict =
+            diagonals_do_not_conflict(&Ortho::new(1, 2, 3, 4), &Ortho::new(3, 4, 7, 8));
 
         assert!(!diagonals_dont_conflict)
     }

@@ -3,34 +3,36 @@ use std::collections::HashSet;
 use anyhow::Error;
 use diesel::PgConnection;
 
-use crate::{ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableStringToOrthoVec};
+use crate::{
+    ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableStringToOrthoVec, Word,
+};
 
 pub(crate) fn over(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
     get_ortho_by_origin: FailableStringToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
-    project_forward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
-    project_backward: fn(Option<&PgConnection>, &str) -> Result<HashSet<String>, Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+    project_forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
+    project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.all_full_length_phrases();
 
     let mut ans: Vec<Ortho> = vec![];
-    for old_phrase in &all_phrases {
-        let last = &old_phrase.last().expect("orthos cannot have empty phrases");
-        let nexts = project_forward(conn, last)?;
+    for old_phrase in all_phrases.clone() {
+        let last = old_phrase.last().expect("orthos cannot have empty phrases");
+        let nexts = project_forward(conn, *last)?;
         for next in nexts {
             let current_phrase = old_phrase
+                .clone()
                 .iter()
-                .chain(vec![&next].iter())
+                .chain(vec![next].iter())
                 .map(|s| s.to_owned())
                 .collect::<Vec<_>>();
             if phrase_exists(conn, current_phrase.clone())? {
                 let phrase = current_phrase;
                 for potential_ortho in get_ortho_by_origin(conn, phrase[1])? {
-                    let phrase_tail: Vec<&String> =
-                        phrase[1..].iter().map(|x| x.to_owned()).collect();
-                    if potential_ortho.origin_has_phrase(&phrase_tail)
+                    let phrase_tail = &phrase[1..];
+                    if potential_ortho.origin_has_phrase(phrase_tail)
                         && potential_ortho.axis_length(phrase[2]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
@@ -39,8 +41,8 @@ pub(crate) fn over(
                             phrase_exists,
                             &old_orthotope,
                             &potential_ortho,
-                            phrase[1].to_string(),
-                            phrase[2].to_string(),
+                            phrase[1],
+                            phrase[2],
                         )? {
                             ans.push(found);
                         }
@@ -53,7 +55,7 @@ pub(crate) fn over(
     for old_phrase in all_phrases {
         let prevs = project_backward(conn, old_phrase[0])?;
         for prev in prevs {
-            let current_phrase: Vec<&String> = vec![&prev]
+            let current_phrase = vec![prev]
                 .iter()
                 .chain(old_phrase.iter())
                 .map(|s| s.to_owned())
@@ -61,11 +63,8 @@ pub(crate) fn over(
             if phrase_exists(conn, current_phrase.clone())? {
                 let phrase = current_phrase.to_vec();
                 for potential_ortho in get_ortho_by_origin(conn, phrase[0])? {
-                    let phrase_head: Vec<&String> = phrase[..phrase.len() - 1]
-                        .iter()
-                        .map(|x| x.to_owned())
-                        .collect();
-                    if potential_ortho.origin_has_phrase(&phrase_head)
+                    let phrase_head = &phrase[..phrase.len() - 1];
+                    if potential_ortho.origin_has_phrase(phrase_head)
                         && potential_ortho.axis_length(phrase[1]) == phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
@@ -74,8 +73,8 @@ pub(crate) fn over(
                             phrase_exists,
                             &potential_ortho,
                             &old_orthotope,
-                            phrase[1].to_string(),
-                            phrase[2].to_string(),
+                            phrase[1],
+                            phrase[2],
                         )? {
                             ans.push(found);
                         }
@@ -90,86 +89,80 @@ pub(crate) fn over(
 
 #[cfg(test)]
 mod tests {
-    use crate::{ortho::Ortho, over_on_ortho_found_handler::over};
+    use crate::{ortho::Ortho, over_on_ortho_found_handler::over, Word};
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
 
     fn fake_forward(
         _conn: Option<&PgConnection>,
-        from: &str,
-    ) -> Result<HashSet<String>, anyhow::Error> {
+        from: Word,
+    ) -> Result<HashSet<Word>, anyhow::Error> {
         // a b  | b e
         // c d  | d f
-        let mut pairs = btreemap! { "b" => hashset! {"d".to_string(), "e".to_string()}};
+        let mut pairs = btreemap! { 2 => hashset! {4, 5}};
         Ok(pairs.entry(from).or_default().to_owned())
     }
 
     fn fake_backward(
         _conn: Option<&PgConnection>,
-        from: &str,
-    ) -> Result<HashSet<String>, anyhow::Error> {
+        from: Word,
+    ) -> Result<HashSet<Word>, anyhow::Error> {
         // a b  | b e
         // c d  | d f
-        let mut pairs = btreemap! { "b" => hashset! {"a".to_string()}};
+        let mut pairs = btreemap! { 2 => hashset! {1}};
         Ok(pairs.entry(from).or_default().to_owned())
     }
 
     fn empty_backward(
         _conn: Option<&PgConnection>,
-        _from: &str,
-    ) -> Result<HashSet<String>, anyhow::Error> {
+        _from: Word,
+    ) -> Result<HashSet<Word>, anyhow::Error> {
         let pairs = hashset! {};
         Ok(pairs)
     }
 
     fn empty_forward(
         _conn: Option<&PgConnection>,
-        _from: &str,
-    ) -> Result<HashSet<String>, anyhow::Error> {
+        _from: Word,
+    ) -> Result<HashSet<Word>, anyhow::Error> {
         let pairs = hashset! {};
         Ok(pairs)
     }
 
     fn fake_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { "b" => vec![Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
+        let mut pairs = btreemap! { 2 => vec![Ortho::new(
+            2,
+            5,
+            4,
+            6,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin_two(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { "a" => vec![Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
+        let mut pairs = btreemap! { 1 => vec![Ortho::new(
+            1,
+            2,
+            3,
+            4,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
-        phrase: Vec<&String>,
+        phrase: Vec<Word>,
     ) -> Result<bool, anyhow::Error> {
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let c = &"c".to_string();
-        let d = &"d".to_string();
         let ps = hashset! {
-            vec![a, b, e],
-            vec![c,d, f]
+            vec![1, 2, 5],
+            vec![3, 4, 6]
         };
         Ok(ps.contains(&phrase))
     }
@@ -179,19 +172,9 @@ mod tests {
         // a b  | b e
         // c d  | d f
 
-        let left_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let left_ortho = Ortho::new(1, 2, 3, 4);
 
-        let right_ortho = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let right_ortho = Ortho::new(2, 5, 4, 6);
 
         let actual = over(
             None,
@@ -203,18 +186,14 @@ mod tests {
         )
         .unwrap();
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let expected = Ortho::zip_over(
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            &"e".to_string(),
+            5,
         );
 
         assert_eq!(actual, vec![expected]);
@@ -225,19 +204,9 @@ mod tests {
         // a b  | b e
         // c d  | d f
 
-        let left_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let left_ortho = Ortho::new(1, 2, 3, 4);
 
-        let right_ortho = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let right_ortho = Ortho::new(2, 5, 4, 6);
 
         let actual = over(
             None,
@@ -249,18 +218,14 @@ mod tests {
         )
         .unwrap();
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let expected = Ortho::zip_over(
             &left_ortho,
             &right_ortho,
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            &"e".to_string(),
+            5,
         );
 
         assert_eq!(actual, vec![expected]);

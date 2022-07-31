@@ -4,32 +4,34 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, HashSet};
 
+use crate::Word;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct Ortho {
-    pub(crate) info: BTreeMap<Location, String>,
+    pub(crate) info: BTreeMap<Location, Word>,
 }
 
 impl Ortho {
-    pub(crate) fn get_origin(&self) -> &String {
+    pub(crate) fn get_origin(&self) -> Word {
         let (_k, v) = self
             .info
             .iter()
             .find(|(k, _v)| k.length() == 0)
             .expect("all orthos should have an origin");
-        v
+        *v
     }
 
-    pub(crate) fn get_hop(&self) -> HashSet<&String> {
+    pub(crate) fn get_hop(&self) -> HashSet<Word> {
         self.info
             .iter()
-            .filter_map(|(k, v)| if k.length() == 1 { Some(v) } else { None })
+            .filter_map(|(k, v)| if k.length() == 1 { Some(*v) } else { None })
             .collect()
     }
 
-    pub(crate) fn get_contents(&self) -> HashSet<&String> {
+    pub(crate) fn get_contents(&self) -> HashSet<Word> {
         self.info
             .iter()
-            .filter_map(|(k, v)| if k.length() > 1 { Some(v) } else { None })
+            .filter_map(|(k, v)| if k.length() > 1 { Some(*v) } else { None })
             .collect()
     }
 
@@ -37,43 +39,43 @@ impl Ortho {
         self.get_bottom_right_corner().each_location_is_length_one()
     }
 
-    pub(crate) fn new(a: String, b: String, c: String, d: String) -> Ortho {
+    pub(crate) fn new(a: Word, b: Word, c: Word, d: Word) -> Ortho {
         Ortho {
             info: btreemap! {Location { info: btreemap! {} } => a, Location {
-                info: btreemap! {b.clone() => 1},
-            } => b.clone(), Location {
-                info: btreemap! {c.clone() => 1},
-            } => c.clone(), Location {
+                info: btreemap! {b => 1},
+            } => b, Location {
+                info: btreemap! {c => 1},
+            } => c, Location {
                 info: btreemap! {b => 1, c => 1},
             } => d},
         }
     }
 
-    pub(crate) fn contents_has_phrase(&self, phrase: &[&String]) -> bool {
+    pub(crate) fn contents_has_phrase(&self, phrase: &[Word]) -> bool {
         let head = &phrase[0];
         let hop = self.get_hop();
 
-        self.location_at_name(head)
+        self.location_at_name(*head)
             .into_iter()
             .filter(|loc| loc.is_contents() && loc.is_edge(&hop))
             .flat_map(|loc| {
                 loc.missing_axes(&hop)
                     .into_iter()
-                    .find(|axis| self.axis_has_phrase(phrase, loc, axis))
+                    .find(|axis| self.axis_has_phrase(phrase, loc, *axis))
             })
             .next()
             .is_some()
     }
 
-    pub(crate) fn hop_has_phrase(&self, phrase: &[&String]) -> bool {
-        let loc = Location::singleton(phrase[0].to_string());
+    pub(crate) fn hop_has_phrase(&self, phrase: &[Word]) -> bool {
+        let loc = Location::singleton(phrase[0]);
 
         loc.missing_axes(&self.get_hop())
             .iter()
-            .any(|axis| self.axis_has_phrase(phrase, &loc, axis))
+            .any(|axis| self.axis_has_phrase(phrase, &loc, *axis))
     }
 
-    pub(crate) fn axis_has_phrase(&self, phrase: &[&String], loc: &Location, axis: &str) -> bool {
+    pub(crate) fn axis_has_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
         phrase
             .iter()
             .skip(1)
@@ -87,7 +89,7 @@ impl Ortho {
             })
     }
 
-    pub(crate) fn origin_has_phrase(&self, phrase: &[&String]) -> bool {
+    pub(crate) fn origin_has_phrase(&self, phrase: &[Word]) -> bool {
         self.axis_has_phrase(phrase, &Location::default(), phrase[1])
     }
 
@@ -105,31 +107,32 @@ impl Ortho {
     pub(crate) fn zip_up(
         l: &Ortho,
         r: &Ortho,
-        old_axis_to_new_axis: &BTreeMap<&String, &String>,
+        old_axis_to_new_axis: &BTreeMap<Word, Word>,
     ) -> Ortho {
         let shift_axis = r.get_origin();
-        let right_with_lefts_coordinate_system: BTreeMap<Location, &String> = r
+        let right_with_lefts_coordinate_system: BTreeMap<Location, Word> = r
             .info
             .iter()
-            .map(|(k, v)| (k.map_location(old_axis_to_new_axis), v))
+            .map(|(k, v)| (k.map_location(old_axis_to_new_axis), *v))
             .collect();
-        let shifted_right: BTreeMap<Location, String> = right_with_lefts_coordinate_system
+        let shifted_right: BTreeMap<Location, Word> = right_with_lefts_coordinate_system
             .iter()
-            .map(|(k, v)| (k.shift_location(shift_axis.clone()), v.to_string()))
+            .map(|(k, v)| (k.shift_location(shift_axis), *v))
             .collect();
-        let combined: BTreeMap<Location, String> =
+        let combined: BTreeMap<Location, Word> =
             l.info.clone().into_iter().chain(shifted_right).collect();
         Ortho { info: combined }
     }
 
-    pub(crate) fn name_at_location(&self, location: &Location) -> &String {
-        self.info
+    pub(crate) fn name_at_location(&self, location: &Location) -> Word {
+        *self
+            .info
             .get(location)
             .expect("locations must be present to be queried")
     }
 
-    pub(crate) fn optional_name_at_location(&self, location: &Location) -> Option<&String> {
-        self.info.get(location)
+    pub(crate) fn optional_name_at_location(&self, location: &Location) -> Option<Word> {
+        self.info.get(location).copied()
     }
 
     pub(crate) fn get_dimensionality(&self) -> usize {
@@ -140,34 +143,33 @@ impl Ortho {
             .length()
     }
 
-    pub(crate) fn get_names_at_distance(&self, dist: usize) -> HashSet<&String> {
+    pub(crate) fn get_names_at_distance(&self, dist: usize) -> HashSet<Word> {
         self.info
             .iter()
-            .filter_map(|(k, v)| if k.length() == dist { Some(v) } else { None })
+            .filter_map(|(k, v)| if k.length() == dist { Some(*v) } else { None })
             .collect()
     }
 
     pub(crate) fn zip_over(
         l: &Ortho,
         r: &Ortho,
-        mapping: &BTreeMap<&String, &String>,
-        shift_axis: &str,
+        mapping: &BTreeMap<Word, Word>,
+        shift_axis: Word,
     ) -> Ortho {
         let right_column = r.get_end(shift_axis);
-        let shifted: BTreeMap<Location, String> = right_column
+        let shifted: BTreeMap<Location, Word> = right_column
             .into_iter()
             .map(|(k, v)| (k.add(shift_axis), v))
             .collect();
         let mapped = shifted
             .into_iter()
             .map(|(k, v)| (k.map_location(mapping), v));
-        let combined: BTreeMap<Location, String> =
-            l.info.clone().into_iter().chain(mapped).collect();
+        let combined: BTreeMap<Location, Word> = l.info.clone().into_iter().chain(mapped).collect();
 
         Ortho { info: combined }
     }
 
-    pub(crate) fn axis_length(&self, name: &str) -> usize {
+    pub(crate) fn axis_length(&self, name: Word) -> usize {
         self.info
             .keys()
             .max_by(|left, right| left.count_axis(name).cmp(&right.count_axis(name)))
@@ -175,7 +177,7 @@ impl Ortho {
             .count_axis(name)
     }
 
-    fn get_end(&self, shift_axis: &str) -> BTreeMap<Location, String> {
+    fn get_end(&self, shift_axis: Word) -> BTreeMap<Location, Word> {
         let axis_length = self.axis_length(shift_axis);
         self.info
             .clone()
@@ -184,22 +186,22 @@ impl Ortho {
             .collect()
     }
 
-    fn location_at_name(&self, name: &str) -> Vec<&Location> {
+    fn location_at_name(&self, name: Word) -> Vec<&Location> {
         self.info
             .iter()
-            .filter_map(|(loc, n)| if n == name { Some(loc) } else { None })
+            .filter_map(|(loc, n)| if *n == name { Some(loc) } else { None })
             .collect()
     }
 
-    pub(crate) fn to_vec(&self) -> Vec<(&Location, &String)> {
-        self.info.iter().map(|(a, b)| (a, b)).collect()
+    pub(crate) fn to_vec(&self) -> Vec<(&Location, Word)> {
+        self.info.iter().map(|(a, b)| (a, *b)).collect()
     }
 
-    pub(crate) fn get_vocabulary(&self) -> impl Iterator<Item = &String> + '_ {
-        self.info.iter().map(|(_, b)| b)
+    pub(crate) fn get_vocabulary(&self) -> impl Iterator<Item = i32> + '_ {
+        self.info.iter().map(|(_, b)| *b)
     }
 
-    pub(crate) fn phrases(&self, shift_axis: &str) -> Vec<Vec<&String>> {
+    pub(crate) fn phrases(&self, shift_axis: Word) -> Vec<Vec<Word>> {
         let length = self.axis_length(shift_axis);
         self.info
             .iter()
@@ -208,7 +210,7 @@ impl Ortho {
             .collect()
     }
 
-    fn extract_phrase_along(&self, axis: &str, length: usize, loc: &Location) -> Vec<&String> {
+    fn extract_phrase_along(&self, axis: Word, length: usize, loc: &Location) -> Vec<Word> {
         vec![self.name_at_location(loc)]
             .into_iter()
             .chain((1..length + 1).map(|i| {
@@ -220,28 +222,27 @@ impl Ortho {
 
     pub(crate) fn axis_of_change_between_names_for_hop(
         &self,
-        from_name: &str,
-        to_name: &str,
-    ) -> String {
+        from_name: Word,
+        to_name: Word,
+    ) -> Word {
         let all_locations_for_to_name = self.location_at_name(to_name);
         let to_location = all_locations_for_to_name
             .iter()
             .find(|loc| loc.length() == 2)
             .expect("there should be a name in the hop if it was there before");
         let from_location = Location::default().add(from_name);
-        let missing_axes = from_location.missing_axes(&to_location.info.keys().collect());
-        missing_axes
+        let missing_axes = from_location.missing_axes(&to_location.info.keys().cloned().collect());
+        *missing_axes
             .iter()
             .next()
             .expect("there should be an axis of change from hop")
-            .to_string()
     }
 
     pub(crate) fn axes_of_change_between_names_for_contents(
         &self,
-        from_name: &str,
-        to_name: &str,
-    ) -> Vec<String> {
+        from_name: Word,
+        to_name: Word,
+    ) -> Vec<Word> {
         let from_name_location = self.location_at_name(from_name);
         let from_locations = from_name_location
             .iter()
@@ -253,15 +254,15 @@ impl Ortho {
 
         let missing_axeses =
             valid_potentials.map(|(l, r)| r.subtract_adjacent_for_single_axis_name(l));
-        missing_axeses.cloned().collect()
+        missing_axeses.collect()
     }
 
-    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<&String>> {
+    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<Word>> {
         self.get_hop()
             .iter()
             .flat_map(|axis| {
-                let phrases_for_axis = self.phrases(axis);
-                let axis_length = self.axis_length(axis);
+                let phrases_for_axis = self.phrases(*axis);
+                let axis_length = self.axis_length(*axis);
                 phrases_for_axis
                     .into_iter()
                     .filter(|phrase| phrase.len() == axis_length + 1)
@@ -273,7 +274,7 @@ impl Ortho {
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
 pub struct Location {
-    info: BTreeMap<String, usize>,
+    info: BTreeMap<Word, usize>,
 }
 
 impl Location {
@@ -281,23 +282,18 @@ impl Location {
         self.info.iter().fold(0, |acc, (_cur_k, cur_v)| acc + cur_v)
     }
 
-    pub fn map_location(&self, old_axis_to_new_axis: &BTreeMap<&String, &String>) -> Location {
+    pub fn map_location(&self, old_axis_to_new_axis: &BTreeMap<Word, Word>) -> Location {
         Location {
             info: self
                 .info
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        old_axis_to_new_axis.get(k).unwrap_or(&k).to_string(),
-                        v.to_owned(),
-                    )
-                })
+                .map(|(k, v)| (*old_axis_to_new_axis.get(k).unwrap_or(k), v.to_owned()))
                 .collect(),
         }
     }
 
-    fn shift_location(&self, axis: String) -> Location {
-        let mut other: BTreeMap<String, usize> = self.info.clone();
+    fn shift_location(&self, axis: Word) -> Location {
+        let mut other: BTreeMap<Word, usize> = self.info.clone();
         *other.entry(axis).or_insert(0) += 1;
         Location { info: other }
     }
@@ -310,17 +306,17 @@ impl Location {
         res
     }
 
-    pub(crate) fn count_axis(&self, axis: &str) -> usize {
-        *self.info.get(axis).unwrap_or(&0)
+    pub(crate) fn count_axis(&self, axis: Word) -> usize {
+        *self.info.get(&axis).unwrap_or(&0)
     }
 
-    pub(crate) fn add(&self, axis: &str) -> Location {
+    pub(crate) fn add(&self, axis: Word) -> Location {
         self.add_n(axis, 1)
     }
 
-    pub(crate) fn add_n(&self, axis: &str, n: usize) -> Location {
-        let mut res: BTreeMap<String, usize> = self.info.to_owned();
-        *res.entry(axis.to_string()).or_insert(0) += n;
+    pub(crate) fn add_n(&self, axis: Word, n: usize) -> Location {
+        let mut res: BTreeMap<Word, usize> = self.info.to_owned();
+        *res.entry(axis).or_insert(0) += n;
         Location { info: res }
     }
 
@@ -328,11 +324,11 @@ impl Location {
         self.info.values().all(|v| *v == 1)
     }
 
-    fn is_edge(&self, axes: &HashSet<&String>) -> bool {
+    fn is_edge(&self, axes: &HashSet<Word>) -> bool {
         !self.missing_axes(axes).is_empty()
     }
 
-    fn missing_axes<'a>(&self, axes: &HashSet<&'a String>) -> HashSet<&'a String> {
+    fn missing_axes(&self, axes: &HashSet<Word>) -> HashSet<Word> {
         axes.iter()
             .filter(|axis| !self.info.keys().contains(axis.to_owned()))
             .cloned()
@@ -347,18 +343,19 @@ impl Location {
         Location { info: btreemap! {} }
     }
 
-    pub(crate) fn singleton(name: String) -> Location {
+    pub(crate) fn singleton(name: Word) -> Location {
         Location {
             info: btreemap! {name => 1},
         }
     }
 
-    fn does_not_have_axis(&self, shift_axis: &str) -> bool {
-        !self.info.contains_key(shift_axis)
+    fn does_not_have_axis(&self, shift_axis: Word) -> bool {
+        !self.info.contains_key(&shift_axis)
     }
 
-    fn subtract_adjacent_for_single_axis_name(&self, other: &Location) -> &String {
-        self.info
+    fn subtract_adjacent_for_single_axis_name(&self, other: &Location) -> Word {
+        *self
+            .info
             .iter()
             .find(|(axis, count)| &other.info.get(axis.to_owned()).unwrap_or(&0) != count)
             .expect("there must be an adjacent name")
@@ -381,172 +378,96 @@ mod tests {
     #[test]
     fn location_can_be_added_to() {
         let location = Location {
-            info: btreemap! {"a".to_string() => 1},
+            info: btreemap! {1 => 1},
         };
         assert_eq!(
-            location.add("a"),
+            location.add(1),
             Location {
-                info: btreemap! {"a".to_string() => 2}
+                info: btreemap! {1 => 2}
             }
         );
         assert_eq!(
-            location.add("b"),
+            location.add(2),
             Location {
-                info: btreemap! {"a".to_string() => 1, "b".to_string() => 1}
+                info: btreemap! {1 => 1, 2 => 1}
             }
         );
     }
 
     #[test]
     fn it_has_an_origin() {
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-        assert_eq!(example_ortho.get_origin(), &"a".to_string());
+        let example_ortho = Ortho::new(1, 2, 3, 4);
+        assert_eq!(example_ortho.get_origin(), 1);
     }
 
     #[test]
     fn it_can_detect_if_it_contains_a_phrase() {
-        let a = &"a".to_owned();
-        let b = &"b".to_owned();
-        let c = &"c".to_owned();
-        let d = &"d".to_owned();
-        let e = &"e".to_owned();
-        let f = &"f".to_owned();
-        let x = &"x".to_owned();
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let example_ortho = Ortho::new(1, 2, 3, 4);
 
         let wider = Ortho::zip_over(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(2, 5, 4, 6),
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            &"e".to_string(),
+            5,
         );
 
-        let tricky_ortho = Ortho::new(
-            "b".to_string(),
-            "x".to_string(),
-            "b".to_string(),
-            "e".to_string(),
-        );
+        let tricky_ortho = Ortho::new(2, 22, 2, 5);
 
         let tricky_two = Ortho::zip_over(
-            &Ortho::new(
-                "b".to_string(),
-                "b".to_string(),
-                "x".to_string(),
-                "x".to_string(),
-            ),
-            &Ortho::new(
-                "b".to_string(),
-                "b".to_string(),
-                "x".to_string(),
-                "e".to_string(),
-            ),
+            &Ortho::new(2, 2, 22, 22),
+            &Ortho::new(2, 2, 22, 5),
             &btreemap! {
-                b => b,
-                x => x
+                2 => 2,
+                22 => 22
             },
-            &"b".to_string(),
+            2,
         );
 
-        assert!(example_ortho.origin_has_phrase(&vec![a, b]));
-        assert!(example_ortho.hop_has_phrase(&vec![c, d]));
-        assert!(example_ortho.origin_has_phrase(&vec![a, c]));
-        assert!(example_ortho.hop_has_phrase(&vec![b, d]));
-        assert!(!example_ortho.origin_has_phrase(&vec![a, e]));
-        assert!(!example_ortho.hop_has_phrase(&vec![b, a]));
-        assert!(wider.contents_has_phrase(&vec![e, f]));
-        assert!(!wider.contents_has_phrase(&vec![f, e]));
-        assert!(tricky_ortho.hop_has_phrase(&vec![b, e]));
-        assert!(tricky_two.contents_has_phrase(&vec![b, e]));
+        assert!(example_ortho.origin_has_phrase(&vec![1, 2]));
+        assert!(example_ortho.hop_has_phrase(&vec![3, 4]));
+        assert!(example_ortho.origin_has_phrase(&vec![1, 3]));
+        assert!(example_ortho.hop_has_phrase(&vec![2, 4]));
+        assert!(!example_ortho.origin_has_phrase(&vec![1, 5]));
+        assert!(!example_ortho.hop_has_phrase(&vec![2, 1]));
+        assert!(wider.contents_has_phrase(&vec![5, 6]));
+        assert!(!wider.contents_has_phrase(&vec![6, 5]));
+        assert!(tricky_ortho.hop_has_phrase(&vec![2, 5]));
+        assert!(tricky_two.contents_has_phrase(&vec![2, 5]));
     }
 
     #[test]
     fn it_has_a_hop() {
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let example_ortho = Ortho::new(1, 2, 3, 4);
         let mut expected = HashSet::default();
-        let b = "b".to_string();
-        let c = "c".to_string();
-        expected.insert(&b);
-        expected.insert(&c);
+        expected.insert(2);
+        expected.insert(3);
         assert_eq!(example_ortho.get_hop(), expected);
     }
 
     #[test]
     fn it_has_contents() {
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let example_ortho = Ortho::new(1, 2, 3, 4);
         let mut expected = HashSet::default();
-        let d = "d".to_string();
-        expected.insert(&d);
+        expected.insert(4);
         assert_eq!(example_ortho.get_contents(), expected);
 
-        let tricky_example = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "a".to_string(),
-        );
-        let a = "a".to_string();
-        assert_eq!(tricky_example.get_contents(), hashset! {&a});
+        let tricky_example = Ortho::new(1, 2, 3, 1);
+        assert_eq!(tricky_example.get_contents(), hashset! {1});
     }
 
     #[test]
     fn it_is_rotation_independent() {
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-        let rotated_ortho = Ortho::new(
-            "a".to_string(),
-            "c".to_string(),
-            "b".to_string(),
-            "d".to_string(),
-        );
+        let example_ortho = Ortho::new(1, 2, 3, 4);
+        let rotated_ortho = Ortho::new(1, 3, 2, 4);
         assert_eq!(example_ortho, rotated_ortho);
     }
 
     #[test]
     fn it_hashes_consistently() {
-        let example_ortho = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let example_ortho = Ortho::new(1, 2, 3, 4);
         assert_eq!(
             data_vec_to_signed_int(
                 &bincode::serialize(&example_ortho).expect("serialization should work")
@@ -559,42 +480,26 @@ mod tests {
 
     #[test]
     fn it_zips_up() {
-        let l = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let l = Ortho::new(1, 2, 3, 4);
 
-        let r = Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "g".to_string(),
-            "h".to_string(),
-        );
+        let r = Ortho::new(5, 6, 7, 8);
 
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let g = &"g".to_string();
-        let c = &"c".to_string();
         let mapping = btreemap! {
-            e => a,
-            f => b,
-            g => c
+            5 => 1,
+            6 => 2,
+            7 => 3
         };
 
         let actual = Ortho::zip_up(&l, &r, &mapping).info;
         let expected = btreemap! {
-            Location { info: btreemap!{} } => "a".to_string(),
-            Location { info: btreemap!{"b".to_string() => 1} } => "b".to_string(),
-            Location { info: btreemap!{"c".to_string() => 1} } => "c".to_string(),
-            Location { info: btreemap!{"b".to_string() => 1, "c".to_string() => 1} } => "d".to_string(),
-            Location { info: btreemap!{"e".to_string() => 1} } => "e".to_string(),
-            Location { info: btreemap!{"e".to_string() => 1, "b".to_string() => 1} } => "f".to_string(),
-            Location { info: btreemap!{"e".to_string() => 1, "c".to_string() => 1} } => "g".to_string(),
-            Location { info: btreemap!{"e".to_string() => 1, "c".to_string() => 1, "b".to_string() => 1} } => "h".to_string(),
+            Location { info: btreemap!{} } => 1,
+            Location { info: btreemap!{2 => 1} } => 2,
+            Location { info: btreemap!{3 => 1} } => 3,
+            Location { info: btreemap!{2 => 1, 3 => 1} } => 4,
+            Location { info: btreemap!{5 => 1} } => 5,
+            Location { info: btreemap!{5 => 1, 2 => 1} } => 6,
+            Location { info: btreemap!{5 => 1, 3 => 1} } => 7,
+            Location { info: btreemap!{5 => 1, 3 => 1, 2 => 1} } => 8,
         };
 
         assert_eq!(actual, expected)
@@ -602,96 +507,58 @@ mod tests {
 
     #[test]
     fn it_finds_the_name_at_a_location() {
-        let o = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let o = Ortho::new(1, 2, 3, 4);
 
         let actual = o.name_at_location(&Location {
-            info: btreemap! {"b".to_string() => 1, "c".to_string() => 1},
+            info: btreemap! {2 => 1, 3 => 1},
         });
-        assert_eq!(actual, &"d".to_string());
+        assert_eq!(actual, 4);
     }
 
     #[test]
     fn it_find_dimensionality() {
-        let o = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let o = Ortho::new(1, 2, 3, 4);
 
         assert_eq!(o.get_dimensionality(), 2);
     }
 
     #[test]
     fn it_gets_all_names_at_a_distance() {
-        let o = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let o = Ortho::new(1, 2, 3, 4);
 
-        let a = "a".to_string();
-        let b = "b".to_string();
-        let c = "c".to_string();
-        let d = "d".to_string();
-        assert_eq!(o.get_names_at_distance(0), hashset! {&a});
-        assert_eq!(o.get_names_at_distance(1), hashset! {&b, &c});
-        assert_eq!(o.get_names_at_distance(2), hashset! {&d});
+        assert_eq!(o.get_names_at_distance(0), hashset! {1});
+        assert_eq!(o.get_names_at_distance(1), hashset! {2, 3});
+        assert_eq!(o.get_names_at_distance(2), hashset! {4});
     }
 
     #[test]
     fn it_gets_dims() {
-        let o = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let o = Ortho::new(1, 2, 3, 4);
 
         assert_eq!(o.get_dims(), btreemap! {1 => 2});
     }
 
     #[test]
     fn it_zips_over() {
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
-        let l = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let l = Ortho::new(1, 2, 3, 4);
 
-        let r = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let r = Ortho::new(2, 5, 4, 6);
 
         let mapping = btreemap! {
-            e => b,
-            d => c
+            5 => 2,
+            4 => 3
         };
 
-        let shift_axis = &"e".to_string();
+        let shift_axis = 5;
 
         let actual = Ortho::zip_over(&l, &r, &mapping, shift_axis).info;
         let expected = btreemap! {
-            Location { info: btreemap!{} } => "a".to_string(),
-            Location { info: btreemap!{"b".to_string() => 1} } => "b".to_string(),
-            Location { info: btreemap!{"b".to_string() => 2} } => "e".to_string(),
-            Location { info: btreemap!{"c".to_string() => 1} } => "c".to_string(),
-            Location { info: btreemap!{"b".to_string() => 1, "c".to_string() => 1} } => "d".to_string(),
-            Location { info: btreemap!{"b".to_string() => 2, "c".to_string() => 1} } => "f".to_string(),
+            Location { info: btreemap!{} } => 1,
+            Location { info: btreemap!{2 => 1} } => 2,
+            Location { info: btreemap!{2 => 2} } => 5,
+            Location { info: btreemap!{3 => 1} } => 3,
+            Location { info: btreemap!{2 => 1, 3 => 1} } => 4,
+            Location { info: btreemap!{2 => 2, 3 => 1} } => 6,
         };
 
         assert_eq!(actual, expected)
@@ -699,57 +566,25 @@ mod tests {
 
     #[test]
     fn it_is_base_dims_unless_it_has_an_axis_of_length_greater_than_one() {
-        let l = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let l = Ortho::new(1, 2, 3, 4);
 
-        let r = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let r = Ortho::new(2, 5, 4, 6);
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let mapping = btreemap! {
-            e => b,
-            d => c
+            5 => 2,
+            4 => 3
         };
 
-        let shift_axis = &"e".to_string();
+        let over_zipped = Ortho::zip_over(&l, &r, &mapping, 5);
 
-        let over_zipped = Ortho::zip_over(&l, &r, &mapping, shift_axis);
+        let l_up = Ortho::new(1, 2, 3, 4);
 
-        let l_up = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let r_up = Ortho::new(5, 6, 7, 8);
 
-        let r_up = Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "g".to_string(),
-            "h".to_string(),
-        );
-
-        let e = &"e".to_string();
-        let a = &"a".to_string();
-        let f = &"f".to_string();
-        let b = &"b".to_string();
-        let g = &"g".to_string();
-        let c = &"c".to_string();
         let mapping = btreemap! {
-            e => a,
-            f => b,
-            g => c
+            5 => 1,
+            6 => 2,
+            7 => 3
         };
 
         let up_zipped = Ortho::zip_up(&l_up, &r_up, &mapping);
@@ -762,44 +597,22 @@ mod tests {
     #[test]
     fn it_can_detect_missing_axes() {
         let loc = Location {
-            info: btreemap! {"b".to_string() => 5},
+            info: btreemap! {2 => 5},
         };
 
-        let b = "b".to_string();
-        let c = "c".to_string();
-        let actual = loc.missing_axes(&hashset! {&b, &c});
-        let c = &"c".to_string();
-        let expected = hashset! {c};
+        let actual = loc.missing_axes(&hashset! {2, 3});
+        let expected = hashset! {3};
 
         assert_eq!(actual, expected)
     }
 
     #[test]
     fn it_can_produce_all_phrases_along_an_axis() {
-        let l = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
-        let b = &"b".to_owned();
-        let c = &"c".to_owned();
-        let ans = l.phrases(b);
-        assert_eq!(
-            ans,
-            vec![
-                vec![&"a".to_owned(), &"b".to_owned()],
-                vec![&"c".to_owned(), &"d".to_owned()]
-            ]
-        );
+        let l = Ortho::new(1, 2, 3, 4);
+        let ans = l.phrases(2);
+        assert_eq!(ans, vec![vec![1, 2], vec![3, 4]]);
 
-        let ans_two = l.phrases(c);
-        assert_eq!(
-            ans_two,
-            vec![
-                vec![&"a".to_owned(), &"c".to_owned()],
-                vec![&"b".to_owned(), &"d".to_owned()]
-            ]
-        );
+        let ans_two = l.phrases(3);
+        assert_eq!(ans_two, vec![vec![1, 3], vec![2, 4]]);
     }
 }

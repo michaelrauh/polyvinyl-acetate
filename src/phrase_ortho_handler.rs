@@ -4,55 +4,55 @@ use std::collections::BTreeMap;
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
-use crate::{ortho::Ortho, FailableStringToOrthoVec, FailableStringVecToOrthoVec};
+use crate::{ortho::Ortho, FailableStringToOrthoVec, FailableStringVecToOrthoVec, Word};
 
 pub(crate) fn over(
     conn: Option<&PgConnection>,
-    phrase: Vec<String>,
+    phrase: Vec<Word>,
     ortho_by_origin: FailableStringToOrthoVec,
     ortho_by_hop: FailableStringVecToOrthoVec,
     ortho_by_contents: FailableStringVecToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let lhs_phrase_head: Vec<&String> = phrase[..phrase.len() - 1].iter().collect();
-    let rhs_phrase_head: Vec<&String> = phrase[1..].iter().collect();
+    let lhs_phrase_head = &phrase[..phrase.len() - 1];
+    let rhs_phrase_head = &phrase[1..];
 
-    let orthos_by_origin_left = ortho_by_origin(conn, &phrase[0])?;
+    let orthos_by_origin_left = ortho_by_origin(conn, phrase[0])?;
     let lhs_by_origin = orthos_by_origin_left
         .iter()
-        .filter(|o| o.origin_has_phrase(&lhs_phrase_head))
-        .filter(|o| o.axis_length(&phrase[1]) == (phrase.len() - 2));
+        .filter(|o| o.origin_has_phrase(lhs_phrase_head))
+        .filter(|o| o.axis_length(phrase[1]) == (phrase.len() - 2));
 
-    let orthos_by_origin_right = ortho_by_origin(conn, &phrase[1])?;
+    let orthos_by_origin_right = ortho_by_origin(conn, phrase[1])?;
     let rhs_by_origin = orthos_by_origin_right
         .iter()
-        .filter(|o| o.origin_has_phrase(&rhs_phrase_head))
-        .filter(|o| o.axis_length(&phrase[2]) == (phrase.len() - 2));
+        .filter(|o| o.origin_has_phrase(rhs_phrase_head))
+        .filter(|o| o.axis_length(phrase[2]) == (phrase.len() - 2));
 
     let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
         .filter(|(l, r)| l.get_dims() == r.get_dims())
-        .map(|(l, r)| (l, r, phrase[1].clone(), phrase[2].clone()));
+        .map(|(l, r)| (l, r, phrase[1], phrase[2]));
 
-    let orthos_by_hop_left = ortho_by_hop(conn, vec![phrase[0].clone()])?;
+    let orthos_by_hop_left = ortho_by_hop(conn, vec![phrase[0]])?;
     let lhs_by_hop = orthos_by_hop_left
         .iter()
-        .filter(|o| o.hop_has_phrase(&lhs_phrase_head))
+        .filter(|o| o.hop_has_phrase(lhs_phrase_head))
         .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(&phrase[0], &phrase[1]);
-            if o.axis_length(&axis) == phrase.len() - 2 {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
+            if o.axis_length(axis) == phrase.len() - 2 {
                 Some((o, axis))
             } else {
                 None
             }
         });
 
-    let orthos_by_hop_right = ortho_by_hop(conn, vec![phrase[1].clone()])?;
+    let orthos_by_hop_right = ortho_by_hop(conn, vec![phrase[1]])?;
     let rhs_by_hop = orthos_by_hop_right
         .iter()
-        .filter(|o| o.hop_has_phrase(&rhs_phrase_head))
+        .filter(|o| o.hop_has_phrase(rhs_phrase_head))
         .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(&phrase[1], &phrase[2]);
-            if o.axis_length(&axis) == phrase.len() - 2 {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
+            if o.axis_length(axis) == phrase.len() - 2 {
                 Some((o, axis))
             } else {
                 None
@@ -63,32 +63,32 @@ pub(crate) fn over(
         .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
         .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let orthos_by_contents_left = ortho_by_contents(conn, vec![phrase[0].clone()])?;
+    let orthos_by_contents_left = ortho_by_contents(conn, vec![phrase[0]])?;
     let lhs_by_contents = orthos_by_contents_left
         .iter()
-        .filter(|o| o.contents_has_phrase(&lhs_phrase_head))
+        .filter(|o| o.contents_has_phrase(lhs_phrase_head))
         .map(|o| {
             (
                 o,
-                o.axes_of_change_between_names_for_contents(&phrase[0], &phrase[1]),
+                o.axes_of_change_between_names_for_contents(phrase[0], phrase[1]),
             )
         })
         .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
-        .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
+        .filter(|(o, a)| o.axis_length(*a) == phrase.len() - 2)
         .map(|(o, a)| (o, a));
 
-    let orthos_by_contents_right = ortho_by_contents(conn, vec![phrase[1].clone()])?;
+    let orthos_by_contents_right = ortho_by_contents(conn, vec![phrase[1]])?;
     let rhs_by_contents = orthos_by_contents_right
         .iter()
-        .filter(|o| o.contents_has_phrase(&rhs_phrase_head))
+        .filter(|o| o.contents_has_phrase(rhs_phrase_head))
         .map(|o| {
             (
                 o,
-                o.axes_of_change_between_names_for_contents(&phrase[1], &phrase[2]),
+                o.axes_of_change_between_names_for_contents(phrase[1], phrase[2]),
             )
         })
         .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
-        .filter(|(o, a)| o.axis_length(a) == phrase.len() - 2)
+        .filter(|(o, a)| o.axis_length(*a) == phrase.len() - 2)
         .map(|(o, a)| (o, a));
 
     let contents_potential_pairings =
@@ -111,11 +111,11 @@ pub(crate) fn over(
 
 pub fn attempt_combine_over(
     conn: Option<&PgConnection>,
-    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, Error>,
     lo: &Ortho,
     ro: &Ortho,
-    left_shift_axis: String,
-    right_shift_axis: String,
+    left_shift_axis: Word,
+    right_shift_axis: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let mut ans = vec![];
     let mut lo_hop_set = lo.get_hop();
@@ -126,36 +126,25 @@ pub fn attempt_combine_over(
     let mut ro_hop_set = ro.get_hop();
     ro_hop_set.remove(&right_shift_axis);
 
-    let fixed_right_hand: Vec<&String> = ro_hop_set.iter().cloned().collect();
+    let fixed_right_hand: Vec<Word> = ro_hop_set.iter().cloned().collect();
 
     let lo_hop_len = lo_hop.len();
     let left_hand_coordinate_configurations =
         Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
 
     for left_mapping in left_hand_coordinate_configurations {
-        if axis_lengths_match(
-            &left_mapping,
-            &fixed_right_hand,
-            lo,
-            ro,
-        ) {
+        if axis_lengths_match(&left_mapping, &fixed_right_hand, lo, ro) {
             let mapping = make_mapping(
                 left_mapping,
                 fixed_right_hand.clone(),
-                &right_shift_axis,
-                &left_shift_axis,
+                right_shift_axis,
+                left_shift_axis,
             );
 
-            if mapping_works(&mapping, lo, ro, &right_shift_axis, &left_shift_axis) {
-                let ortho_to_add =
-                    Ortho::zip_over(lo, ro, &mapping, &right_shift_axis);
+            if mapping_works(&mapping, lo, ro, right_shift_axis, left_shift_axis) {
+                let ortho_to_add = Ortho::zip_over(lo, ro, &mapping, right_shift_axis);
 
-                if phrases_work(
-                    phrase_exists,
-                    &ortho_to_add,
-                    &left_shift_axis,
-                    conn,
-                )? {
+                if phrases_work(phrase_exists, &ortho_to_add, left_shift_axis, conn)? {
                     ans.push(ortho_to_add);
                 }
             }
@@ -166,9 +155,9 @@ pub fn attempt_combine_over(
 }
 
 fn phrases_work(
-    phrase_exists: fn(Option<&PgConnection>, Vec<&String>) -> Result<bool, anyhow::Error>,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     ortho_to_add: &Ortho,
-    shift_axis: &str,
+    shift_axis: Word,
     conn: Option<&PgConnection>,
 ) -> Result<bool, anyhow::Error> {
     let phrases = ortho_to_add.phrases(shift_axis);
@@ -181,24 +170,22 @@ fn phrases_work(
     Ok(true)
 }
 
-fn axis_lengths_match(
-    left_axes: &[&String],
-    right_axes: &[&String],
-    lo: &Ortho,
-    ro: &Ortho,
-) -> bool {
-    let left_lengths: Vec<usize> = left_axes.iter().map(|axis| lo.axis_length(axis)).collect();
-    let right_lengths: Vec<usize> = right_axes.iter().map(|axis| ro.axis_length(axis)).collect();
+fn axis_lengths_match(left_axes: &[Word], right_axes: &[Word], lo: &Ortho, ro: &Ortho) -> bool {
+    let left_lengths: Vec<usize> = left_axes.iter().map(|axis| lo.axis_length(*axis)).collect();
+    let right_lengths: Vec<usize> = right_axes
+        .iter()
+        .map(|axis| ro.axis_length(*axis))
+        .collect();
 
     left_lengths == right_lengths
 }
 
 fn mapping_works(
-    mapping: &BTreeMap<&String, &String>,
+    mapping: &BTreeMap<Word, Word>,
     lo: &Ortho,
     ro: &Ortho,
-    origin_shift_axis: &str,
-    origin_lhs_known_mapping_member: &str,
+    origin_shift_axis: Word,
+    origin_lhs_known_mapping_member: Word,
 ) -> bool {
     let shift_axis_length = ro.axis_length(origin_shift_axis);
 
@@ -217,13 +204,13 @@ fn mapping_works(
     true
 }
 
-fn make_mapping<'a>(
-    left_mapping: Vec<&'a String>,
-    fixed_right_hand: Vec<&'a String>,
-    origin_shift_axis: &'a String,
-    origin_lhs_known_mapping_member: &'a String,
-) -> std::collections::BTreeMap<&'a String, &'a String> {
-    let mut almost: BTreeMap<&String, &String> = zip(fixed_right_hand, left_mapping).collect();
+fn make_mapping(
+    left_mapping: Vec<Word>,
+    fixed_right_hand: Vec<Word>,
+    origin_shift_axis: Word,
+    origin_lhs_known_mapping_member: Word,
+) -> std::collections::BTreeMap<Word, Word> {
+    let mut almost: BTreeMap<Word, Word> = zip(fixed_right_hand, left_mapping).collect();
     almost.insert(origin_shift_axis, origin_lhs_known_mapping_member);
     almost
 }
@@ -233,194 +220,131 @@ mod tests {
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
 
-    use crate::ortho::Ortho;
+    use crate::{ortho::Ortho, Word};
 
     use super::{axis_lengths_match, over};
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
-        phrase: Vec<&String>,
+        phrase: Vec<Word>,
     ) -> Result<bool, anyhow::Error> {
-        let a = "a".to_owned();
-        let b = "b".to_owned();
-        let c = "c".to_owned();
-        let d = "d".to_owned();
-        let e = "e".to_owned();
-        let f = "f".to_owned();
         let ps = hashset! {
-            vec![&a, &b, &e],
-            vec![&c, &d, &f]
+            vec![1, 2, 5],
+            vec![3, 4, 6]
         };
         Ok(ps.contains(&phrase))
     }
 
     fn fake_phrase_exists_two(
         _conn: Option<&PgConnection>,
-        phrase: Vec<&String>,
+        phrase: Vec<Word>,
     ) -> Result<bool, anyhow::Error> {
-        let a = "a".to_owned();
-        let b = "b".to_owned();
-        let e = "e".to_owned();
         let ps = hashset! {
-            vec![&a, &b, &e]
+            vec![1, 2, 5]
         };
         Ok(ps.contains(&phrase))
     }
 
     fn fake_phrase_exists_three(
         _conn: Option<&PgConnection>,
-        phrase: Vec<&String>,
+        phrase: Vec<Word>,
     ) -> Result<bool, anyhow::Error> {
-        let a = "a".to_owned();
-        let b = "b".to_owned();
-        let c = "c".to_owned();
-        let d = "d".to_owned();
-        let e = "e".to_owned();
-        let f = "f".to_owned();
-        let g = "g".to_owned();
-        let h = "h".to_owned();
-        let i = "i".to_owned();
         let ps = hashset! {
-            vec![&a, &d, &g],
-            vec![&b, &e, &h],
-            vec![&c, &f, &i]
+            vec![1, 4, 7],
+            vec![2, 5, 8],
+            vec![3, 6, 9]
         };
         Ok(ps.contains(&phrase))
     }
 
     fn fake_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { "a" => vec![Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        )], "b" => vec![Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
+        let mut pairs = btreemap! { 1 => vec![Ortho::new(
+            1,
+            2,
+            3,
+            4,
+        )], 2 => vec![Ortho::new(
+            2,
+            5,
+            4,
+            6,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn empty_ortho_by_origin(
         _conn: Option<&PgConnection>,
-        _o: &str,
+        _o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn fake_ortho_by_origin_two(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let small = Ortho::new(
-            "b".to_string(),
-            "d".to_string(),
-            "e".to_string(),
-            "y".to_string(),
-        );
+        let small = Ortho::new(2, 4, 5, 25);
 
         // a b e
         // c d f
 
         // b e
         // d y
-        let l = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let l = Ortho::new(1, 2, 3, 4);
 
-        let r = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let r = Ortho::new(2, 5, 4, 6);
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let bigger = Ortho::zip_over(
             &l,
             &r,
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            e,
+            5,
         );
 
-        let mut pairs = btreemap! { "a" => vec![bigger], "b" => vec![small]};
+        let mut pairs = btreemap! { 1 => vec![bigger], 2 => vec![small]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin_three(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let l = Ortho::zip_over(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(2, 5, 4, 6),
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            e,
+            5,
         );
 
         // a b e   b e + e g
         // c d f   d f   f h
 
-        let g = &"g".to_string();
-        let f = &"f".to_string();
         let r = Ortho::zip_over(
-            &Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ),
-            &Ortho::new(
-                "e".to_string(),
-                "g".to_string(),
-                "f".to_string(),
-                "h".to_string(),
-            ),
+            &Ortho::new(2, 5, 4, 6),
+            &Ortho::new(5, 7, 6, 8),
             &btreemap! {
-                g => e,
-                f => d
+                7 => 5,
+                6 => 4
             },
-            g,
+            7,
         );
 
-        let mut pairs = btreemap! { "a" => vec![l], "b" => vec![r]};
+        let mut pairs = btreemap! { 1 => vec![l], 2 => vec![r]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin_four(
         _conn: Option<&PgConnection>,
-        o: &str,
+        o: Word,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         // a b e   b e b
         // c d f   d f e
@@ -430,77 +354,40 @@ mod tests {
         // LHS: a b e
         // RHS: b e g
 
-        let abcd = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-        );
+        let abcd = Ortho::new(1, 2, 3, 4);
 
-        let fejg = Ortho::new(
-            "f".to_string(),
-            "e".to_string(),
-            "j".to_string(),
-            "g".to_string(),
-        );
+        let fejg = Ortho::new(6, 5, 10, 7);
 
-        let ebfe = Ortho::new(
-            "e".to_string(),
-            "b".to_string(),
-            "f".to_string(),
-            "e".to_string(),
-        );
+        let ebfe = Ortho::new(5, 2, 6, 5);
 
-        let bedf = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let bedf = Ortho::new(2, 5, 4, 6);
 
-        let cdhi = Ortho::new(
-            "c".to_string(),
-            "d".to_string(),
-            "h".to_string(),
-            "i".to_string(),
-        );
+        let cdhi = Ortho::new(3, 4, 8, 9);
 
-        let dfij = Ortho::new(
-            "d".to_string(),
-            "f".to_string(),
-            "i".to_string(),
-            "j".to_string(),
-        );
+        let dfij = Ortho::new(4, 6, 9, 10);
 
         // a b  b e
         // c d  d f
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let abecdf = Ortho::zip_over(
             &abcd,
             &bedf,
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            e,
+            5,
         );
 
         // c d   d f
         // h i   i j
-        let f = &"f".to_string();
-        let i = &"i".to_string();
-        let h = &"h".to_string();
         let cdfhij = Ortho::zip_over(
             &cdhi,
             &dfij,
             &btreemap! {
-                f => d,
-                i => h
+                6 => 4,
+                9 => 8
             },
-            f,
+            6,
         );
 
         // a b e
@@ -512,10 +399,10 @@ mod tests {
             &abecdf,
             &cdfhij,
             &btreemap! {
-                d => b,
-                h => c
+                4 => 2,
+                8 => 3
             },
-            h,
+            8,
         );
 
         // b e  e b
@@ -524,23 +411,22 @@ mod tests {
             &bedf,
             &ebfe,
             &btreemap! {
-                b => e,
-                f => d
+                2 => 5,
+                6 => 4
             },
-            b,
+            2,
         );
 
         // d f   f e
         // i j   j g
-        let j = &"j".to_string();
         let dfeijg = Ortho::zip_over(
             &dfij,
             &fejg,
             &btreemap! {
-                e => f,
-                j => i
+                5 => 6,
+                10 => 9
             },
-            e,
+            5,
         );
 
         //  b e b
@@ -552,26 +438,26 @@ mod tests {
             &bebdfe,
             &dfeijg,
             &btreemap! {
-                f => e,
-                i => d
+                6 => 5,
+                9 => 4
             },
-            i,
+            9,
         );
 
-        let mut pairs = btreemap! { "a" => vec![abecdfhij], "b" => vec![bebdfeijg]};
+        let mut pairs = btreemap! { 1 => vec![abecdfhij], 2 => vec![bebdfeijg]};
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn empty_ortho_by_hop(
         _conn: Option<&PgConnection>,
-        _o: Vec<String>,
+        _o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
 
     fn fake_ortho_by_contents(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         let mut ans = vec![];
 
@@ -581,72 +467,39 @@ mod tests {
         // d e f
         // g h i
 
-        let abde = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "d".to_string(),
-            "e".to_string(),
-        );
+        let abde = Ortho::new(1, 2, 4, 5);
 
-        let bcef = Ortho::new(
-            "b".to_string(),
-            "c".to_string(),
-            "e".to_string(),
-            "f".to_string(),
-        );
+        let bcef = Ortho::new(2, 3, 5, 6);
 
-        let degh = Ortho::new(
-            "d".to_string(),
-            "e".to_string(),
-            "g".to_string(),
-            "h".to_string(),
-        );
+        let degh = Ortho::new(4, 5, 7, 8);
 
-        let efhi = Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "h".to_string(),
-            "i".to_string(),
-        );
+        let efhi = Ortho::new(5, 6, 8, 9);
 
-        let c = &"c".to_string();
-        let b = &"b".to_string();
-        let e = &"e".to_string();
-        let d = &"d".to_string();
         let abcdef = Ortho::zip_over(
             &abde,
             &bcef,
             &btreemap! {
-                c => b,
-                e => d
+                3 => 2,
+                5 => 4
             },
-            c,
+            3,
         );
 
-        let f = &"f".to_string();
-        let h = &"h".to_string();
-        let g = &"g".to_string();
         let defghi = Ortho::zip_over(
             &degh,
             &efhi,
             &btreemap! {
-                f => e,
-                h => g
+                6 => 5,
+                8 => 7
             },
-            f,
+            6,
         );
 
-        if o.contains(&"c".to_string())
-            || o.contains(&"e".to_string())
-            || o.contains(&"f".to_string())
-        {
+        if o.contains(&3) || o.contains(&5) || o.contains(&6) {
             ans.push(abcdef);
         }
 
-        if o.contains(&"f".to_string())
-            || o.contains(&"h".to_string())
-            || o.contains(&"i".to_string())
-        {
+        if o.contains(&6) || o.contains(&8) || o.contains(&9) {
             ans.push(defghi);
         }
 
@@ -655,44 +508,24 @@ mod tests {
 
     fn fake_ortho_by_hop(
         _conn: Option<&PgConnection>,
-        o: Vec<String>,
+        o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         let mut ans = vec![];
 
-        if o.contains(&"b".to_string()) {
-            ans.push(Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ))
+        if o.contains(&2) {
+            ans.push(Ortho::new(1, 2, 3, 4))
         }
 
-        if o.contains(&"c".to_string()) {
-            ans.push(Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ))
+        if o.contains(&3) {
+            ans.push(Ortho::new(1, 2, 3, 4))
         }
 
-        if o.contains(&"e".to_string()) {
-            ans.push(Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ))
+        if o.contains(&5) {
+            ans.push(Ortho::new(2, 5, 4, 6))
         }
 
-        if o.contains(&"d".to_string()) {
-            ans.push(Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ))
+        if o.contains(&4) {
+            ans.push(Ortho::new(2, 5, 4, 6))
         }
 
         Ok(ans)
@@ -700,7 +533,7 @@ mod tests {
 
     fn empty_ortho_by_contents(
         _conn: Option<&PgConnection>,
-        _o: Vec<String>,
+        _o: Vec<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
         Ok(vec![])
     }
@@ -710,33 +543,19 @@ mod tests {
         // a b | b e    =   a b e
         // c d | d f        c d f
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(2, 5, 4, 6),
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            e,
+            5,
         );
 
         let actual = over(
             None,
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
+            vec![1, 2, 5],
             fake_ortho_by_origin,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -751,7 +570,7 @@ mod tests {
     fn over_filters_mismatched_dims() {
         let actual = over(
             None,
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
+            vec![1, 2, 5],
             fake_ortho_by_origin_two,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -766,7 +585,7 @@ mod tests {
     fn over_filters_shift_axis_is_wrong_length() {
         let actual = over(
             None,
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
+            vec![1, 2, 5],
             fake_ortho_by_origin_three,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -781,12 +600,7 @@ mod tests {
     fn over_filters_if_the_phrase_wont_result() {
         let actual = over(
             None,
-            vec![
-                "a".to_owned(),
-                "b".to_owned(),
-                "e".to_owned(),
-                "g".to_owned(),
-            ],
+            vec![1, 2, 5, 7],
             fake_ortho_by_origin_four,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -799,81 +613,43 @@ mod tests {
 
     #[test]
     fn axis_lengths_can_match() {
-        let fejg = Ortho::new(
-            "f".to_string(),
-            "e".to_string(),
-            "j".to_string(),
-            "g".to_string(),
-        );
+        let fejg = Ortho::new(6, 5, 10, 7);
 
-        let ebfe = Ortho::new(
-            "e".to_string(),
-            "b".to_string(),
-            "f".to_string(),
-            "e".to_string(),
-        );
+        let ebfe = Ortho::new(5, 2, 6, 5);
 
-        let bedf = Ortho::new(
-            "b".to_string(),
-            "e".to_string(),
-            "d".to_string(),
-            "f".to_string(),
-        );
+        let bedf = Ortho::new(2, 5, 4, 6);
 
-        let dfij = Ortho::new(
-            "d".to_string(),
-            "f".to_string(),
-            "i".to_string(),
-            "j".to_string(),
-        );
+        let dfij = Ortho::new(4, 6, 9, 10);
 
         // b e  e b
         // d f  f e
-        let b = &"b".to_string();
-        let f = &"f".to_string();
-        let d = &"d".to_string();
-        let e = &"e".to_string();
         let bebdfe = Ortho::zip_over(
             &bedf,
             &ebfe,
             &btreemap! {
-                b => e,
-                f => d
+                2 => 5,
+                6 => 4
             },
-            b,
+            2,
         );
 
         // d f   f e
         // i j   j g
-        let e = &"e".to_string();
-        let f = &"f".to_string();
-        let j = &"j".to_string();
-        let i = &"i".to_string();
         let dfeijg = Ortho::zip_over(
             &dfij,
             &fejg,
             &btreemap! {
-                e => f,
-                j => i
+                5 => 6,
+                10 => 9
             },
-            e,
+            5,
         );
 
         // b e b   d f e
         // d f e   i j g
-        let yes = axis_lengths_match(
-            &vec![&"e".to_string(), &"d".to_string()],
-            &vec![&"f".to_string(), &"i".to_string()],
-            &bebdfe.clone(),
-            &dfeijg.clone(),
-        );
+        let yes = axis_lengths_match(&vec![5, 4], &vec![6, 9], &bebdfe.clone(), &dfeijg.clone());
 
-        let no = axis_lengths_match(
-            &vec![&"d".to_string(), &"e".to_string()],
-            &vec![&"f".to_string(), &"i".to_string()],
-            &bebdfe,
-            &dfeijg,
-        );
+        let no = axis_lengths_match(&vec![4, 5], &vec![6, 9], &bebdfe, &dfeijg);
 
         assert!(yes);
         assert!(!no);
@@ -883,7 +659,7 @@ mod tests {
     fn over_by_origin_filters_if_a_phrase_is_missing_from_db() {
         let actual = over(
             None,
-            vec!["a".to_owned(), "b".to_owned(), "e".to_owned()],
+            vec![1, 2, 5],
             fake_ortho_by_origin,
             empty_ortho_by_hop,
             empty_ortho_by_contents,
@@ -898,33 +674,19 @@ mod tests {
     fn over_by_hop() {
         // a b | b e    =   a b e
         // c d | d f        c d f
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let expected = Ortho::zip_over(
-            &Ortho::new(
-                "a".to_string(),
-                "b".to_string(),
-                "c".to_string(),
-                "d".to_string(),
-            ),
-            &Ortho::new(
-                "b".to_string(),
-                "e".to_string(),
-                "d".to_string(),
-                "f".to_string(),
-            ),
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(2, 5, 4, 6),
             &btreemap! {
-                e => b,
-                d => c
+                5 => 2,
+                4 => 3
             },
-            e,
+            5,
         );
 
         let actual = over(
             None,
-            vec!["c".to_owned(), "d".to_owned(), "f".to_owned()],
+            vec![3, 4, 6],
             empty_ortho_by_origin,
             fake_ortho_by_hop,
             empty_ortho_by_contents,
@@ -949,74 +711,47 @@ mod tests {
 
         // phrase: c f i
 
-        let abde = Ortho::new(
-            "a".to_string(),
-            "b".to_string(),
-            "d".to_string(),
-            "e".to_string(),
-        );
+        let abde = Ortho::new(1, 2, 4, 5);
 
-        let bcef = Ortho::new(
-            "b".to_string(),
-            "c".to_string(),
-            "e".to_string(),
-            "f".to_string(),
-        );
+        let bcef = Ortho::new(2, 3, 5, 6);
 
-        let degh = Ortho::new(
-            "d".to_string(),
-            "e".to_string(),
-            "g".to_string(),
-            "h".to_string(),
-        );
+        let degh = Ortho::new(4, 5, 7, 8);
 
-        let efhi = Ortho::new(
-            "e".to_string(),
-            "f".to_string(),
-            "h".to_string(),
-            "i".to_string(),
-        );
+        let efhi = Ortho::new(5, 6, 8, 9);
 
-        let e = &"e".to_string();
-        let b = &"b".to_string();
-        let d = &"d".to_string();
-        let c = &"c".to_string();
         let abcdef = Ortho::zip_over(
             &abde,
             &bcef,
             &btreemap! {
-                c => b,
-                e => d
+                3 => 2,
+                5 => 4
             },
-            c,
+            3,
         );
 
-        let f = &"f".to_string();
-        let h = &"h".to_string();
-        let g = &"g".to_string();
         let defghi = Ortho::zip_over(
             &degh,
             &efhi,
             &btreemap! {
-                f => e,
-                h => g
+                6 => 5,
+                8 => 7
             },
-            f,
+            6,
         );
 
         let expected = Ortho::zip_over(
             &abcdef,
             &defghi,
             &btreemap! {
-                e => b,
-                g => d
+                5 => 2,
+                7 => 4
             },
-            g,
+            7,
         );
 
         let actual = over(
             None,
-            vec!["c".to_owned(), "f".to_owned(), "i".to_owned()],
+            vec![3, 6, 9],
             empty_ortho_by_origin,
             empty_ortho_by_hop,
             fake_ortho_by_contents,
