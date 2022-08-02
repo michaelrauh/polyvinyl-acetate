@@ -24,7 +24,7 @@ fn main() {
 
 pub fn get_todos() -> Result<Vec<Todo>, diesel::result::Error> {
     use polyvinyl_acetate::schema::todos::dsl::todos;
-    let results = todos.load(&establish_connection())?;
+    let results = diesel::QueryDsl::limit(todos, 1000).load(&establish_connection())?;
 
     Ok(results)
 }
