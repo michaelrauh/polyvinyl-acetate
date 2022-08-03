@@ -1,4 +1,4 @@
-use std::{env, thread::sleep};
+use std::{env};
 
 use amiquip::{AmqpProperties, AmqpValue, Exchange, FieldTable, Publish, QueueDeclareOptions};
 use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl};
@@ -18,7 +18,6 @@ fn main() {
             }
             Err(e) => println!("failure: {}", e),
         }
-        sleep(core::time::Duration::from_secs(1))
     }
 }
 

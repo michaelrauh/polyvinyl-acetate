@@ -30,7 +30,6 @@ use crate::schema::orthotopes;
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
-use dotenv::dotenv;
 use models::Book;
 use std::collections::{HashMap, HashSet};
 use std::{
@@ -52,8 +51,6 @@ type FailableHashsetWordsToHashsetNumbers = fn(
 type Word = i32;
 
 pub fn establish_connection() -> PgConnection {
-    dotenv().ok();
-
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
