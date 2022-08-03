@@ -26,3 +26,6 @@ print("1,1,2:     " + str(get_with_dims("1,1,2")))
 print("1,1,1,2:   " + str(get_with_dims("1,1,1,2")))
 print("2,2:       " + str(get_with_dims("2,2")))
 print("2,2,2:     " + str(get_with_dims("2,2,2")))
+
+total = get_with_dims("1,1") + get_with_dims("1,1,1") + get_with_dims("1,1,1,1") + get_with_dims("1,1,1,1,1") + get_with_dims("1,2") + get_with_dims("1,1,2") + get_with_dims("1,1,1,2") + get_with_dims("2,2") + get_with_dims("2,2,2")
+print("total:    ", total)

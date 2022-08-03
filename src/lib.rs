@@ -11,7 +11,6 @@ use diesel::prelude::*;
 
 use schema::{sentences, todos};
 mod book_todo_handler;
-mod ex_nihilo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
 pub mod over_on_ortho_found_handler;
@@ -31,7 +30,6 @@ use crate::schema::orthotopes;
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
-use dotenv::dotenv;
 use models::Book;
 use std::collections::{HashMap, HashSet};
 use std::{
@@ -42,8 +40,7 @@ use std::{
 
 type FailableWordVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
-type FailableWordToOrthoVec =
-    fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
 type FailableHashsetWordsToHashsetNumbers = fn(
     conn: Option<&PgConnection>,
@@ -54,11 +51,14 @@ type FailableHashsetWordsToHashsetNumbers = fn(
 type Word = i32;
 
 pub fn establish_connection() -> PgConnection {
-    dotenv().ok();
-
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+}
+
+pub fn establish_connection_safe() -> Result<PgConnection, ConnectionError> {
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url)
 }
 
 pub fn get_hashes_of_pairs_with_words_in(

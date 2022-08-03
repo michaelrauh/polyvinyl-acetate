@@ -1,1 +1,1 @@
-kubectl scale deployment/pvac-worker --replicas=10
+kubectl scale deployment/pvac-worker --replicas=20

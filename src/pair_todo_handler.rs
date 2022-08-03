@@ -6,7 +6,7 @@ use std::{
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
-    ex_nihilo_handler, get_hashes_of_pairs_with_words_in,
+    get_hashes_of_pairs_with_words_in,
     models::{NewOrthotope, NewTodo},
     schema::pairs::{dsl::pairs, id},
     up_handler, Word,
@@ -20,11 +20,11 @@ use crate::{
 use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
 use diesel::{sql_query, PgConnection};
 
-pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_up_by_origin(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection();
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
-        let new_orthos = new_orthotopes(&conn, pair)?;
+        let new_orthos = new_orthotopes_up_by_origin(&conn, pair)?;
         let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
         let todos: Vec<NewTodo> = inserted_orthos
             .iter()
@@ -38,8 +38,124 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+pub fn handle_pair_todo_up_by_contents(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let pair = get_pair(&conn, todo.other)?;
+        let new_orthos = new_orthotopes_up_by_contents(&conn, pair)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
+        let todos: Vec<NewTodo> = inserted_orthos
+            .iter()
+            .map(|s| NewTodo {
+                domain: "orthotopes".to_owned(),
+                other: s.id,
+            })
+            .collect();
+        create_todo_entry(&conn, todos)?;
+        Ok(())
+    })
+}
+
+pub fn handle_pair_todo_up_by_hop(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let pair = get_pair(&conn, todo.other)?;
+        let new_orthos = new_orthotopes_up_by_hop(&conn, pair)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
+        let todos: Vec<NewTodo> = inserted_orthos
+            .iter()
+            .map(|s| NewTodo {
+                domain: "orthotopes".to_owned(),
+                other: s.id,
+            })
+            .collect();
+        create_todo_entry(&conn, todos)?;
+        Ok(())
+    })
+}
+
+pub fn handle_pair_todo_ffbb(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let pair = get_pair(&conn, todo.other)?;
+        let new_orthos = new_orthotopes_ffbb(&conn, pair)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
+        let todos: Vec<NewTodo> = inserted_orthos
+            .iter()
+            .map(|s| NewTodo {
+                domain: "orthotopes".to_owned(),
+                other: s.id,
+            })
+            .collect();
+        create_todo_entry(&conn, todos)?;
+        Ok(())
+    })
+}
+
+pub fn handle_pair_todo_fbbf(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let pair = get_pair(&conn, todo.other)?;
+        let new_orthos = new_orthotopes_fbbf(&conn, pair)?;
+        let inserted_orthos = insert_orthotopes(&conn, HashSet::from_iter(new_orthos))?;
+        let todos: Vec<NewTodo> = inserted_orthos
+            .iter()
+            .map(|s| NewTodo {
+                domain: "orthotopes".to_owned(),
+                other: s.id,
+            })
+            .collect();
+        create_todo_entry(&conn, todos)?;
+        Ok(())
+    })
+}
+
+pub fn handle_pair_todo_up(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let new_todos = vec![
+            NewTodo {
+                domain: "up_by_origin".to_string(),
+                other: todo.other,
+            },
+            NewTodo {
+                domain: "up_by_hop".to_string(),
+                other: todo.other,
+            },
+            NewTodo {
+                domain: "up_by_contents".to_string(),
+                other: todo.other,
+            },
+        ];
+        create_todo_entry(&conn, new_todos)?;
+        Ok(())
+    })
+}
+
+pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
+    let conn = establish_connection();
+    conn.build_transaction().serializable().run(|| {
+        let new_todos = vec![
+            NewTodo {
+                domain: "ex_nihilo_ffbb".to_string(),
+                other: todo.other,
+            },
+            NewTodo {
+                domain: "ex_nihilo_fbbf".to_string(),
+                other: todo.other,
+            },
+            NewTodo {
+                domain: "pair_up".to_string(),
+                other: todo.other,
+            },
+        ];
+        create_todo_entry(&conn, new_todos)?;
+        Ok(())
+    })
+}
+
 fn single_ffbb(
-    conn: Option<&PgConnection>,
+    conn: &PgConnection,
     first: Word,
     second: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -52,8 +168,7 @@ fn single_ffbb(
         AND AC.first_word='{}';",
         second, first
     );
-    let ffbbs: Vec<ExNihilo> =
-        sql_query(query).load(conn.expect("do not pass a test dummy in production"))?;
+    let ffbbs: Vec<ExNihilo> = sql_query(query).load(conn)?;
 
     let res = ffbbs
         .iter()
@@ -71,7 +186,7 @@ fn single_ffbb(
 }
 
 fn single_fbbf(
-    conn: Option<&PgConnection>,
+    conn: &PgConnection,
     first: Word,
     second: Word,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -84,8 +199,7 @@ fn single_fbbf(
         AND CD.second_word='{}';",
         first, second
     );
-    let ffbbs: Vec<ExNihilo> =
-        sql_query(query).load(conn.expect("do not pass a test dummy in production"))?;
+    let ffbbs: Vec<ExNihilo> = sql_query(query).load(conn)?;
 
     // finding ac given bd
     let res = ffbbs
@@ -103,28 +217,77 @@ fn single_fbbf(
     Ok(res)
 }
 
-fn new_orthotopes(conn: &PgConnection, pair: Pair) -> Result<Vec<NewOrthotope>, anyhow::Error> {
-    let ex_nihilo_orthos = ex_nihilo_handler::ex_nihilo(
-        Some(conn),
-        pair.first_word,
-        pair.second_word,
-        single_ffbb,
-        single_fbbf,
-    )?;
-    let nihilo_iter = ex_nihilo_orthos.iter();
-    let up_orthos = up_handler::up(
+fn new_orthotopes_up_by_origin(
+    conn: &PgConnection,
+    pair: Pair,
+) -> Result<Vec<NewOrthotope>, anyhow::Error> {
+    let up_orthos = up_handler::up_by_origin(
         Some(conn),
         pair.first_word,
         pair.second_word,
         crate::get_ortho_by_origin,
+        get_hashes_of_pairs_with_words_in,
+    )?;
+    let up_iter = up_orthos.iter();
+
+    let res = up_iter.map(crate::ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn new_orthotopes_up_by_hop(
+    conn: &PgConnection,
+    pair: Pair,
+) -> Result<Vec<NewOrthotope>, anyhow::Error> {
+    let up_orthos = up_handler::up_by_hop(
+        Some(conn),
+        pair.first_word,
+        pair.second_word,
         crate::get_ortho_by_hop,
+        get_hashes_of_pairs_with_words_in,
+    )?;
+    let up_iter = up_orthos.iter();
+
+    let res = up_iter.map(crate::ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn new_orthotopes_up_by_contents(
+    conn: &PgConnection,
+    pair: Pair,
+) -> Result<Vec<NewOrthotope>, anyhow::Error> {
+    let up_orthos = up_handler::up_by_contents(
+        Some(conn),
+        pair.first_word,
+        pair.second_word,
         crate::get_ortho_by_contents,
         get_hashes_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();
-    let both = nihilo_iter.chain(up_iter);
 
-    let res = both.map(crate::ortho_to_orthotope).collect();
+    let res = up_iter.map(crate::ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn new_orthotopes_ffbb(
+    conn: &PgConnection,
+    pair: Pair,
+) -> Result<Vec<NewOrthotope>, anyhow::Error> {
+    let ex_nihilo_orthos = single_ffbb(conn, pair.first_word, pair.second_word)?;
+
+    let nihilo_iter = ex_nihilo_orthos.iter();
+
+    let res = nihilo_iter.map(crate::ortho_to_orthotope).collect();
+    Ok(res)
+}
+
+fn new_orthotopes_fbbf(
+    conn: &PgConnection,
+    pair: Pair,
+) -> Result<Vec<NewOrthotope>, anyhow::Error> {
+    let ex_nihilo_orthos = single_fbbf(conn, pair.first_word, pair.second_word)?;
+    let nihilo_iter = ex_nihilo_orthos.iter();
+
+    let res = nihilo_iter.map(crate::ortho_to_orthotope).collect();
     Ok(res)
 }
 

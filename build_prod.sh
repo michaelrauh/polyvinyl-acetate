@@ -11,6 +11,7 @@ kubectl apply -f relay-prod.yaml
 docker tag pvac-worker registry.digitalocean.com/pvac-containers/pvac:worker
 docker push registry.digitalocean.com/pvac-containers/pvac:worker
 kubectl apply -f worker-prod.yaml
+kubectl scale deployment/pvac-worker --replicas=50
 
 NODE_NAME=$(doctl kubernetes cluster node-pool get pvac-cluster pvac-cluster-default-pool -o json | jq -r '.[0].nodes[0].name')
 WORKER_NODE_IP=$(doctl compute droplet get $NODE_NAME --template '{{.PublicIPv4}}')

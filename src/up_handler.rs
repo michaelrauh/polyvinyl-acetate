@@ -10,30 +10,13 @@ use crate::{
 };
 use diesel::PgConnection;
 
-pub fn up(
+pub fn up_by_hop(
     conn: Option<&PgConnection>,
     first_w: Word,
     second_w: Word,
-    ortho_by_origin: FailableWordToOrthoVec,
     ortho_by_hop: FailableWordVecToOrthoVec,
-    ortho_by_contents: FailableWordVecToOrthoVec,
     db_filter: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
-    let right_orthos_by_origin: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
-
-    let origin_filtered_pairs = get_relevant_pairs(
-        db_filter,
-        conn,
-        &left_orthos_by_origin,
-        &right_orthos_by_origin,
-    )?;
-
-    let origin_results = iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
-        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-        .flat_map(|(lo, ro)| up_helper::attempt_up(&origin_filtered_pairs, lo, ro));
-
     let hop_left_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![first_w])?);
     let hop_right_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![second_w])?);
 
@@ -52,6 +35,16 @@ pub fn up(
     let hop_results =
         hop_origin_pairings.flat_map(|(lo, ro)| up_helper::attempt_up(&hop_filtered_pairs, lo, ro));
 
+    Ok(hop_results.collect())
+}
+
+pub fn up_by_contents(
+    conn: Option<&PgConnection>,
+    first_w: Word,
+    second_w: Word,
+    ortho_by_contents: FailableWordVecToOrthoVec,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
+) -> Result<Vec<Ortho>, anyhow::Error> {
     let contents_left_orthos: Vec<Ortho> =
         up_helper::filter_base(ortho_by_contents(conn, vec![first_w])?);
     let contents_right_orthos: Vec<Ortho> =
@@ -76,10 +69,32 @@ pub fn up(
     let contents_results = contents_origin_pairings
         .flat_map(|(lo, ro)| up_helper::attempt_up(&contents_filtered_pairs, lo, ro));
 
-    Ok(origin_results
-        .chain(hop_results)
-        .chain(contents_results)
-        .collect())
+    Ok(contents_results.collect())
+}
+
+pub fn up_by_origin(
+    conn: Option<&PgConnection>,
+    first_w: Word,
+    second_w: Word,
+    ortho_by_origin: FailableWordToOrthoVec,
+    db_filter: FailableHashsetWordsToHashsetNumbers,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
+    let right_orthos_by_origin: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
+
+    let origin_filtered_pairs = get_relevant_pairs(
+        db_filter,
+        conn,
+        &left_orthos_by_origin,
+        &right_orthos_by_origin,
+    )?;
+
+    let origin_results = iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
+        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
+        .flat_map(|(lo, ro)| up_helper::attempt_up(&origin_filtered_pairs, lo, ro));
+
+    Ok(origin_results.collect())
 }
 
 fn get_valid_pairings<'a>(
@@ -119,7 +134,7 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::ortho::Ortho;
-    use crate::up_handler::up;
+    use crate::up_handler::{up_by_contents, up_by_hop, up_by_origin};
     use crate::{ints_to_big_int, Word};
     use diesel::PgConnection;
     use maplit::btreemap;
@@ -140,13 +155,6 @@ mod tests {
             8,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
-    }
-
-    fn empty_ortho_by_origin(
-        _conn: Option<&PgConnection>,
-        _o: Word,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
     }
 
     fn fake_ortho_by_origin_four(
@@ -232,20 +240,6 @@ mod tests {
         Ok(ans)
     }
 
-    fn empty_ortho_by_hop(
-        _conn: Option<&PgConnection>,
-        _o: Vec<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
-    }
-
-    fn empty_ortho_by_contents(
-        _conn: Option<&PgConnection>,
-        _o: Vec<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
-    }
-
     fn fake_pair_hash_db_filter(
         _conn: Option<&PgConnection>,
         _to_filter: HashSet<Word>,
@@ -293,16 +287,8 @@ mod tests {
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
-        let actual = up(
-            None,
-            1,
-            5,
-            fake_ortho_by_origin,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
-            fake_pair_hash_db_filter,
-        )
-        .unwrap();
+        let actual =
+            up_by_origin(None, 1, 5, fake_ortho_by_origin, fake_pair_hash_db_filter).unwrap();
 
         let expected = Ortho::zip_up(
             &Ortho::new(1, 2, 3, 4),
@@ -319,13 +305,11 @@ mod tests {
 
     #[test]
     fn it_does_not_create_up_when_a_forward_is_missing() {
-        let actual = up(
+        let actual = up_by_origin(
             None,
             1,
             5,
             fake_ortho_by_origin,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_pair_hash_db_filter_two,
         )
         .unwrap();
@@ -335,13 +319,11 @@ mod tests {
 
     #[test]
     fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
-        let actual = up(
+        let actual = up_by_origin(
             None,
             1,
             5,
             fake_ortho_by_origin_two,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_pair_hash_db_filter,
         )
         .unwrap();
@@ -351,13 +333,11 @@ mod tests {
 
     #[test]
     fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
-        let actual = up(
+        let actual = up_by_origin(
             None,
             1,
             7,
             fake_ortho_by_origin_three,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_pair_hash_db_filter,
         )
         .unwrap();
@@ -367,13 +347,11 @@ mod tests {
 
     #[test]
     fn it_only_attempts_to_combine_same_dim_orthos() {
-        let actual = up(
+        let actual = up_by_origin(
             None,
             1,
             5,
             fake_ortho_by_origin_four,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_pair_hash_db_filter,
         )
         .unwrap();
@@ -384,13 +362,11 @@ mod tests {
     #[test]
     fn it_attempts_to_combine_by_hop() {
         // same combine as before, but b -> f is the pair so it must index into hops
-        let actual = up(
+        let actual = up_by_hop(
             None,
             2, // a b c d + e f g h
             6,
-            empty_ortho_by_origin,
             fake_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_pair_hash_db_filter,
         )
         .unwrap();
@@ -411,12 +387,10 @@ mod tests {
     #[test]
     fn it_attempts_to_combine_by_contents() {
         // same combine as before, but d -> h is the pair so it must index into contents
-        let actual = up(
+        let actual = up_by_contents(
             None,
             4, // a b c d + e f g h
             8,
-            empty_ortho_by_origin,
-            empty_ortho_by_hop,
             fake_ortho_by_contents,
             fake_pair_hash_db_filter,
         )
