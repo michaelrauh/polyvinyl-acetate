@@ -58,7 +58,7 @@ fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {
     let channel = connection.open_channel(None)?;
 
     let mut arguments = FieldTable::new();
-    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(5));
+    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(20));
 
     let _ = channel.queue_declare(
         "work",

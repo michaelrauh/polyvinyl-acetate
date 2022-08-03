@@ -270,6 +270,12 @@ impl Ortho {
             })
             .collect()
     }
+
+    pub(crate) fn origin_phrases(&self) -> Vec<Vec<Word>> {
+        self.get_hop().iter().map(|axis| {
+            self.extract_phrase_along(*axis, self.axis_length(*axis), &Location::default())
+        }).collect()
+    }
 }
 
 #[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
@@ -392,6 +398,130 @@ mod tests {
                 info: btreemap! {1 => 1, 2 => 1}
             }
         );
+    }
+
+    #[test]
+    fn full_length_phrases_gets_all_of_them() {
+        // a b c
+        // d e f
+
+        // d e f
+        // g h i
+
+        // a b c
+        // d e f
+        // g h i
+
+        // 1 2 3
+        // 4 5 6
+        // 7 8 9
+
+        // 1 4 7
+        // 2 5 8
+        // 3 6 9
+        // 1 2 3
+        // 4 5 6
+        // 7 8 9
+
+        let abde = Ortho::new(1, 2, 4, 5);
+
+        let bcef = Ortho::new(2, 3, 5, 6);
+
+        let degh = Ortho::new(4, 5, 7, 8);
+
+        let efhi = Ortho::new(5, 6, 8, 9);
+
+        let abcdef = Ortho::zip_over(
+            &abde,
+            &bcef,
+            &btreemap! {
+                3 => 2,
+                5 => 4
+            },
+            3,
+        );
+
+        let defghi = Ortho::zip_over(
+            &degh,
+            &efhi,
+            &btreemap! {
+                6 => 5,
+                8 => 7
+            },
+            6,
+        );
+
+        let expected = Ortho::zip_over(
+            &abcdef,
+            &defghi,
+            &btreemap! {
+                5 => 2,
+                7 => 4
+            },
+            7,
+        );
+
+        assert_eq!(HashSet::from_iter(expected.all_full_length_phrases()), hashset![vec![1, 4, 7], vec![2, 5, 8], vec![3, 6, 9], vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]);
+    }
+
+    #[test]
+    fn origin_phrases_gets_phrases_that_pass_through_the_origin() {
+        // a b c
+        // d e f
+
+        // d e f
+        // g h i
+
+        // a b c
+        // d e f
+        // g h i
+
+        // 1 2 3
+        // 4 5 6
+        // 7 8 9
+
+        // 1 4 7
+        // 1 2 3
+
+        let abde = Ortho::new(1, 2, 4, 5);
+
+        let bcef = Ortho::new(2, 3, 5, 6);
+
+        let degh = Ortho::new(4, 5, 7, 8);
+
+        let efhi = Ortho::new(5, 6, 8, 9);
+
+        let abcdef = Ortho::zip_over(
+            &abde,
+            &bcef,
+            &btreemap! {
+                3 => 2,
+                5 => 4
+            },
+            3,
+        );
+
+        let defghi = Ortho::zip_over(
+            &degh,
+            &efhi,
+            &btreemap! {
+                6 => 5,
+                8 => 7
+            },
+            6,
+        );
+
+        let expected = Ortho::zip_over(
+            &abcdef,
+            &defghi,
+            &btreemap! {
+                5 => 2,
+                7 => 4
+            },
+            7,
+        );
+
+        assert_eq!(HashSet::from_iter(expected.origin_phrases()), hashset![vec![1, 4, 7], vec![1, 2, 3]]);
     }
 
     #[test]

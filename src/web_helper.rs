@@ -155,7 +155,7 @@ pub fn show_depth() -> Result<String, amiquip::Error> {
 
     let channel = connection.open_channel(None)?;
     let mut arguments = FieldTable::new();
-    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(5));
+    arguments.insert("x-max-priority".to_string(), AmqpValue::ShortInt(20));
 
     let queue = channel.queue_declare(
         "work",

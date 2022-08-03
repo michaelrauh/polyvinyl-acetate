@@ -14,7 +14,7 @@ pub(crate) fn over_forward(
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
-    let all_phrases = old_orthotope.all_full_length_phrases();
+    let all_phrases = old_orthotope.origin_phrases();
 
     let mut ans: Vec<Ortho> = vec![];
     for old_phrase in all_phrases {
@@ -61,7 +61,7 @@ pub(crate) fn over_back(
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
-    let all_phrases = old_orthotope.all_full_length_phrases();
+    let all_phrases = old_orthotope.origin_phrases();
 
     let mut ans: Vec<Ortho> = vec![];
 
