@@ -11,7 +11,6 @@ use diesel::prelude::*;
 
 use schema::{sentences, todos};
 mod book_todo_handler;
-mod ex_nihilo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
 pub mod over_on_ortho_found_handler;
@@ -42,8 +41,7 @@ use std::{
 
 type FailableWordVecToOrthoVec =
     fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
-type FailableWordToOrthoVec =
-    fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
 type FailableHashsetWordsToHashsetNumbers = fn(
     conn: Option<&PgConnection>,

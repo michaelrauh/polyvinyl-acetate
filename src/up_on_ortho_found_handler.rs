@@ -3,15 +3,13 @@ use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
 
-type FailableWordToOrthoVec =
-    fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
 
-pub(crate) fn up(
+pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
     ortho_by_origin: FailableWordToOrthoVec,
     forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
-    backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     if !old_ortho.is_base() {
@@ -21,7 +19,6 @@ pub(crate) fn up(
     let mut ans = vec![];
 
     let projected_forward = forward(conn, old_ortho.get_origin())?;
-    let projected_backward = backward(conn, old_ortho.get_origin())?;
 
     let mut orthos_to_right = vec![];
     for f in projected_forward {
@@ -42,13 +39,31 @@ pub(crate) fn up(
 
     let forward_hashes = get_pair_hashes_relevant_to_vocabularies(
         conn,
-        forward_left_vocab.clone(),
+        forward_left_vocab,
         forward_right_vocab,
     )?;
 
     for ro in orthos_to_right {
         ans.extend(up_helper::attempt_up(&forward_hashes, &old_ortho, &ro));
     }
+
+    Ok(ans)
+}
+
+pub(crate) fn up_back(
+    conn: Option<&PgConnection>,
+    old_ortho: Ortho,
+    ortho_by_origin: FailableWordToOrthoVec,
+    backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
+    get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    if !old_ortho.is_base() {
+        return Ok(vec![]);
+    }
+
+    let mut ans = vec![];
+
+    let projected_backward = backward(conn, old_ortho.get_origin())?;
 
     let mut orthos_to_left = vec![];
     for f in projected_backward {
@@ -64,7 +79,8 @@ pub(crate) fn up(
         .flat_map(|o| o.to_vec())
         .map(|(_l, r)| r)
         .collect();
-    let backward_right_vocab = forward_left_vocab;
+
+    let backward_right_vocab = old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
     let backward_hashes =
         get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
 
@@ -77,7 +93,10 @@ pub(crate) fn up(
 
 #[cfg(test)]
 mod tests {
-    use crate::{ints_to_big_int, ortho::Ortho, up_on_ortho_found_handler::up, Word};
+    use crate::{
+        ints_to_big_int, ortho::Ortho, up_on_ortho_found_handler::up_back,
+        up_on_ortho_found_handler::up_forward, Word,
+    };
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
@@ -156,12 +175,11 @@ mod tests {
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
 
-        let actual = up(
+        let actual = up_forward(
             None,
             left_ortho.clone(),
             fake_ortho_by_origin,
             fake_forward,
-            fake_backward,
             fake_pair_hash_db_filter,
         )
         .unwrap();
@@ -184,11 +202,10 @@ mod tests {
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
 
-        let actual = up(
+        let actual = up_back(
             None,
             right_ortho.clone(),
             fake_ortho_by_origin,
-            fake_forward,
             fake_backward,
             fake_pair_hash_db_filter,
         )
@@ -212,12 +229,11 @@ mod tests {
         let l_two = Ortho::new(2, 3, 5, 11);
         let l = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
 
-        let actual = up(
+        let actual = up_forward(
             None,
             l,
             fake_ortho_by_origin_three,
             fake_forward,
-            fake_backward,
             fake_pair_hash_db_filter,
         )
         .unwrap();

@@ -6,12 +6,10 @@ use itertools::{zip, Itertools};
 
 use crate::{ortho::Ortho, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 
-pub(crate) fn over(
+pub(crate) fn over_by_origin(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_origin: FailableWordToOrthoVec,
-    ortho_by_hop: FailableWordVecToOrthoVec,
-    ortho_by_contents: FailableWordVecToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
@@ -32,6 +30,26 @@ pub(crate) fn over(
     let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
         .filter(|(l, r)| l.get_dims() == r.get_dims())
         .map(|(l, r)| (l, r, phrase[1], phrase[2]));
+
+    let all_inputs = origin_potential_pairings;
+
+    let mut res = vec![];
+    for (lo, ro, lhs, rhs) in all_inputs {
+        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+            res.push(answer);
+        }
+    }
+    Ok(res)
+}
+
+pub(crate) fn over_by_hop(
+    conn: Option<&PgConnection>,
+    phrase: Vec<Word>,
+    ortho_by_hop: FailableWordVecToOrthoVec,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let lhs_phrase_head = &phrase[..phrase.len() - 1];
+    let rhs_phrase_head = &phrase[1..];
 
     let orthos_by_hop_left = ortho_by_hop(conn, vec![phrase[0]])?;
     let lhs_by_hop = orthos_by_hop_left
@@ -62,6 +80,26 @@ pub(crate) fn over(
     let hop_potential_pairings = Itertools::cartesian_product(lhs_by_hop, rhs_by_hop)
         .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
         .map(|((l, lx), (r, rx))| (l, r, lx, rx));
+
+    let all_inputs = hop_potential_pairings;
+
+    let mut res = vec![];
+    for (lo, ro, lhs, rhs) in all_inputs {
+        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+            res.push(answer);
+        }
+    }
+    Ok(res)
+}
+
+pub(crate) fn over_by_contents(
+    conn: Option<&PgConnection>,
+    phrase: Vec<Word>,
+    ortho_by_contents: FailableWordVecToOrthoVec,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let lhs_phrase_head = &phrase[..phrase.len() - 1];
+    let rhs_phrase_head = &phrase[1..];
 
     let orthos_by_contents_left = ortho_by_contents(conn, vec![phrase[0]])?;
     let lhs_by_contents = orthos_by_contents_left
@@ -96,9 +134,7 @@ pub(crate) fn over(
             .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
             .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let all_inputs = origin_potential_pairings
-        .chain(hop_potential_pairings)
-        .chain(contents_potential_pairings);
+    let all_inputs = contents_potential_pairings;
 
     let mut res = vec![];
     for (lo, ro, lhs, rhs) in all_inputs {
@@ -220,9 +256,13 @@ mod tests {
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
 
-    use crate::{ortho::Ortho, Word};
+    use crate::{
+        ortho::Ortho,
+        phrase_ortho_handler::{over_by_contents, over_by_hop, over_by_origin},
+        Word,
+    };
 
-    use super::{axis_lengths_match, over};
+    use super::axis_lengths_match;
 
     fn fake_phrase_exists(
         _conn: Option<&PgConnection>,
@@ -273,13 +313,6 @@ mod tests {
             6,
         )]};
         Ok(pairs.entry(o).or_default().to_owned())
-    }
-
-    fn empty_ortho_by_origin(
-        _conn: Option<&PgConnection>,
-        _o: Word,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
     }
 
     fn fake_ortho_by_origin_two(
@@ -448,13 +481,6 @@ mod tests {
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
-    fn empty_ortho_by_hop(
-        _conn: Option<&PgConnection>,
-        _o: Vec<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
-    }
-
     fn fake_ortho_by_contents(
         _conn: Option<&PgConnection>,
         o: Vec<Word>,
@@ -531,15 +557,8 @@ mod tests {
         Ok(ans)
     }
 
-    fn empty_ortho_by_contents(
-        _conn: Option<&PgConnection>,
-        _o: Vec<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        Ok(vec![])
-    }
-
     #[test]
-    fn over_by_origin() {
+    fn over_by_origin_test() {
         // a b | b e    =   a b e
         // c d | d f        c d f
 
@@ -553,12 +572,10 @@ mod tests {
             5,
         );
 
-        let actual = over(
+        let actual = over_by_origin(
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_phrase_exists,
         )
         .unwrap();
@@ -568,12 +585,10 @@ mod tests {
 
     #[test]
     fn over_filters_mismatched_dims() {
-        let actual = over(
+        let actual = over_by_origin(
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin_two,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_phrase_exists,
         )
         .unwrap();
@@ -583,12 +598,10 @@ mod tests {
 
     #[test]
     fn over_filters_shift_axis_is_wrong_length() {
-        let actual = over(
+        let actual = over_by_origin(
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin_three,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_phrase_exists,
         )
         .unwrap();
@@ -598,12 +611,10 @@ mod tests {
 
     #[test]
     fn over_filters_if_the_phrase_wont_result() {
-        let actual = over(
+        let actual = over_by_origin(
             None,
             vec![1, 2, 5, 7],
             fake_ortho_by_origin_four,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_phrase_exists,
         )
         .unwrap();
@@ -657,12 +668,10 @@ mod tests {
 
     #[test]
     fn over_by_origin_filters_if_a_phrase_is_missing_from_db() {
-        let actual = over(
+        let actual = over_by_origin(
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin,
-            empty_ortho_by_hop,
-            empty_ortho_by_contents,
             fake_phrase_exists_two,
         )
         .unwrap();
@@ -671,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    fn over_by_hop() {
+    fn over_by_hop_test() {
         // a b | b e    =   a b e
         // c d | d f        c d f
         let expected = Ortho::zip_over(
@@ -684,21 +693,14 @@ mod tests {
             5,
         );
 
-        let actual = over(
-            None,
-            vec![3, 4, 6],
-            empty_ortho_by_origin,
-            fake_ortho_by_hop,
-            empty_ortho_by_contents,
-            fake_phrase_exists,
-        )
-        .unwrap();
+        let actual =
+            over_by_hop(None, vec![3, 4, 6], fake_ortho_by_hop, fake_phrase_exists).unwrap();
 
         assert_eq!(vec![expected], actual);
     }
 
     #[test]
-    fn over_by_contents() {
+    fn over_by_contents_test() {
         // a b c
         // d e f
 
@@ -749,11 +751,9 @@ mod tests {
             7,
         );
 
-        let actual = over(
+        let actual = over_by_contents(
             None,
             vec![3, 6, 9],
-            empty_ortho_by_origin,
-            empty_ortho_by_hop,
             fake_ortho_by_contents,
             fake_phrase_exists_three,
         )

@@ -125,7 +125,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c. d e f. a d. b e. c f'})
 post("add/", json.dumps({'title': 'two', 'body': 'd e f. g h i. d g. e h. f i'}).encode()) # right ortho
 post("add/", json.dumps({'title': 'thr', 'body': 'a d g. b e h. c f i'}).encode()) # phrases to join them with the last one being added going through the hops
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by contents")
 
 # over by contents

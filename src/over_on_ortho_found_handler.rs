@@ -7,18 +7,17 @@ use crate::{
     ortho::Ortho, phrase_ortho_handler::attempt_combine_over, FailableWordToOrthoVec, Word,
 };
 
-pub(crate) fn over(
+pub(crate) fn over_forward(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
     get_ortho_by_origin: FailableWordToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
-    project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.all_full_length_phrases();
 
     let mut ans: Vec<Ortho> = vec![];
-    for old_phrase in all_phrases.clone() {
+    for old_phrase in all_phrases {
         let last = old_phrase.last().expect("orthos cannot have empty phrases");
         let nexts = project_forward(conn, *last)?;
         for next in nexts {
@@ -51,6 +50,20 @@ pub(crate) fn over(
             }
         }
     }
+
+    Ok(ans)
+}
+
+pub(crate) fn over_back(
+    conn: Option<&diesel::PgConnection>,
+    old_orthotope: crate::ortho::Ortho,
+    get_ortho_by_origin: FailableWordToOrthoVec,
+    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+    project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
+) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
+    let all_phrases = old_orthotope.all_full_length_phrases();
+
+    let mut ans: Vec<Ortho> = vec![];
 
     for old_phrase in all_phrases {
         let prevs = project_backward(conn, old_phrase[0])?;
@@ -89,7 +102,10 @@ pub(crate) fn over(
 
 #[cfg(test)]
 mod tests {
-    use crate::{ortho::Ortho, over_on_ortho_found_handler::over, Word};
+    use crate::{
+        ortho::Ortho, over_on_ortho_found_handler::over_back,
+        over_on_ortho_found_handler::over_forward, Word,
+    };
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
@@ -112,22 +128,6 @@ mod tests {
         // c d  | d f
         let mut pairs = btreemap! { 2 => hashset! {1}};
         Ok(pairs.entry(from).or_default().to_owned())
-    }
-
-    fn empty_backward(
-        _conn: Option<&PgConnection>,
-        _from: Word,
-    ) -> Result<HashSet<Word>, anyhow::Error> {
-        let pairs = hashset! {};
-        Ok(pairs)
-    }
-
-    fn empty_forward(
-        _conn: Option<&PgConnection>,
-        _from: Word,
-    ) -> Result<HashSet<Word>, anyhow::Error> {
-        let pairs = hashset! {};
-        Ok(pairs)
     }
 
     fn fake_ortho_by_origin(
@@ -176,13 +176,12 @@ mod tests {
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
 
-        let actual = over(
+        let actual = over_forward(
             None,
             left_ortho.clone(),
             fake_ortho_by_origin,
             fake_phrase_exists,
             fake_forward,
-            empty_backward,
         )
         .unwrap();
 
@@ -208,12 +207,11 @@ mod tests {
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
 
-        let actual = over(
+        let actual = over_back(
             None,
             right_ortho.clone(),
             fake_ortho_by_origin_two,
             fake_phrase_exists,
-            empty_forward,
             fake_backward,
         )
         .unwrap();
