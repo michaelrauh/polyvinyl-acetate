@@ -12,13 +12,13 @@ use crate::schema::phrases::dsl::phrases;
 
 use crate::schema::phrases::all_columns;
 use crate::{
-    create_todo_entry, establish_connection, insert_orthotopes,
+    create_todo_entry, establish_connection_safe, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Phrase},
     schema::phrases::id,
 };
 
 pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_origin(&conn, phrase)?;
@@ -36,7 +36,7 @@ pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(),
 }
 
 pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_hop(&conn, phrase)?;
@@ -54,7 +54,7 @@ pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), an
 }
 
 pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_contents(&conn, phrase)?;
@@ -72,7 +72,7 @@ pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(
 }
 
 pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {

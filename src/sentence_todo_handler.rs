@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
 use crate::{
-    create_todo_entry, establish_connection, get_relevant_vocabulary, ints_to_big_int,
-    vec_of_words_to_big_int, NewTodo, Word,
+    create_todo_entry, get_relevant_vocabulary, ints_to_big_int,
+    vec_of_words_to_big_int, NewTodo, Word, establish_connection_safe,
 };
 use diesel::PgConnection;
 
 pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
         let words = split_sentence(&sentence.sentence);

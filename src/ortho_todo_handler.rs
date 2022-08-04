@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, establish_connection, get_hashes_of_pairs_with_words_in, insert_orthotopes,
+    create_todo_entry, establish_connection_safe, get_hashes_of_pairs_with_words_in, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Orthotope, Todo},
     ortho::Ortho,
     over_on_ortho_found_handler,
@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {
@@ -33,7 +33,7 @@ pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo) -> Result<(), anyh
 }
 
 pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
         let new_orthos = new_orthotopes_up_forward(&conn, old_orthotope)?;
@@ -51,7 +51,7 @@ pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo) -> Result<
 }
 
 pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
         let new_orthos = new_orthotopes_up_back(&conn, old_orthotope)?;
@@ -71,7 +71,7 @@ pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo) -> Result<(),
 pub(crate) fn handle_ortho_todo_over_forward(
     todo: crate::models::Todo,
 ) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
         let new_orthos = new_orthotopes_over_forward(&conn, old_orthotope)?;
@@ -89,7 +89,7 @@ pub(crate) fn handle_ortho_todo_over_forward(
 }
 
 pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
         let new_orthos = new_orthotopes_over_back(&conn, old_orthotope)?;
@@ -107,7 +107,7 @@ pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo) -> Result<(
 }
 
 pub(crate) fn handle_ortho_todo_over(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {
@@ -125,7 +125,7 @@ pub(crate) fn handle_ortho_todo_over(todo: crate::models::Todo) -> Result<(), an
 }
 
 pub fn handle_ortho_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {

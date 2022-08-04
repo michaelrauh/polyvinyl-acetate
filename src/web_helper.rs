@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    create_todo_entry, establish_connection, get_relevant_vocabulary_reverse,
+    create_todo_entry, establish_connection_safe, get_relevant_vocabulary_reverse,
     models::{NewBook, Orthotope},
     ortho::Ortho,
     schema::{self, books, phrases},
@@ -39,41 +39,41 @@ fn create_book_entry(
         .get_result(conn)
 }
 
-pub fn show_books() -> Result<String, diesel::result::Error> {
+pub fn show_books() -> Result<String, anyhow::Error> {
     use crate::books;
     use crate::diesel::query_dsl::select_dsl::SelectDsl;
     let results: Vec<String> =
-        SelectDsl::select(books, schema::books::title).load(&establish_connection())?;
+        SelectDsl::select(books, schema::books::title).load(&establish_connection_safe()?)?;
 
     Ok(results.join("\n"))
 }
 
-pub fn show_todos() -> Result<String, diesel::result::Error> {
+pub fn show_todos() -> Result<String, anyhow::Error> {
     use crate::schema::todos::dsl::todos;
-    let results: i64 = todos.count().get_result(&establish_connection())?;
+    let results: i64 = todos.count().get_result(&establish_connection_safe()?)?;
 
     Ok(results.to_string())
 }
 
-pub fn count_sentences() -> Result<String, diesel::result::Error> {
+pub fn count_sentences() -> Result<String, anyhow::Error> {
     use crate::schema::sentences::dsl::sentences;
-    let results: i64 = sentences.count().get_result(&establish_connection())?;
+    let results: i64 = sentences.count().get_result(&establish_connection_safe()?)?;
 
     Ok(results.to_string())
 }
 
-pub fn count_pairs() -> Result<String, diesel::result::Error> {
+pub fn count_pairs() -> Result<String, anyhow::Error> {
     use crate::schema::pairs::dsl::pairs;
-    let results: i64 = pairs.count().get_result(&establish_connection())?;
+    let results: i64 = pairs.count().get_result(&establish_connection_safe()?)?;
 
     Ok(results.to_string())
 }
 
-pub fn splat_pairs() -> Result<String, diesel::result::Error> {
+pub fn splat_pairs() -> Result<String, anyhow::Error> {
     use crate::schema::pairs::dsl::pairs;
     let results: Vec<crate::models::Pair> = pairs
         .select(schema::pairs::all_columns)
-        .get_results(&establish_connection())?;
+        .get_results(&establish_connection_safe()?)?;
     let res: Vec<String> = results
         .iter()
         .map(|p| format!("{}, {}", p.first_word, p.second_word))
@@ -83,7 +83,7 @@ pub fn splat_pairs() -> Result<String, diesel::result::Error> {
 }
 
 pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {
-    let results = get_orthos_by_size(&establish_connection(), dims)?;
+    let results = get_orthos_by_size(&establish_connection_safe()?, dims)?;
 
     let res = results.len().to_string();
 
@@ -91,7 +91,7 @@ pub fn show_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error
 }
 
 pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {
-    let results = get_orthos_by_size(&establish_connection(), dims)?;
+    let results = get_orthos_by_size(&establish_connection_safe()?, dims)?;
 
     let phrases: Vec<_> = results
         .iter()
@@ -99,7 +99,7 @@ pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Erro
         .collect();
 
     let all_words: HashSet<Word> = phrases.iter().flatten().flatten().cloned().collect();
-    let mapping = get_relevant_vocabulary_reverse(&establish_connection(), all_words)?;
+    let mapping = get_relevant_vocabulary_reverse(&establish_connection_safe()?, all_words)?;
 
     let res = phrases
         .iter()
@@ -123,7 +123,7 @@ pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Erro
 
 pub fn show_phrases() -> Result<String, anyhow::Error> {
     use crate::schema::phrases::dsl::phrases;
-    let results: i64 = phrases.count().get_result(&establish_connection())?;
+    let results: i64 = phrases.count().get_result(&establish_connection_safe()?)?;
 
     Ok(results.to_string())
 }

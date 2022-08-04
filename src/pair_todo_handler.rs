@@ -13,7 +13,7 @@ use crate::{
 };
 use crate::{
     diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
-    establish_connection,
+    establish_connection_safe,
     models::{Pair, Todo},
     schema,
 };
@@ -21,7 +21,7 @@ use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
 use diesel::{sql_query, PgConnection};
 
 pub fn handle_pair_todo_up_by_origin(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes_up_by_origin(&conn, pair)?;
@@ -39,7 +39,7 @@ pub fn handle_pair_todo_up_by_origin(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 pub fn handle_pair_todo_up_by_contents(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes_up_by_contents(&conn, pair)?;
@@ -57,7 +57,7 @@ pub fn handle_pair_todo_up_by_contents(todo: Todo) -> Result<(), anyhow::Error> 
 }
 
 pub fn handle_pair_todo_up_by_hop(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes_up_by_hop(&conn, pair)?;
@@ -75,7 +75,7 @@ pub fn handle_pair_todo_up_by_hop(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 pub fn handle_pair_todo_ffbb(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes_ffbb(&conn, pair)?;
@@ -93,7 +93,7 @@ pub fn handle_pair_todo_ffbb(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 pub fn handle_pair_todo_fbbf(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
         let new_orthos = new_orthotopes_fbbf(&conn, pair)?;
@@ -111,7 +111,7 @@ pub fn handle_pair_todo_fbbf(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 pub fn handle_pair_todo_up(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {
@@ -133,7 +133,7 @@ pub fn handle_pair_todo_up(todo: Todo) -> Result<(), anyhow::Error> {
 }
 
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection();
+    let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {

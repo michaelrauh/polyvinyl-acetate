@@ -17,15 +17,15 @@ pub fn handle_todo(todo: Todo) -> amiquip::Result<(), anyhow::Error> {
         "up_by_contents" => pair_todo_handler::handle_pair_todo_up_by_contents(todo),
         "orthotopes" => ortho_todo_handler::handle_ortho_todo(todo),
         "ortho_up" => ortho_todo_handler::handle_ortho_todo_up(todo),
+        "ortho_up_forward" => ortho_todo_handler::handle_ortho_todo_up_forward(todo),
+        "ortho_up_back" => ortho_todo_handler::handle_ortho_todo_up_back(todo),
         "ortho_over" => ortho_todo_handler::handle_ortho_todo_over(todo),
+        "ortho_over_forward" => ortho_todo_handler::handle_ortho_todo_over_forward(todo),
+        "ortho_over_back" => ortho_todo_handler::handle_ortho_todo_over_back(todo),
         "phrases" => phrase_todo_handler::handle_phrase_todo(todo),
         "phrase_by_origin" => phrase_todo_handler::handle_phrase_todo_origin(todo),
         "phrase_by_hop" => phrase_todo_handler::handle_phrase_todo_hop(todo),
         "phrase_by_contents" => phrase_todo_handler::handle_phrase_todo_contents(todo),
-        "ortho_up_forward" => ortho_todo_handler::handle_ortho_todo_up_forward(todo),
-        "ortho_up_back" => ortho_todo_handler::handle_ortho_todo_up_back(todo),
-        "ortho_over_forward" => ortho_todo_handler::handle_ortho_todo_over_forward(todo),
-        "ortho_over_back" => ortho_todo_handler::handle_ortho_todo_over_back(todo),
         other => {
             panic!("getting unexpected todo with domain: {other}")
         }
