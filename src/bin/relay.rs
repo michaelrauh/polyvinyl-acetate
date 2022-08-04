@@ -1,10 +1,11 @@
-use std::{env};
+use std::env;
 
 use amiquip::{AmqpProperties, AmqpValue, Exchange, FieldTable, Publish, QueueDeclareOptions};
-use diesel::{query_dsl::methods::FilterDsl, RunQueryDsl, PgConnection};
+use diesel::{query_dsl::methods::FilterDsl, PgConnection, RunQueryDsl};
 use polyvinyl_acetate::{
+    establish_connection_safe,
     models::Todo,
-    schema::{self, todos}, establish_connection_safe,
+    schema::{self, todos},
 };
 
 fn main() {
@@ -27,7 +28,10 @@ pub fn get_todos(conn: &PgConnection) -> Result<Vec<Todo>, diesel::result::Error
     Ok(results)
 }
 
-pub fn delete_todos(conn: &PgConnection, todos_to_delete: Vec<Todo>) -> Result<usize, diesel::result::Error> {
+pub fn delete_todos(
+    conn: &PgConnection,
+    todos_to_delete: Vec<Todo>,
+) -> Result<usize, diesel::result::Error> {
     use crate::todos::dsl::todos;
     use diesel::ExpressionMethods;
     let ids = todos_to_delete.iter().map(|t| t.id);
@@ -37,15 +41,12 @@ pub fn delete_todos(conn: &PgConnection, todos_to_delete: Vec<Todo>) -> Result<u
 
 fn apply() -> Result<usize, anyhow::Error> {
     let conn = establish_connection_safe()?;
-    conn
-        .build_transaction()
-        .serializable()
-        .run(|| {
-            let todos = get_todos(&conn)?;
-            let number_published = publish(&todos)?;
-            delete_todos(&conn, todos)?;
-            Ok(number_published)
-        })
+    conn.build_transaction().serializable().run(|| {
+        let todos = get_todos(&conn)?;
+        let number_published = publish(&todos)?;
+        delete_todos(&conn, todos)?;
+        Ok(number_published)
+    })
 }
 
 fn publish(todos: &[Todo]) -> Result<usize, amiquip::Error> {

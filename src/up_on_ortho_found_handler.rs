@@ -37,11 +37,8 @@ pub(crate) fn up_forward(
         .map(|(_l, r)| r)
         .collect();
 
-    let forward_hashes = get_pair_hashes_relevant_to_vocabularies(
-        conn,
-        forward_left_vocab,
-        forward_right_vocab,
-    )?;
+    let forward_hashes =
+        get_pair_hashes_relevant_to_vocabularies(conn, forward_left_vocab, forward_right_vocab)?;
 
     for ro in orthos_to_right {
         ans.extend(up_helper::attempt_up(&forward_hashes, &old_ortho, &ro));

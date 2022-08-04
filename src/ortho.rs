@@ -272,9 +272,12 @@ impl Ortho {
     }
 
     pub(crate) fn origin_phrases(&self) -> Vec<Vec<Word>> {
-        self.get_hop().iter().map(|axis| {
-            self.extract_phrase_along(*axis, self.axis_length(*axis), &Location::default())
-        }).collect()
+        self.get_hop()
+            .iter()
+            .map(|axis| {
+                self.extract_phrase_along(*axis, self.axis_length(*axis), &Location::default())
+            })
+            .collect()
     }
 }
 
@@ -461,7 +464,17 @@ mod tests {
             7,
         );
 
-        assert_eq!(HashSet::from_iter(expected.all_full_length_phrases()), hashset![vec![1, 4, 7], vec![2, 5, 8], vec![3, 6, 9], vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]);
+        assert_eq!(
+            HashSet::from_iter(expected.all_full_length_phrases()),
+            hashset![
+                vec![1, 4, 7],
+                vec![2, 5, 8],
+                vec![3, 6, 9],
+                vec![1, 2, 3],
+                vec![4, 5, 6],
+                vec![7, 8, 9]
+            ]
+        );
     }
 
     #[test]
@@ -521,7 +534,10 @@ mod tests {
             7,
         );
 
-        assert_eq!(HashSet::from_iter(expected.origin_phrases()), hashset![vec![1, 4, 7], vec![1, 2, 3]]);
+        assert_eq!(
+            HashSet::from_iter(expected.origin_phrases()),
+            hashset![vec![1, 4, 7], vec![1, 2, 3]]
+        );
     }
 
     #[test]
