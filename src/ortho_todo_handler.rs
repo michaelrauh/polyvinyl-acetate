@@ -187,7 +187,8 @@ fn new_orthotopes_over_forward(
         old_orthotope,
         crate::get_ortho_by_origin,
         crate::phrase_exists,
-        crate::project_forward,
+        crate::project_forward_batch,
+        crate::get_phrases_with_matching_hashes,
     )?;
 
     let orthos = over_orthos.iter();
@@ -205,7 +206,8 @@ fn new_orthotopes_over_back(
         old_orthotope,
         crate::get_ortho_by_origin,
         crate::phrase_exists,
-        crate::project_backward,
+        crate::project_backward_batch,
+        crate::get_phrases_with_matching_hashes,
     )?;
 
     let orthos = over_orthos.iter();

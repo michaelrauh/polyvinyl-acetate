@@ -9,7 +9,7 @@ use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use schema::{sentences, todos};
+use schema::{phrases, sentences, todos};
 mod book_todo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
@@ -91,6 +91,68 @@ pub fn get_hashes_of_pairs_with_words_in(
     .collect();
 
     Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
+pub fn get_phrases_with_matching_hashes(
+    conn: Option<&PgConnection>,
+    all_phrases: HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    use crate::phrases::dsl::phrases;
+    let ps: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::words_hash.eq(any(Vec::from_iter(all_phrases))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(ps)
+}
+
+fn project_forward_batch(
+    conn: Option<&PgConnection>,
+    from: HashSet<Word>,
+) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
+    let seconds_vec: Vec<(Word, Word)> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::first_word.eq(any(Vec::from_iter(from))),
+        ),
+        (
+            crate::schema::pairs::first_word,
+            crate::schema::pairs::second_word,
+        ),
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?;
+
+    let seconds = HashSet::from_iter(seconds_vec);
+    Ok(seconds)
+}
+
+fn project_backward_batch(
+    conn: Option<&PgConnection>,
+    from: HashSet<Word>,
+) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
+    let firsts_vec: Vec<(Word, Word)> = RunQueryDsl::load(
+        SelectDsl::select(
+            QueryDsl::filter(
+                pairs,
+                schema::pairs::second_word.eq(any(Vec::from_iter(from))),
+            ),
+            (
+                crate::schema::pairs::first_word,
+                crate::schema::pairs::second_word,
+            ),
+        ),
+        conn.expect("do not pass a test dummy in production"),
+    )?;
+
+    let firsts = HashSet::from_iter(firsts_vec);
+    Ok(firsts)
 }
 
 fn create_todo_entry(
