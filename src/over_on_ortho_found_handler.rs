@@ -19,8 +19,8 @@ pub(crate) fn over_forward(
         HashSet<Word>,
     ) -> Result<HashSet<(Word, Word)>, Error>,
     get_phrases_with_matching_hashes: fn(
-        conn: Option<&PgConnection>,
-        all_phrases: HashSet<i64>,
+        Option<&PgConnection>,
+        HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.origin_phrases();
@@ -42,13 +42,13 @@ pub(crate) fn over_forward(
                 .clone()
                 .iter()
                 .chain(vec![*s].iter())
-                .map(|s| s.to_owned())
+                .copied()
                 .collect::<Vec<_>>();
             vec_of_words_to_big_int(current_phrase)
         })
         .collect::<HashSet<_>>();
 
-    let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?; // todo pass this method in
+    let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
 
     let mut ans: Vec<Ortho> = vec![];
     for old_phrase in all_phrases {
@@ -63,7 +63,7 @@ pub(crate) fn over_forward(
                 .clone()
                 .iter()
                 .chain(vec![next].iter())
-                .map(|s| s.to_owned())
+                .copied()
                 .collect::<Vec<_>>();
             if actual_phrases.contains(&vec_of_words_to_big_int(current_phrase.clone())) {
                 let phrase = current_phrase;
@@ -97,21 +97,56 @@ pub(crate) fn over_back(
     old_orthotope: crate::ortho::Ortho,
     get_ortho_by_origin: FailableWordToOrthoVec,
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
-    project_backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
+    project_backward_batch: fn(
+        Option<&PgConnection>,
+        HashSet<Word>,
+    ) -> Result<HashSet<(Word, Word)>, anyhow::Error>,
+    get_phrases_with_matching_hashes: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.origin_phrases();
 
-    let mut ans: Vec<Ortho> = vec![];
+    let firsts = all_phrases
+        .iter()
+        .map(|old_phrase| old_phrase[0])
+        .collect::<HashSet<_>>();
+    let backwards = project_backward_batch(conn, firsts)?;
 
+    let desired_phrases = Itertools::cartesian_product(all_phrases.iter(), backwards.iter())
+        .filter(|(old_phrase, (_f, s))| {
+            let first = old_phrase[0];
+            first == *s
+        })
+        .map(|(old_phrase, (f, _s))| {
+            let current_phrase = vec![*f]
+                .iter()
+                .chain(old_phrase.iter())
+                .copied()
+                .collect::<Vec<_>>();
+            vec_of_words_to_big_int(current_phrase)
+        })
+        .collect::<HashSet<_>>();
+
+    let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
+
+    let mut ans: Vec<Ortho> = vec![];
     for old_phrase in all_phrases {
-        let prevs = project_backward(conn, old_phrase[0])?;
+        let first = old_phrase[0];
+        let prevs = backwards
+            .iter()
+            .filter(|(_f, s)| first == *s)
+            .copied()
+            .map(|(f, _s)| f)
+            .collect::<Vec<_>>();
         for prev in prevs {
             let current_phrase = vec![prev]
                 .iter()
                 .chain(old_phrase.iter())
-                .map(|s| s.to_owned())
+                .map(|x| x.to_owned())
                 .collect::<Vec<_>>();
-            if phrase_exists(conn, current_phrase.clone())? {
+            if actual_phrases.contains(&vec_of_words_to_big_int(current_phrase.clone())) {
                 let phrase = current_phrase.to_vec();
                 for potential_ortho in get_ortho_by_origin(conn, phrase[0])? {
                     let phrase_head = &phrase[..phrase.len() - 1];
@@ -165,14 +200,14 @@ mod tests {
         Ok(all_phrases)
     }
 
-    fn fake_backward(
+    fn fake_backward_batch(
         _conn: Option<&PgConnection>,
-        from: Word,
-    ) -> Result<HashSet<Word>, anyhow::Error> {
+        _from: HashSet<Word>,
+    ) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
         // a b  | b e
         // c d  | d f
-        let mut pairs = btreemap! { 2 => hashset! {1}};
-        Ok(pairs.entry(from).or_default().to_owned())
+        let pairs = hashset! { (1,2),};
+        Ok(pairs)
     }
 
     fn fake_ortho_by_origin(
@@ -258,7 +293,8 @@ mod tests {
             right_ortho.clone(),
             fake_ortho_by_origin_two,
             fake_phrase_exists,
-            fake_backward,
+            fake_backward_batch,
+            fake_get_phrases_with_matching_hashes,
         )
         .unwrap();
 
