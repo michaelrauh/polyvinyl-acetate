@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     create_todo_entry, establish_connection_safe, get_relevant_vocabulary_reverse,
-    models::{NewBook, Orthotope},
+    models::{NewBook},
     ortho::Ortho,
     schema::{self, books, phrases},
     Book, NewTodo, Word,
@@ -133,13 +133,13 @@ fn get_orthos_by_size(
     dims: BTreeMap<usize, usize>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::table as orthotopes;
-    let results: Vec<Orthotope> = orthotopes
-        .select(schema::orthotopes::all_columns)
+    let results: Vec<Vec<u8>> = orthotopes
+        .select(schema::orthotopes::information)
         .load(conn)?;
 
     let actual: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
         .filter(|o: &Ortho| o.get_dims() == dims)
         .collect();
 

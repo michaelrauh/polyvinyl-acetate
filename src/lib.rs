@@ -255,15 +255,15 @@ pub fn get_ortho_by_origin(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{origin, table as orthotopes};
     use diesel::query_dsl::filter_dsl::FilterDsl;
-    let results: Vec<Orthotope> = SelectDsl::select(
+    let results: Vec<Vec<u8>> = SelectDsl::select(
         FilterDsl::filter(orthotopes, origin.eq(o)),
-        schema::orthotopes::all_columns,
+        schema::orthotopes::information,
     )
     .load(conn.expect("don't use test connections in production"))?;
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)
@@ -289,15 +289,15 @@ fn get_ortho_by_hop(
     other_hop: Vec<Word>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{hop, table as orthotopes};
-    let results: Vec<Orthotope> = SelectDsl::select(
+    let results: Vec<Vec<u8>> = SelectDsl::select(
         orthotopes.filter(hop.overlaps_with(other_hop)),
-        schema::orthotopes::all_columns,
+        schema::orthotopes::information,
     )
     .load(conn.expect("don't use test connections in production"))?;
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)
@@ -308,15 +308,15 @@ fn get_ortho_by_contents(
     other_contents: Vec<Word>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     use crate::schema::orthotopes::{contents, table as orthotopes};
-    let results: Vec<Orthotope> = SelectDsl::select(
+    let results: Vec<Vec<u8>> = SelectDsl::select(
         orthotopes.filter(contents.overlaps_with(other_contents)),
-        schema::orthotopes::all_columns,
+        schema::orthotopes::information,
     )
     .load(conn.expect("don't use test connections in production"))?;
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x.information).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)
@@ -339,24 +339,24 @@ fn get_relevant_vocabulary(
     conn: &PgConnection,
     words: HashSet<String>,
 ) -> Result<HashMap<String, Word>, diesel::result::Error> {
-    let res: Vec<models::Words> = SelectDsl::select(
+    let res: Vec<(String, i32)> = SelectDsl::select(
         schema::words::table.filter(schema::words::word.eq(any(Vec::from_iter(words.into_iter())))),
-        schema::words::all_columns,
+        (schema::words::word, schema::words::id),
     )
     .load(conn)?;
 
-    Ok(res.into_iter().map(|w| (w.word, w.id)).collect())
+    Ok(res.into_iter().collect())
 }
 
 fn get_relevant_vocabulary_reverse(
     conn: &PgConnection,
     words: HashSet<Word>,
 ) -> Result<HashMap<Word, String>, diesel::result::Error> {
-    let res: Vec<models::Words> = SelectDsl::select(
+    let res: Vec<(i32, String)> = SelectDsl::select(
         schema::words::table.filter(schema::words::id.eq(any(Vec::from_iter(words.into_iter())))),
-        schema::words::all_columns,
+        (schema::words::id, schema::words::word),
     )
     .load(conn)?;
 
-    Ok(res.into_iter().map(|w| (w.id, w.word)).collect())
+    Ok(res.into_iter().collect())
 }

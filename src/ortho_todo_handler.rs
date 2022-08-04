@@ -4,7 +4,7 @@ use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
     create_todo_entry, establish_connection_safe, get_hashes_of_pairs_with_words_in, insert_orthotopes,
-    models::{NewOrthotope, NewTodo, Orthotope, Todo},
+    models::{NewOrthotope, NewTodo, Todo},
     ortho::Ortho,
     over_on_ortho_found_handler,
     schema::{
@@ -220,13 +220,13 @@ fn get_orthotope(conn: &diesel::PgConnection, other: i32) -> Result<Ortho, anyho
     use crate::diesel::ExpressionMethods;
     use crate::ortho_todo_handler::orthotopes::dsl::orthotopes;
 
-    let result: Orthotope = orthotopes
+    let result: Vec<u8> = orthotopes
         .filter(id.eq(other))
-        .select(schema::orthotopes::all_columns)
+        .select(schema::orthotopes::information)
         .first(conn)?;
 
     let orthotope =
-        bincode::deserialize(&result.information).expect("deserialization should succeed");
+        bincode::deserialize(&result).expect("deserialization should succeed");
 
     Ok(orthotope)
 }
