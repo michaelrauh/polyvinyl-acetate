@@ -6,48 +6,8 @@ There is a single database that holds facts. There is a single queue that holds 
 Deployment to production is managed using digitalocean kubernetes. Local is assumed docker desktop kubernetes.
 
 ## Event Flow
-1. book
-    1. sentence
-2. sentence
-    1. pair
-    2. phrase
-3. pair
-    1. fbbf
-    2. ffbb
-    3. ortho up
-3. pair
-    1. up by origin
-    2. up by hop
-    3. up by contents
-1. up by origin
-    1. ortho
-1. up by hop
-    1. ortho
-1. up by contents
-    1. ortho
-4. fbbf
-    1. ortho
-4. ffbb
-    1. ortho
-4. phrase
-    1. phrase_by_origin
-    2. phrase_by_hop
-    3. phrase_by_contents
-1. phrase_by_origin
-    1. ortho
-1. phrase_by_hop
-    1. ortho
-1. phrase_by_contents
-    1. ortho
-5. ortho
-    1. ortho up
-    1. ortho over
-1. ortho up
-    1. ortho up forward
-    1. ortho up backward
-1. ortho over
-    1. ortho over forward
-    1. ortho over backward
+![Event Flow](https://user-images.githubusercontent.com/2267434/182931603-63416f40-9951-47a3-8ed3-bffd7e4a6221.png)
+
 
 ## Stack
 1. Rust (client code)
