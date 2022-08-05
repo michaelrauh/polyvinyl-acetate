@@ -150,7 +150,7 @@ fn new_orthotopes_up_forward(
     let up_orthos = up_on_ortho_found_handler::up_forward(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::project_forward,
         get_hashes_of_pairs_with_words_in,
     )?;
@@ -168,7 +168,7 @@ fn new_orthotopes_up_back(
     let up_orthos = up_on_ortho_found_handler::up_back(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::project_backward,
         get_hashes_of_pairs_with_words_in,
     )?;
@@ -186,7 +186,7 @@ fn new_orthotopes_over_forward(
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over_forward(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::phrase_exists,
         crate::project_forward_batch,
         crate::get_phrases_with_matching_hashes,
@@ -205,7 +205,7 @@ fn new_orthotopes_over_back(
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over_back(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::phrase_exists,
         crate::project_backward_batch,
         crate::get_phrases_with_matching_hashes,

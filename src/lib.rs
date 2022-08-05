@@ -269,6 +269,26 @@ pub fn get_ortho_by_origin(
     Ok(res)
 }
 
+pub fn get_ortho_by_origin_batch(
+    conn: Option<&PgConnection>,
+    o: HashSet<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{origin, table as orthotopes};
+    use diesel::query_dsl::filter_dsl::FilterDsl;
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        FilterDsl::filter(orthotopes, origin.eq(any(Vec::from_iter(o)))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
     let origin = ortho.get_origin().to_owned();
