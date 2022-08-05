@@ -168,7 +168,7 @@ fn new_orthotopes_up_back(
     let up_orthos = up_on_ortho_found_handler::up_back(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::project_backward,
         get_hashes_of_pairs_with_words_in,
     )?;

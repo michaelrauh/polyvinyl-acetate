@@ -3,8 +3,6 @@ use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
 
-type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
-
 pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
@@ -49,7 +47,10 @@ pub(crate) fn up_forward(
 pub(crate) fn up_back(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
-    ortho_by_origin: FailableWordToOrthoVec,
+    get_ortho_by_origin_batch: fn(
+        Option<&PgConnection>,
+        HashSet<Word>,
+    ) -> Result<Vec<Ortho>, anyhow::Error>,
     backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -61,14 +62,9 @@ pub(crate) fn up_back(
 
     let projected_backward = backward(conn, old_ortho.get_origin())?;
 
-    let mut orthos_to_left = vec![];
-    for f in projected_backward {
-        for o in ortho_by_origin(conn, f)? {
-            if old_ortho.get_dims() == o.get_dims() {
-                orthos_to_left.push(o);
-            }
-        }
-    }
+    let orthos_to_left: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_backward)?
+        .into_iter()
+        .filter(|o| old_ortho.get_dims() == o.get_dims()).collect();
 
     let backward_left_vocab = orthos_to_left
         .iter()
@@ -81,7 +77,9 @@ pub(crate) fn up_back(
         get_pair_hashes_relevant_to_vocabularies(conn, backward_left_vocab, backward_right_vocab)?;
 
     for lo in orthos_to_left {
-        ans.extend(up_helper::attempt_up(&backward_hashes, &lo, &old_ortho));
+        for answer in up_helper::attempt_up(&backward_hashes, &lo, &old_ortho) {
+            ans.push(answer);
+        }
     }
 
     Ok(ans)
@@ -111,20 +109,6 @@ mod tests {
     ) -> Result<HashSet<Word>, anyhow::Error> {
         let mut pairs = btreemap! { 2 => hashset! {1}, 3 => hashset! {1}, 4 => hashset! {2, 3}, 5 => hashset! {1}, 6 => hashset! {5, 4}, 7 => hashset! {5, 3}, 8 => hashset! {11, 12, 4}};
         Ok(pairs.entry(from).or_default().to_owned())
-    }
-
-    fn fake_ortho_by_origin(
-        _conn: Option<&PgConnection>,
-        o: Word,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let mut pairs = btreemap! { 1 => vec![Ortho::new(
-            1,
-            2,
-            3,
-            4,
-        )], 5 => vec![Ortho::new(5,6,7,8
-        )]};
-        Ok(pairs.entry(o).or_default().to_owned())
     }
 
     fn fake_ortho_by_origin_batch(
@@ -200,7 +184,7 @@ mod tests {
         let actual = up_back(
             None,
             right_ortho.clone(),
-            fake_ortho_by_origin,
+            fake_ortho_by_origin_batch,
             fake_backward,
             fake_pair_hash_db_filter,
         )
