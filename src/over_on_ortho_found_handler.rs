@@ -96,7 +96,7 @@ pub(crate) fn over_forward(
                             conn,
                             phrase_exists,
                             &old_orthotope,
-                            &potential_ortho,
+                            potential_ortho,
                             current_phrase[1],
                             current_phrase[2],
                         )? {
@@ -200,7 +200,7 @@ pub(crate) fn over_back(
                         for found in attempt_combine_over(
                             conn,
                             phrase_exists,
-                            &potential_ortho,
+                            potential_ortho,
                             &old_orthotope,
                             current_phrase[1],
                             current_phrase[2],

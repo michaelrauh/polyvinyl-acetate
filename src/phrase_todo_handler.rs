@@ -129,7 +129,7 @@ fn new_orthotopes_by_contents(
         Some(conn),
         phrase,
         crate::get_ortho_by_contents,
-        crate::phrase_exists,
+        crate::phrase_exists_db_filter,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();

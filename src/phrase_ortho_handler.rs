@@ -152,7 +152,11 @@ pub(crate) fn over_by_contents(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_contents: FailableWordVecToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+    phrase_exists_db_filter: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -190,11 +194,34 @@ pub(crate) fn over_by_contents(
             .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
             .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let all_inputs = contents_potential_pairings;
+    let all_inputs = contents_potential_pairings.clone();
+
+    let all_phrase_heads_left: HashSet<i64> = contents_potential_pairings
+        .clone()
+        .flat_map(|(l, _r, sl, _sr)| {
+            let phrases = l.phrases(sl);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let all_phrase_heads_right: HashSet<i64> = contents_potential_pairings
+        .flat_map(|(_l, r, _sl, sr)| {
+            let phrases = r.phrases(sr);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
     let mut res = vec![];
     for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
             res.push(answer);
         }
     }
@@ -395,18 +422,6 @@ mod tests {
         Ok(hashset! {
             vec_of_words_to_big_int(vec![1, 2, 5])
         })
-    }
-
-    fn fake_phrase_exists_three(
-        _conn: Option<&PgConnection>,
-        phrase: Vec<Word>,
-    ) -> Result<bool, anyhow::Error> {
-        let ps = hashset! {
-            vec![1, 4, 7],
-            vec![2, 5, 8],
-            vec![3, 6, 9]
-        };
-        Ok(ps.contains(&phrase))
     }
 
     pub(crate) fn fake_phrase_exists_db_filter_three(
@@ -884,7 +899,7 @@ mod tests {
             None,
             vec![3, 6, 9],
             fake_ortho_by_contents,
-            fake_phrase_exists_three,
+            fake_phrase_exists_db_filter_three,
         )
         .unwrap();
 
