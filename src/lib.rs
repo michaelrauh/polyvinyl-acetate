@@ -355,14 +355,13 @@ pub(crate) fn phrase_exists(
     Ok(res)
 }
 
-
 pub(crate) fn phrase_exists_db_filter(
     conn: Option<&PgConnection>,
     left: HashSet<i64>,
     right: HashSet<i64>,
 ) -> Result<HashSet<i64>, anyhow::Error> {
     use crate::phrases::dsl::phrases;
-    let firsts: HashSet<i64> =  diesel::QueryDsl::select(
+    let firsts: HashSet<i64> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(
             phrases,
             schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),

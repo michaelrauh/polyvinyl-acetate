@@ -115,7 +115,7 @@ fn new_orthotopes_by_hop(
         Some(conn),
         phrase,
         crate::get_ortho_by_hop,
-        crate::phrase_exists,
+        crate::phrase_exists_db_filter,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();

@@ -28,7 +28,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).enc
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
 post("add/", json.dumps({'title': 'three', 'body': 'b f. c g. d h. a e.'}).encode())
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting up by origin")
 
 assert get("sentences") == 12 # the duplicate sentences will be filtered
@@ -46,7 +46,7 @@ r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
 post("add/", json.dumps({'title': 'three', 'body': 'c g. d h. a e. b f.'}).encode())
-time.sleep(10)
+time.sleep(15)
 print("ingesting up by hop")
 assert get_with_dims("1,1,1") == 1
 
@@ -56,7 +56,7 @@ r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
 post("add/", json.dumps({'title': 'three', 'body': 'c g. a e. b f. d h.'}).encode())
-time.sleep(10)
+time.sleep(15)
 print("ingesting up by contents")
 assert get_with_dims("1,1,1") == 1
 
@@ -67,7 +67,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).enc
 post("add/", json.dumps({'title': 'three', 'body': 'c g. a e. b f. d h.'}).encode())
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting up by ortho forward")
 assert get_with_dims("1,1,1") == 1
 
@@ -78,7 +78,7 @@ post("add/", json.dumps({'title': 'three', 'body': 'c g. a e. b f. d h.'}).encod
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting up by ortho backward")
 assert get_with_dims("1,1,1") == 1
 
@@ -90,7 +90,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).enc
 post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
 post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # phrases to join them with the last one being added going through the origins
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by origin")
 
 # over by origin
@@ -102,7 +102,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).enc
 post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
 post("add/", json.dumps({'title': 'thr', 'body': 'a b e. c d f.'}).encode()) # phrases to join them with the last one being added going through the hops
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by hop")
 
 # over by hop
@@ -125,7 +125,7 @@ post("add/", json.dumps({'title': 'one', 'body': 'a b c. d e f. a d. b e. c f'})
 post("add/", json.dumps({'title': 'two', 'body': 'd e f. g h i. d g. e h. f i'}).encode()) # right ortho
 post("add/", json.dumps({'title': 'thr', 'body': 'a d g. b e h. c f i'}).encode()) # phrases to join them with the last one being added going through the hops
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by contents")
 
 # over by contents
@@ -139,7 +139,7 @@ post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # p
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
 post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by ortho forward")
 
 # over on ortho found forward
@@ -153,7 +153,7 @@ post("add/", json.dumps({'title': 'thr', 'body': 'c d f. a b e.'}).encode()) # p
 post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
 
-time.sleep(10)
+time.sleep(15)
 print("ingesting over by ortho backward")
 
 # over on ortho found backward

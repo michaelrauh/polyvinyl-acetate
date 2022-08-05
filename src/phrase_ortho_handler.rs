@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, HashSet};
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
-use crate::{ortho::Ortho, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word, vec_of_words_to_big_int};
+use crate::{
+    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
+};
 
 pub(crate) fn over_by_origin(
     conn: Option<&PgConnection>,
@@ -37,15 +39,26 @@ pub(crate) fn over_by_origin(
 
     let all_inputs = origin_potential_pairings.clone();
 
-    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings.clone().flat_map(|(l, _r, sl, _sr)| {
-        let phrases = l.phrases(sl);
-        phrases.iter().map(|p| vec_of_words_to_big_int(p.to_vec())).collect::<Vec<_>>()
-    }).collect();
+    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings
+        .clone()
+        .flat_map(|(l, _r, sl, _sr)| {
+            let phrases = l.phrases(sl);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
 
-    let all_phrase_heads_right: HashSet<i64> = origin_potential_pairings.flat_map(|(_l, r, _sl, sr)| {
-        let phrases = r.phrases(sr);
-        phrases.iter().map(|p| vec_of_words_to_big_int(p.to_vec())).collect::<Vec<_>>()
-    }).collect();
+    let all_phrase_heads_right: HashSet<i64> = origin_potential_pairings
+        .flat_map(|(_l, r, _sl, sr)| {
+            let phrases = r.phrases(sr);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
@@ -62,7 +75,11 @@ pub(crate) fn over_by_hop(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_hop: FailableWordVecToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+    phrase_exists_db_filter: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -97,11 +114,34 @@ pub(crate) fn over_by_hop(
         .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
         .map(|((l, lx), (r, rx))| (l, r, lx, rx));
 
-    let all_inputs = hop_potential_pairings;
+    let all_inputs = hop_potential_pairings.clone();
+
+    let all_phrase_heads_left: HashSet<i64> = hop_potential_pairings
+        .clone()
+        .flat_map(|(l, _r, sl, _sr)| {
+            let phrases = l.phrases(sl);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let all_phrase_heads_right: HashSet<i64> = hop_potential_pairings
+        .flat_map(|(_l, r, _sl, sr)| {
+            let phrases = r.phrases(sr);
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
     let mut res = vec![];
     for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
             res.push(answer);
         }
     }
@@ -250,7 +290,6 @@ pub fn attempt_combine_over_with_phrases(
     ans
 }
 
-
 fn phrases_work(
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     ortho_to_add: &Ortho,
@@ -332,21 +371,10 @@ mod tests {
     use crate::{
         ortho::Ortho,
         phrase_ortho_handler::{over_by_contents, over_by_hop, over_by_origin},
-        Word, vec_of_words_to_big_int,
+        vec_of_words_to_big_int, Word,
     };
 
     use super::axis_lengths_match;
-
-    fn fake_phrase_exists(
-        _conn: Option<&PgConnection>,
-        phrase: Vec<Word>,
-    ) -> Result<bool, anyhow::Error> {
-        let ps = hashset! {
-            vec![1, 2, 5],
-            vec![3, 4, 6]
-        };
-        Ok(ps.contains(&phrase))
-    }
 
     pub(crate) fn fake_phrase_exists_db_filter(
         _conn: Option<&PgConnection>,
@@ -364,7 +392,6 @@ mod tests {
         _left: HashSet<i64>,
         _right: HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
-        
         Ok(hashset! {
             vec_of_words_to_big_int(vec![1, 2, 5])
         })
@@ -387,7 +414,6 @@ mod tests {
         _left: HashSet<i64>,
         _right: HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
-        
         Ok(hashset! {
             vec_of_words_to_big_int(vec![1, 4, 7]),
             vec_of_words_to_big_int(vec![2, 5, 8]),
@@ -791,8 +817,13 @@ mod tests {
             5,
         );
 
-        let actual =
-            over_by_hop(None, vec![3, 4, 6], fake_ortho_by_hop, fake_phrase_exists).unwrap();
+        let actual = over_by_hop(
+            None,
+            vec![3, 4, 6],
+            fake_ortho_by_hop,
+            fake_phrase_exists_db_filter,
+        )
+        .unwrap();
 
         assert_eq!(vec![expected], actual);
     }
