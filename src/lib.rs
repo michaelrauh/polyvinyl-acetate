@@ -355,6 +355,40 @@ pub(crate) fn phrase_exists(
     Ok(res)
 }
 
+
+pub(crate) fn phrase_exists_db_filter(
+    conn: Option<&PgConnection>,
+    left: HashSet<i64>,
+    right: HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    use crate::phrases::dsl::phrases;
+    let firsts: HashSet<i64> =  diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    let seconds: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_tail.eq(any(Vec::from_iter(right))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
 fn get_relevant_vocabulary(
     conn: &PgConnection,
     words: HashSet<String>,

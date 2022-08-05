@@ -1,16 +1,20 @@
 use anyhow::Error;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
-use crate::{ortho::Ortho, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
+use crate::{ortho::Ortho, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word, vec_of_words_to_big_int};
 
 pub(crate) fn over_by_origin(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_origin: FailableWordToOrthoVec,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
+    phrase_exists_db_filter: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -31,11 +35,23 @@ pub(crate) fn over_by_origin(
         .filter(|(l, r)| l.get_dims() == r.get_dims())
         .map(|(l, r)| (l, r, phrase[1], phrase[2]));
 
-    let all_inputs = origin_potential_pairings;
+    let all_inputs = origin_potential_pairings.clone();
+
+    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings.clone().flat_map(|(l, _r, sl, _sr)| {
+        let phrases = l.phrases(sl);
+        phrases.iter().map(|p| vec_of_words_to_big_int(p.to_vec())).collect::<Vec<_>>()
+    }).collect();
+
+    let all_phrase_heads_right: HashSet<i64> = origin_potential_pairings.flat_map(|(_l, r, _sl, sr)| {
+        let phrases = r.phrases(sr);
+        phrases.iter().map(|p| vec_of_words_to_big_int(p.to_vec())).collect::<Vec<_>>()
+    }).collect();
+
+    let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
     let mut res = vec![];
     for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over(conn, phrase_exists, lo, ro, lhs, rhs)? {
+        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
             res.push(answer);
         }
     }
@@ -190,6 +206,51 @@ pub fn attempt_combine_over(
     Ok(ans)
 }
 
+pub fn attempt_combine_over_with_phrases(
+    all_phrases: &HashSet<i64>,
+    lo: &Ortho,
+    ro: &Ortho,
+    left_shift_axis: Word,
+    right_shift_axis: Word,
+) -> Vec<Ortho> {
+    let mut ans = vec![];
+    let mut lo_hop_set = lo.get_hop();
+
+    lo_hop_set.remove(&left_shift_axis);
+    let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
+
+    let mut ro_hop_set = ro.get_hop();
+    ro_hop_set.remove(&right_shift_axis);
+
+    let fixed_right_hand: Vec<Word> = ro_hop_set.iter().cloned().collect();
+
+    let lo_hop_len = lo_hop.len();
+    let left_hand_coordinate_configurations =
+        Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
+
+    for left_mapping in left_hand_coordinate_configurations {
+        if axis_lengths_match(&left_mapping, &fixed_right_hand, lo, ro) {
+            let mapping = make_mapping(
+                left_mapping,
+                fixed_right_hand.clone(),
+                right_shift_axis,
+                left_shift_axis,
+            );
+
+            if mapping_works(&mapping, lo, ro, right_shift_axis, left_shift_axis) {
+                let ortho_to_add = Ortho::zip_over(lo, ro, &mapping, right_shift_axis);
+
+                if phrases_work_precomputed(&all_phrases, &ortho_to_add, left_shift_axis) {
+                    ans.push(ortho_to_add);
+                }
+            }
+        }
+    }
+
+    ans
+}
+
+
 fn phrases_work(
     phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     ortho_to_add: &Ortho,
@@ -204,6 +265,16 @@ fn phrases_work(
         }
     }
     Ok(true)
+}
+
+fn phrases_work_precomputed(
+    known_phrases: &HashSet<i64>,
+    ortho_to_add: &Ortho,
+    shift_axis: Word,
+) -> bool {
+    let phrases = ortho_to_add.phrases(shift_axis);
+    let mut desired_phrases = phrases.iter().map(|p| vec_of_words_to_big_int(p.to_vec()));
+    desired_phrases.all(|phrase| known_phrases.contains(&phrase))
 }
 
 fn axis_lengths_match(left_axes: &[Word], right_axes: &[Word], lo: &Ortho, ro: &Ortho) -> bool {
@@ -253,13 +324,15 @@ fn make_mapping(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
 
     use crate::{
         ortho::Ortho,
         phrase_ortho_handler::{over_by_contents, over_by_hop, over_by_origin},
-        Word,
+        Word, vec_of_words_to_big_int,
     };
 
     use super::axis_lengths_match;
@@ -275,14 +348,26 @@ mod tests {
         Ok(ps.contains(&phrase))
     }
 
-    fn fake_phrase_exists_two(
+    pub(crate) fn fake_phrase_exists_db_filter(
         _conn: Option<&PgConnection>,
-        phrase: Vec<Word>,
-    ) -> Result<bool, anyhow::Error> {
-        let ps = hashset! {
-            vec![1, 2, 5]
-        };
-        Ok(ps.contains(&phrase))
+        _left: HashSet<i64>,
+        _right: HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        Ok(hashset! {
+            vec_of_words_to_big_int(vec![1, 2, 5]),
+            vec_of_words_to_big_int(vec![3, 4, 6]),
+        })
+    }
+
+    pub(crate) fn fake_phrase_exists_db_filter_two(
+        _conn: Option<&PgConnection>,
+        _left: HashSet<i64>,
+        _right: HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        
+        Ok(hashset! {
+            vec_of_words_to_big_int(vec![1, 2, 5])
+        })
     }
 
     fn fake_phrase_exists_three(
@@ -295,6 +380,19 @@ mod tests {
             vec![3, 6, 9]
         };
         Ok(ps.contains(&phrase))
+    }
+
+    pub(crate) fn fake_phrase_exists_db_filter_three(
+        _conn: Option<&PgConnection>,
+        _left: HashSet<i64>,
+        _right: HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        
+        Ok(hashset! {
+            vec_of_words_to_big_int(vec![1, 4, 7]),
+            vec_of_words_to_big_int(vec![2, 5, 8]),
+            vec_of_words_to_big_int(vec![3, 6, 9]),
+        })
     }
 
     fn fake_ortho_by_origin(
@@ -576,7 +674,7 @@ mod tests {
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin,
-            fake_phrase_exists,
+            fake_phrase_exists_db_filter,
         )
         .unwrap();
 
@@ -589,7 +687,7 @@ mod tests {
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin_two,
-            fake_phrase_exists,
+            fake_phrase_exists_db_filter,
         )
         .unwrap();
 
@@ -602,7 +700,7 @@ mod tests {
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin_three,
-            fake_phrase_exists,
+            fake_phrase_exists_db_filter,
         )
         .unwrap();
 
@@ -615,7 +713,7 @@ mod tests {
             None,
             vec![1, 2, 5, 7],
             fake_ortho_by_origin_four,
-            fake_phrase_exists,
+            fake_phrase_exists_db_filter,
         )
         .unwrap();
 
@@ -672,7 +770,7 @@ mod tests {
             None,
             vec![1, 2, 5],
             fake_ortho_by_origin,
-            fake_phrase_exists_two,
+            fake_phrase_exists_db_filter_two,
         )
         .unwrap();
 

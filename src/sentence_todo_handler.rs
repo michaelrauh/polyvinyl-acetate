@@ -71,7 +71,9 @@ fn create_phrases(
         .filter(|phrase| phrase.len() > 2)
         .map(|v| NewPhrase {
             words: v.clone(),
-            words_hash: vec_of_words_to_big_int(v),
+            words_hash: vec_of_words_to_big_int(v.clone()),
+            phrase_head: vec_of_words_to_big_int(v[..v.len() - 1].to_vec()),
+            phrase_tail: vec_of_words_to_big_int(v[1..].to_vec()),
         })
         .collect();
 

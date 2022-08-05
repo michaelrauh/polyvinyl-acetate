@@ -107,6 +107,8 @@ pub struct Words {
 #[table_name = "phrases"]
 pub struct NewPhrase {
     pub words: Vec<Word>,
+    pub phrase_head: i64,
+    pub phrase_tail: i64,
     pub words_hash: i64,
 }
 
@@ -114,6 +116,8 @@ pub struct NewPhrase {
 pub struct Phrase {
     pub id: i32,
     pub words: Vec<Word>,
+    pub phrase_head: i64,
+    pub phrase_tail: i64,
     pub words_hash: i64,
 }
 
