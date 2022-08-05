@@ -8,7 +8,10 @@ type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Orth
 pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
-    ortho_by_origin: FailableWordToOrthoVec,
+    get_ortho_by_origin_batch: fn(
+        Option<&PgConnection>,
+        HashSet<Word>,
+    ) -> Result<Vec<Ortho>, anyhow::Error>,
     forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -19,15 +22,9 @@ pub(crate) fn up_forward(
     let mut ans = vec![];
 
     let projected_forward = forward(conn, old_ortho.get_origin())?;
-
-    let mut orthos_to_right = vec![];
-    for f in projected_forward {
-        for o in ortho_by_origin(conn, f)? {
-            if old_ortho.get_dims() == o.get_dims() {
-                orthos_to_right.push(o);
-            }
-        }
-    }
+    let orthos_to_right: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_forward)?
+        .iter()
+        .filter(|o| old_ortho.get_dims() == o.get_dims()).cloned().collect();
 
     let forward_left_vocab: HashSet<Word> =
         old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
@@ -41,7 +38,9 @@ pub(crate) fn up_forward(
         get_pair_hashes_relevant_to_vocabularies(conn, forward_left_vocab, forward_right_vocab)?;
 
     for ro in orthos_to_right {
-        ans.extend(up_helper::attempt_up(&forward_hashes, &old_ortho, &ro));
+        for answer in up_helper::attempt_up(&forward_hashes, &old_ortho, &ro) {
+            ans.push(answer);
+        }
     }
 
     Ok(ans)
@@ -128,19 +127,18 @@ mod tests {
         Ok(pairs.entry(o).or_default().to_owned())
     }
 
-    fn fake_ortho_by_origin_three(
+    fn fake_ortho_by_origin_batch(
         _conn: Option<&PgConnection>,
-        o: Word,
+        _o: HashSet<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let l_one = Ortho::new(1, 2, 4, 5);
-        let l_two = Ortho::new(2, 3, 5, 11);
-        let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
-        let r_one = Ortho::new(12, 13, 10, 11);
-        let r_two = Ortho::new(13, 9, 11, 12);
-        let r = Ortho::zip_over(&r_one, &r_two, &btreemap! { 9 => 8, 12 => 10 }, 9);
-        let mut pairs = btreemap! { 1 => vec![left_ortho], 7 => vec![r]};
+        let os = vec![Ortho::new(
+            1,
+            2,
+            3,
+            4,
+        ), Ortho::new(5,6,7,8)];
 
-        Ok(pairs.entry(o).or_default().to_owned())
+        Ok(os)
     }
 
     fn fake_pair_hash_db_filter(
@@ -175,7 +173,7 @@ mod tests {
         let actual = up_forward(
             None,
             left_ortho.clone(),
-            fake_ortho_by_origin,
+            fake_ortho_by_origin_batch,
             fake_forward,
             fake_pair_hash_db_filter,
         )
@@ -229,7 +227,7 @@ mod tests {
         let actual = up_forward(
             None,
             l,
-            fake_ortho_by_origin_three,
+            fake_ortho_by_origin_batch,
             fake_forward,
             fake_pair_hash_db_filter,
         )
