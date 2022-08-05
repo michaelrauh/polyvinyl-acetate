@@ -22,7 +22,9 @@ pub(crate) fn up_forward(
     let projected_forward = forward(conn, old_ortho.get_origin())?;
     let orthos_to_right: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_forward)?
         .iter()
-        .filter(|o| old_ortho.get_dims() == o.get_dims()).cloned().collect();
+        .filter(|o| old_ortho.get_dims() == o.get_dims())
+        .cloned()
+        .collect();
 
     let forward_left_vocab: HashSet<Word> =
         old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
@@ -64,7 +66,8 @@ pub(crate) fn up_back(
 
     let orthos_to_left: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_backward)?
         .into_iter()
-        .filter(|o| old_ortho.get_dims() == o.get_dims()).collect();
+        .filter(|o| old_ortho.get_dims() == o.get_dims())
+        .collect();
 
     let backward_left_vocab = orthos_to_left
         .iter()
@@ -115,12 +118,7 @@ mod tests {
         _conn: Option<&PgConnection>,
         _o: HashSet<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let os = vec![Ortho::new(
-            1,
-            2,
-            3,
-            4,
-        ), Ortho::new(5,6,7,8)];
+        let os = vec![Ortho::new(1, 2, 3, 4), Ortho::new(5, 6, 7, 8)];
 
         Ok(os)
     }
