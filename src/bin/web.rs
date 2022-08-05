@@ -8,7 +8,7 @@ use polyvinyl_acetate::web_helper::{
     count_pairs, count_sentences, create_book, show_books, show_depth, show_orthos, show_phrases,
     show_todos, splat_orthos, splat_pairs,
 };
-use polyvinyl_acetate::{web_helper, establish_connection_safe};
+use polyvinyl_acetate::{establish_connection_safe, web_helper};
 
 #[macro_use]
 extern crate rocket;
@@ -78,12 +78,8 @@ struct WebBook {
 #[post("/add", format = "json", data = "<web_book>")]
 fn add(web_book: Json<WebBook>) -> Result<String, Conflict<String>> {
     let conn = establish_connection_safe().expect("cannot connect to the DB");
-    let book = create_book(
-        &conn,
-        web_book.title.clone(),
-        web_book.body.clone(),
-    )
-    .map_err(|error| Conflict(Some(error.to_string())))?;
+    let book = create_book(&conn, web_book.title.clone(), web_book.body.clone())
+        .map_err(|error| Conflict(Some(error.to_string())))?;
     Ok(book.title)
 }
 
@@ -96,7 +92,11 @@ fn delete() -> Result<(), Conflict<String>> {
 
 #[launch]
 fn rocket() -> _ {
-    embedded_migrations::run_with_output(&establish_connection_safe().expect("cannot connect to the DB"), &mut std::io::stdout()).unwrap();
+    embedded_migrations::run_with_output(
+        &establish_connection_safe().expect("cannot connect to the DB"),
+        &mut std::io::stdout(),
+    )
+    .unwrap();
     rocket::build().mount(
         "/",
         routes![

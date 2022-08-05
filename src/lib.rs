@@ -263,7 +263,7 @@ pub fn get_ortho_by_origin(
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)
@@ -297,7 +297,7 @@ fn get_ortho_by_hop(
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)
@@ -316,7 +316,7 @@ fn get_ortho_by_contents(
 
     let res: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
         .collect();
 
     Ok(res)

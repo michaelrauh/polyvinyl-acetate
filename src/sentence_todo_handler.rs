@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::models::{NewPair, NewPhrase, Pair, Phrase, Sentence, Todo};
+use crate::models::{NewPair, NewPhrase, Pair, Phrase, Todo};
 use crate::{
-    create_todo_entry, get_relevant_vocabulary, ints_to_big_int,
-    vec_of_words_to_big_int, NewTodo, Word, establish_connection_safe,
+    create_todo_entry, establish_connection_safe, get_relevant_vocabulary, ints_to_big_int,
+    vec_of_words_to_big_int, NewTodo, Word,
 };
 use diesel::PgConnection;
 
@@ -11,10 +11,10 @@ pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
-        let words = split_sentence(&sentence.sentence);
+        let words = split_sentence(&sentence);
         let vocab = get_relevant_vocabulary(&conn, words.into_iter().collect())?;
-        create_pairs(&conn, &sentence.sentence, &vocab)?;
-        create_phrases(&conn, sentence.sentence, &vocab)?;
+        create_pairs(&conn, &sentence, &vocab)?;
+        create_phrases(&conn, sentence, &vocab)?;
         Ok(())
     })
 }
@@ -163,13 +163,13 @@ fn create_pairs(
     Ok(())
 }
 
-fn get_sentence(conn: &PgConnection, pk: i32) -> Result<Sentence, anyhow::Error> {
+fn get_sentence(conn: &PgConnection, pk: i32) -> Result<String, anyhow::Error> {
     use crate::schema::sentences::id;
     use crate::sentences::dsl::sentences;
     use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    let sentence: Sentence = sentences
+    let sentence: String = sentences
         .filter(id.eq(pk))
-        .select(crate::sentences::all_columns)
+        .select(crate::sentences::sentence)
         .first(conn)?;
 
     Ok(sentence)

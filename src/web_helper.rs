@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     create_todo_entry, establish_connection_safe, get_relevant_vocabulary_reverse,
-    models::{NewBook},
+    models::NewBook,
     ortho::Ortho,
     schema::{self, books, phrases},
     Book, NewTodo, Word,
@@ -57,7 +57,9 @@ pub fn show_todos() -> Result<String, anyhow::Error> {
 
 pub fn count_sentences() -> Result<String, anyhow::Error> {
     use crate::schema::sentences::dsl::sentences;
-    let results: i64 = sentences.count().get_result(&establish_connection_safe()?)?;
+    let results: i64 = sentences
+        .count()
+        .get_result(&establish_connection_safe()?)?;
 
     Ok(results.to_string())
 }
@@ -139,7 +141,7 @@ fn get_orthos_by_size(
 
     let actual: Vec<Ortho> = results
         .iter()
-        .map(|x| bincode::deserialize(&x).expect("deserialization should succeed"))
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
         .filter(|o: &Ortho| o.get_dims() == dims)
         .collect();
 

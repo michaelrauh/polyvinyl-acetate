@@ -4,7 +4,8 @@ use crate::models::{NewSentence, NewWords, Sentence, Todo};
 use crate::schema::books::{id, table as books};
 use crate::schema::words::{self};
 use crate::{
-    create_todo_entry, schema, sentences, string_to_signed_int, Book, NewTodo, establish_connection_safe,
+    create_todo_entry, establish_connection_safe, schema, sentences, string_to_signed_int, Book,
+    NewTodo,
 };
 
 use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};

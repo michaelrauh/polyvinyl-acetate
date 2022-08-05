@@ -14,7 +14,7 @@ use crate::{
 use crate::{
     diesel::{query_dsl::select_dsl::SelectDsl, ExpressionMethods, RunQueryDsl},
     establish_connection_safe,
-    models::{Pair, Todo},
+    models::Todo,
     schema,
 };
 use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
@@ -219,12 +219,12 @@ fn single_fbbf(
 
 fn new_orthotopes_up_by_origin(
     conn: &PgConnection,
-    pair: Pair,
+    pair: (Word, Word),
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let up_orthos = up_handler::up_by_origin(
         Some(conn),
-        pair.first_word,
-        pair.second_word,
+        pair.0,
+        pair.1,
         crate::get_ortho_by_origin,
         get_hashes_of_pairs_with_words_in,
     )?;
@@ -236,12 +236,12 @@ fn new_orthotopes_up_by_origin(
 
 fn new_orthotopes_up_by_hop(
     conn: &PgConnection,
-    pair: Pair,
+    pair: (Word, Word),
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let up_orthos = up_handler::up_by_hop(
         Some(conn),
-        pair.first_word,
-        pair.second_word,
+        pair.0,
+        pair.1,
         crate::get_ortho_by_hop,
         get_hashes_of_pairs_with_words_in,
     )?;
@@ -253,12 +253,12 @@ fn new_orthotopes_up_by_hop(
 
 fn new_orthotopes_up_by_contents(
     conn: &PgConnection,
-    pair: Pair,
+    pair: (Word, Word),
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let up_orthos = up_handler::up_by_contents(
         Some(conn),
-        pair.first_word,
-        pair.second_word,
+        pair.0,
+        pair.1,
         crate::get_ortho_by_contents,
         get_hashes_of_pairs_with_words_in,
     )?;
@@ -270,9 +270,9 @@ fn new_orthotopes_up_by_contents(
 
 fn new_orthotopes_ffbb(
     conn: &PgConnection,
-    pair: Pair,
+    pair: (Word, Word),
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
-    let ex_nihilo_orthos = single_ffbb(conn, pair.first_word, pair.second_word)?;
+    let ex_nihilo_orthos = single_ffbb(conn, pair.0, pair.1)?;
 
     let nihilo_iter = ex_nihilo_orthos.iter();
 
@@ -282,9 +282,9 @@ fn new_orthotopes_ffbb(
 
 fn new_orthotopes_fbbf(
     conn: &PgConnection,
-    pair: Pair,
+    pair: (Word, Word),
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
-    let ex_nihilo_orthos = single_fbbf(conn, pair.first_word, pair.second_word)?;
+    let ex_nihilo_orthos = single_fbbf(conn, pair.0, pair.1)?;
     let nihilo_iter = ex_nihilo_orthos.iter();
 
     let res = nihilo_iter.map(crate::ortho_to_orthotope).collect();
@@ -297,10 +297,10 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     hasher.finish() as i64
 }
 
-fn get_pair(conn: &PgConnection, pk: i32) -> Result<Pair, anyhow::Error> {
-    let pair: Pair = pairs
+fn get_pair(conn: &PgConnection, pk: i32) -> Result<(Word, Word), anyhow::Error> {
+    let pair: (Word, Word) = pairs
         .filter(id.eq(pk))
-        .select(schema::pairs::all_columns)
+        .select((schema::pairs::first_word, schema::pairs::second_word))
         .first(conn)?;
 
     Ok(pair)

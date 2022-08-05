@@ -9,11 +9,11 @@ use crate::models::Todo;
 use crate::ortho_to_orthotope;
 use crate::phrase_ortho_handler;
 use crate::schema::phrases::dsl::phrases;
+use crate::Word;
 
-use crate::schema::phrases::all_columns;
 use crate::{
     create_todo_entry, establish_connection_safe, insert_orthotopes,
-    models::{NewOrthotope, NewTodo, Phrase},
+    models::{NewOrthotope, NewTodo},
     schema::phrases::id,
 };
 
@@ -95,11 +95,11 @@ pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
 
 fn new_orthotopes_by_origin(
     conn: &PgConnection,
-    phrase: Phrase,
+    phrase: Vec<Word>,
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let orthos = phrase_ortho_handler::over_by_origin(
         Some(conn),
-        phrase.words,
+        phrase,
         crate::get_ortho_by_origin,
         crate::phrase_exists,
     )?;
@@ -109,11 +109,11 @@ fn new_orthotopes_by_origin(
 }
 fn new_orthotopes_by_hop(
     conn: &PgConnection,
-    phrase: Phrase,
+    phrase: Vec<Word>,
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let orthos = phrase_ortho_handler::over_by_hop(
         Some(conn),
-        phrase.words,
+        phrase,
         crate::get_ortho_by_hop,
         crate::phrase_exists,
     )?;
@@ -123,11 +123,11 @@ fn new_orthotopes_by_hop(
 }
 fn new_orthotopes_by_contents(
     conn: &PgConnection,
-    phrase: Phrase,
+    phrase: Vec<Word>,
 ) -> Result<Vec<NewOrthotope>, anyhow::Error> {
     let orthos = phrase_ortho_handler::over_by_contents(
         Some(conn),
-        phrase.words,
+        phrase,
         crate::get_ortho_by_contents,
         crate::phrase_exists,
     )?;
@@ -136,8 +136,11 @@ fn new_orthotopes_by_contents(
     Ok(res)
 }
 
-fn get_phrase(conn: &PgConnection, pk: i32) -> Result<Phrase, anyhow::Error> {
-    let phrase: Phrase = phrases.filter(id.eq(pk)).select(all_columns).first(conn)?;
+fn get_phrase(conn: &PgConnection, pk: i32) -> Result<Vec<Word>, anyhow::Error> {
+    let phrase: Vec<Word> = phrases
+        .filter(id.eq(pk))
+        .select(crate::schema::phrases::words)
+        .first(conn)?;
 
     Ok(phrase)
 }

@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use diesel::{QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, establish_connection_safe, get_hashes_of_pairs_with_words_in, insert_orthotopes,
+    create_todo_entry, establish_connection_safe, get_hashes_of_pairs_with_words_in,
+    insert_orthotopes,
     models::{NewOrthotope, NewTodo, Todo},
     ortho::Ortho,
     over_on_ortho_found_handler,
@@ -225,8 +226,7 @@ fn get_orthotope(conn: &diesel::PgConnection, other: i32) -> Result<Ortho, anyho
         .select(schema::orthotopes::information)
         .first(conn)?;
 
-    let orthotope =
-        bincode::deserialize(&result).expect("deserialization should succeed");
+    let orthotope = bincode::deserialize(&result).expect("deserialization should succeed");
 
     Ok(orthotope)
 }
