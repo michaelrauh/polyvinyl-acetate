@@ -186,7 +186,7 @@ fn new_orthotopes_over_forward(
     let over_orthos: Vec<Ortho> = over_on_ortho_found_handler::over_forward(
         Some(conn),
         old_orthotope,
-        crate::get_ortho_by_origin,
+        crate::get_ortho_by_origin_batch,
         crate::phrase_exists,
         crate::project_forward_batch,
         crate::get_phrases_with_matching_hashes,
