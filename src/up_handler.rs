@@ -1,5 +1,5 @@
 use anyhow::Error;
-use itertools::iproduct;
+use itertools::{iproduct, Itertools};
 use std::collections::HashSet;
 
 use crate::ortho::Ortho;
@@ -77,24 +77,47 @@ pub fn up_by_origin(
     first_w: Word,
     second_w: Word,
     ortho_by_origin: FailableWordToOrthoVec,
-    db_filter: FailableHashsetWordsToHashsetNumbers,
+    get_hashes_of_pairs_with_words_in: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let left_orthos_by_origin: Vec<Ortho> = up_helper::filter_base(ortho_by_origin(conn, first_w)?);
+    let left_orthos_by_origin: Vec<Ortho> =
+        up_helper::filter_base(ortho_by_origin(conn, first_w)?); // select ortho where origin is x and is base = true
     let right_orthos_by_origin: Vec<Ortho> =
         up_helper::filter_base(ortho_by_origin(conn, second_w)?);
 
-    let origin_filtered_pairs = get_relevant_pairs(
-        db_filter,
+    let all_pairs = get_hashes_of_pairs_with_words_in(
         conn,
-        &left_orthos_by_origin,
-        &right_orthos_by_origin,
+        left_orthos_by_origin
+            .iter()
+            .flat_map(|lo| lo.get_vocabulary())
+            .collect(),
+        right_orthos_by_origin
+            .iter()
+            .flat_map(|ro| ro.get_vocabulary())
+            .collect(),
     )?;
 
-    let origin_results = iproduct!(left_orthos_by_origin.iter(), right_orthos_by_origin.iter())
-        .filter(|(lo, ro)| lo.get_dims() == ro.get_dims())
-        .flat_map(|(lo, ro)| up_helper::attempt_up(&origin_filtered_pairs, lo, ro));
+    let left_map = Itertools::into_group_map_by(left_orthos_by_origin.into_iter(), |o| {
+        o.get_dimensionality()
+    });
+    let right_map = Itertools::into_group_map_by(right_orthos_by_origin.into_iter(), |o| {
+        o.get_dimensionality()
+    });
+    let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
+    let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
+    let keys = dimensionalities_left.union(&dimensionalities_right);
+    let conveniently_empty_vector = vec![];
+    let res = keys.flat_map(|dimensionality| {
+        let suspect_left = left_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        let suspect_right = right_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
+            .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
+    });
 
-    Ok(origin_results.collect())
+    Ok(res.collect()) // this collect could be more easily avoided if this method was split into fallible and infallible parts
 }
 
 fn get_valid_pairings<'a>(
