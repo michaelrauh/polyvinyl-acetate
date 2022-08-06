@@ -30,6 +30,8 @@ table! {
     phrases (id) {
         id -> Int4,
         words -> Array<Int4>,
+        phrase_head -> Int8,
+        phrase_tail -> Int8,
         words_hash -> Int8,
     }
 }

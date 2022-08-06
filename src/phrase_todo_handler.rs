@@ -101,7 +101,7 @@ fn new_orthotopes_by_origin(
         Some(conn),
         phrase,
         crate::get_ortho_by_origin,
-        crate::phrase_exists,
+        crate::phrase_exists_db_filter,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
@@ -115,7 +115,7 @@ fn new_orthotopes_by_hop(
         Some(conn),
         phrase,
         crate::get_ortho_by_hop,
-        crate::phrase_exists,
+        crate::phrase_exists_db_filter,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
@@ -129,7 +129,7 @@ fn new_orthotopes_by_contents(
         Some(conn),
         phrase,
         crate::get_ortho_by_contents,
-        crate::phrase_exists,
+        crate::phrase_exists_db_filter,
     )?;
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();

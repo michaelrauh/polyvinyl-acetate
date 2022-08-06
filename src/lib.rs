@@ -342,17 +342,78 @@ fn get_ortho_by_contents(
     Ok(res)
 }
 
-pub(crate) fn phrase_exists(
+pub(crate) fn phrase_exists_db_filter(
     conn: Option<&PgConnection>,
-    phrase: Vec<Word>,
-) -> Result<bool, anyhow::Error> {
-    use crate::schema::phrases::dsl::phrases;
-    let res: bool = diesel::select(diesel::dsl::exists(
-        phrases.filter(schema::phrases::words_hash.eq(vec_of_words_to_big_int(phrase))),
-    ))
-    .get_result(conn.expect("don't use the test connection"))?;
+    left: HashSet<i64>,
+    right: HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    use crate::phrases::dsl::phrases;
+    let firsts: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
 
-    Ok(res)
+    let seconds: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_tail.eq(any(Vec::from_iter(right))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
+pub(crate) fn phrase_exists_db_filter_head(
+    conn: Option<&PgConnection>,
+    left: HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    use crate::phrases::dsl::phrases;
+    let firsts: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(firsts)
+}
+
+pub(crate) fn phrase_exists_db_filter_tail(
+    conn: Option<&PgConnection>,
+    right: HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error> {
+    use crate::phrases::dsl::phrases;
+
+    let seconds: HashSet<i64> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            phrases,
+            schema::phrases::phrase_tail.eq(any(Vec::from_iter(right))),
+        ),
+        crate::schema::phrases::words_hash,
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    Ok(seconds)
 }
 
 fn get_relevant_vocabulary(

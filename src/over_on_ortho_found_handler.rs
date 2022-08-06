@@ -6,7 +6,8 @@ use itertools::{iproduct, Itertools};
 use maplit::{btreeset, hashmap};
 
 use crate::{
-    ortho::Ortho, phrase_ortho_handler::attempt_combine_over, vec_of_words_to_big_int, Word,
+    ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int,
+    Word,
 };
 
 pub(crate) fn over_forward(
@@ -16,12 +17,15 @@ pub(crate) fn over_forward(
         Option<&PgConnection>,
         HashSet<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error>,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_forward_batch: fn(
         Option<&PgConnection>,
         HashSet<Word>,
     ) -> Result<HashSet<(Word, Word)>, Error>,
     get_phrases_with_matching_hashes: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
+    phrase_exists_db_filter_head: fn(
         Option<&PgConnection>,
         HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
@@ -52,6 +56,14 @@ pub(crate) fn over_forward(
         .collect::<HashSet<_>>();
 
     let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
+
+    let all_phrase_heads: HashSet<i64> = old_orthotope
+        .all_full_length_phrases()
+        .iter()
+        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+        .collect();
+
+    let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_heads)?;
 
     let mut ans: Vec<Ortho> = vec![];
     let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
@@ -92,14 +104,13 @@ pub(crate) fn over_forward(
                             == current_phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
-                        for found in attempt_combine_over(
-                            conn,
-                            phrase_exists,
+                        for found in attempt_combine_over_with_phrases(
+                            &speculative_potential_phrases,
                             &old_orthotope,
-                            &potential_ortho,
+                            potential_ortho,
                             current_phrase[1],
                             current_phrase[2],
-                        )? {
+                        ) {
                             ans.push(found);
                         }
                     }
@@ -118,12 +129,15 @@ pub(crate) fn over_back(
         Option<&PgConnection>,
         HashSet<Word>,
     ) -> Result<Vec<Ortho>, anyhow::Error>,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
     project_backward_batch: fn(
         Option<&PgConnection>,
         HashSet<Word>,
     ) -> Result<HashSet<(Word, Word)>, anyhow::Error>,
     get_phrases_with_matching_hashes: fn(
+        Option<&PgConnection>,
+        HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error>,
+    phrase_exists_db_filter_head: fn(
         Option<&PgConnection>,
         HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error>,
@@ -152,6 +166,13 @@ pub(crate) fn over_back(
         .collect::<HashSet<_>>();
 
     let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
+    let all_phrase_tails: HashSet<i64> = old_orthotope
+        .all_full_length_phrases()
+        .iter()
+        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+        .collect();
+
+    let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_tails)?;
 
     let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
     let all_potential_orthos = get_ortho_by_origin_batch(conn, all_first_words)?;
@@ -197,14 +218,13 @@ pub(crate) fn over_back(
                             == current_phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
-                        for found in attempt_combine_over(
-                            conn,
-                            phrase_exists,
-                            &potential_ortho,
+                        for found in attempt_combine_over_with_phrases(
+                            &speculative_potential_phrases,
+                            potential_ortho,
                             &old_orthotope,
                             current_phrase[1],
                             current_phrase[2],
-                        )? {
+                        ) {
                             ans.push(found);
                         }
                     }
@@ -220,7 +240,7 @@ pub(crate) fn over_back(
 mod tests {
     use crate::{
         ortho::Ortho, over_on_ortho_found_handler::over_back,
-        over_on_ortho_found_handler::over_forward, Word,
+        over_on_ortho_found_handler::over_forward, vec_of_words_to_big_int, Word,
     };
     use diesel::PgConnection;
     use maplit::{btreemap, hashset};
@@ -241,6 +261,17 @@ mod tests {
         all_phrases: HashSet<i64>,
     ) -> Result<HashSet<i64>, anyhow::Error> {
         Ok(all_phrases)
+    }
+
+    fn fake_phrase_exists_db_filter_head(
+        _conn: Option<&PgConnection>,
+        _head: HashSet<i64>,
+    ) -> Result<HashSet<i64>, anyhow::Error> {
+        let res = hashset! {
+            vec_of_words_to_big_int(vec![1, 2, 5]),
+            vec_of_words_to_big_int(vec![3, 4, 6]),
+        };
+        Ok(res)
     }
 
     fn fake_backward_batch(
@@ -270,17 +301,6 @@ mod tests {
         Ok(os)
     }
 
-    fn fake_phrase_exists(
-        _conn: Option<&PgConnection>,
-        phrase: Vec<Word>,
-    ) -> Result<bool, anyhow::Error> {
-        let ps = hashset! {
-            vec![1, 2, 5],
-            vec![3, 4, 6]
-        };
-        Ok(ps.contains(&phrase))
-    }
-
     #[test]
     fn it_creates_over_when_origin_points_to_origin_from_left() {
         // a b  | b e
@@ -294,9 +314,9 @@ mod tests {
             None,
             left_ortho.clone(),
             fake_ortho_by_origin_batch,
-            fake_phrase_exists,
             fake_forward_batch,
             fake_get_phrases_with_matching_hashes,
+            fake_phrase_exists_db_filter_head,
         )
         .unwrap();
 
@@ -326,9 +346,9 @@ mod tests {
             None,
             right_ortho.clone(),
             fake_ortho_by_origin_two_batch,
-            fake_phrase_exists,
             fake_backward_batch,
             fake_get_phrases_with_matching_hashes,
+            fake_phrase_exists_db_filter_head,
         )
         .unwrap();
 
