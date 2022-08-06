@@ -76,6 +76,7 @@ pub struct NewOrthotope {
     pub origin: Word,
     pub hop: Vec<Word>,
     pub contents: Vec<Word>,
+    pub base: bool,
     pub info_hash: i64,
 }
 
@@ -86,6 +87,7 @@ pub struct Orthotope {
     pub origin: Word,
     pub hop: Vec<Word>,
     pub contents: Vec<Word>,
+    pub base: bool,
     pub info_hash: i64,
 }
 

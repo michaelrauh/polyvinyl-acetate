@@ -4,5 +4,6 @@ CREATE TABLE orthotopes (
     origin INTEGER NOT NULL,
     hop INTEGER[] NOT NULL,
     contents INTEGER[] NOT NULL,
+    base BOOLEAN NOT NULL,
     info_hash BIGINT NOT NULL UNIQUE
 );

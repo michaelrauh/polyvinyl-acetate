@@ -26,7 +26,7 @@ pub mod worker_helper;
 
 use crate::models::{NewOrthotope, Orthotope};
 use crate::ortho::Ortho;
-use crate::schema::orthotopes;
+use crate::schema::orthotopes::{self};
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
@@ -269,6 +269,26 @@ pub fn get_ortho_by_origin(
     Ok(res)
 }
 
+pub fn get_base_ortho_by_origin(
+    conn: Option<&PgConnection>,
+    o: Word,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, origin, table as orthotopes};
+    use diesel::query_dsl::filter_dsl::FilterDsl;
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        FilterDsl::filter(orthotopes, origin.eq(o).and(base.eq(true))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 pub fn get_ortho_by_origin_batch(
     conn: Option<&PgConnection>,
     o: HashSet<Word>,
@@ -295,12 +315,14 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let hop = Vec::from_iter(ortho.get_hop());
     let contents = Vec::from_iter(ortho.get_contents());
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
+    let base = ortho.is_base();
     NewOrthotope {
         information,
         origin,
         hop,
         contents,
         info_hash,
+        base,
     }
 }
 

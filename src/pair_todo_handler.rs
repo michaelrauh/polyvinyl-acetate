@@ -225,7 +225,7 @@ fn new_orthotopes_up_by_origin(
         Some(conn),
         pair.0,
         pair.1,
-        crate::get_ortho_by_origin,
+        crate::get_base_ortho_by_origin,
         get_hashes_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();

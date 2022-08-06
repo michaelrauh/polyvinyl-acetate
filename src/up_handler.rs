@@ -76,13 +76,11 @@ pub fn up_by_origin(
     conn: Option<&PgConnection>,
     first_w: Word,
     second_w: Word,
-    ortho_by_origin: FailableWordToOrthoVec,
+    get_base_ortho_by_origin: FailableWordToOrthoVec,
     get_hashes_of_pairs_with_words_in: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let left_orthos_by_origin: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_origin(conn, first_w)?); // select ortho where origin is x and is base = true
-    let right_orthos_by_origin: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_origin(conn, second_w)?);
+    let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
+    let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
     let all_pairs = get_hashes_of_pairs_with_words_in(
         conn,
@@ -117,7 +115,7 @@ pub fn up_by_origin(
             .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
     });
 
-    Ok(res.collect()) // this collect could be more easily avoided if this method was split into fallible and infallible parts
+    Ok(res.collect())
 }
 
 fn get_valid_pairings<'a>(
