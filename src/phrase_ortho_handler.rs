@@ -24,22 +24,21 @@ pub(crate) fn over_by_origin(
     let orthos_by_origin_left = ortho_by_origin(conn, phrase[0])?;
     let lhs_by_origin = orthos_by_origin_left
         .iter()
-        .filter(|o| o.origin_has_phrase(lhs_phrase_head))
-        .filter(|o| o.axis_length(phrase[1]) == (phrase.len() - 2));
-
+        .filter(|o| o.origin_has_phrase(lhs_phrase_head)) 
+        .filter(|o| o.axis_length(phrase[1]) == (phrase.len() - 2)); // fuse the above two calls into one
     let orthos_by_origin_right = ortho_by_origin(conn, phrase[1])?;
     let rhs_by_origin = orthos_by_origin_right
         .iter()
         .filter(|o| o.origin_has_phrase(rhs_phrase_head))
-        .filter(|o| o.axis_length(phrase[2]) == (phrase.len() - 2));
+        .filter(|o| o.axis_length(phrase[2]) == (phrase.len() - 2)); // fuse the above two calls into one
 
     let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
         .filter(|(l, r)| l.get_dims() == r.get_dims())
-        .map(|(l, r)| (l, r, phrase[1], phrase[2]));
-
+        .map(|(l, r)| (l, r, phrase[1], phrase[2])); // group by dims before taking the cartesian product
+    
     let all_inputs = origin_potential_pairings.clone();
 
-    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings
+    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings // this can be hidden behind a helper with its sibling
         .clone()
         .flat_map(|(l, _r, sl, _sr)| {
             let phrases = l.phrases(sl);
@@ -60,11 +59,16 @@ pub(crate) fn over_by_origin(
         })
         .collect();
 
+    // filter phrases that don't share a middle
+    // that is, intersect on middle of phrase
+    // phrase is only being used along shift axis so the middles must overlap
+
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
     let mut res = vec![];
     for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
+        // check phrase centers overlap for these particular orthos before messing with mappings
+        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) { // shift axis is fixed and so need not be repeated
             res.push(answer);
         }
     }
