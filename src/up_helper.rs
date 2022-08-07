@@ -67,10 +67,6 @@ fn make_mapping(good_left_hand: &[Word], fixed_right_hand: &[Word]) -> BTreeMap<
     .collect()
 }
 
-pub fn filter_base(orthos: Vec<Ortho>) -> Vec<Ortho> {
-    orthos.into_iter().filter(|o| o.is_base()).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use crate::ortho::Ortho;

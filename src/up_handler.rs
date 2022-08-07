@@ -1,13 +1,10 @@
 use anyhow::Error;
-use itertools::{iproduct, Itertools};
+use itertools::Itertools;
 use std::collections::HashSet;
 
 use crate::ortho::Ortho;
 
-use crate::{
-    ints_to_big_int, up_helper, FailableHashsetWordsToHashsetNumbers, FailableWordToOrthoVec,
-    FailableWordVecToOrthoVec, Word,
-};
+use crate::{ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 use diesel::PgConnection;
 
 pub fn up_by_origin(
@@ -38,9 +35,59 @@ pub fn up_by_origin(
     let right_map =
         group_orthos_of_right_vocabulary_by_dimensionality(right_orthos_by_origin, all_seconds);
 
-    let res = attempt_up_for_pairs_of_matching_dimensionality(left_map, right_map, all_pairs);
+    Ok(attempt_up_for_pairs_of_matching_dimensionality(
+        left_map, right_map, all_pairs,
+    ))
+}
 
-    Ok(res)
+pub fn up_by_hop(
+    conn: Option<&PgConnection>,
+    first_w: Word,
+    second_w: Word,
+    get_base_ortho_by_hop: FailableWordVecToOrthoVec,
+    get_hashes_and_words_of_pairs_with_words_in: fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<
+        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+        anyhow::Error,
+    >,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![first_w])?;
+    let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![second_w])?;
+
+    Ok(find_corresponding_non_origin_checked_orthos_and_attempt_up(
+        get_hashes_and_words_of_pairs_with_words_in,
+        conn,
+        hop_left_orthos,
+        hop_right_orthos,
+    )?)
+}
+
+pub fn up_by_contents(
+    conn: Option<&PgConnection>,
+    first_w: Word,
+    second_w: Word,
+    get_base_ortho_by_contents: FailableWordVecToOrthoVec,
+    get_hashes_and_words_of_pairs_with_words_in: fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<
+        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+        anyhow::Error,
+    >,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let contents_left_orthos: Vec<Ortho> = get_base_ortho_by_contents(conn, vec![first_w])?;
+    let contents_right_orthos: Vec<Ortho> = get_base_ortho_by_contents(conn, vec![second_w])?;
+
+    Ok(find_corresponding_non_origin_checked_orthos_and_attempt_up(
+        get_hashes_and_words_of_pairs_with_words_in,
+        conn,
+        contents_left_orthos,
+        contents_right_orthos,
+    )?)
 }
 
 fn attempt_up_for_pairs_of_matching_dimensionality(
@@ -65,37 +112,30 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
     .collect()
 }
 
-pub fn up_by_hop(
-    conn: Option<&PgConnection>,
-    first_w: Word,
-    second_w: Word,
-    get_base_ortho_by_hop: FailableWordVecToOrthoVec,
+fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     get_hashes_and_words_of_pairs_with_words_in: fn(
         Option<&PgConnection>,
         HashSet<i32>,
         HashSet<i32>,
     ) -> Result<
-        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
-        anyhow::Error,
+        (HashSet<i32>, HashSet<i32>, HashSet<i64>),
+        Error,
     >,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![first_w])?;
-    let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![second_w])?;
-
+    conn: Option<&PgConnection>,
+    hop_left_orthos: Vec<Ortho>,
+    hop_right_orthos: Vec<Ortho>,
+) -> Result<Vec<Ortho>, Error> {
     let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
         conn,
         total_vocabulary(&hop_left_orthos),
         total_vocabulary(&hop_right_orthos),
     )?;
-
     let left_map = group_orthos_of_right_vocabulary_by_dimensionality(hop_left_orthos, all_firsts);
     let right_map =
         group_orthos_of_right_vocabulary_by_dimensionality(hop_right_orthos, all_seconds);
-
     let res = attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
         left_map, right_map, all_pairs,
     );
-
     Ok(res)
 }
 
@@ -122,7 +162,6 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
             )
             .filter(|(lo, ro)| {
                 all_pairs.contains(&ints_to_big_int(lo.get_origin(), ro.get_origin()))
-                // this is the only difference to origin flow.
             })
             .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
         })
@@ -144,72 +183,6 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
 
 fn total_vocabulary(orthos: &Vec<Ortho>) -> HashSet<i32> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
-}
-
-pub fn up_by_contents(
-    conn: Option<&PgConnection>,
-    first_w: Word,
-    second_w: Word,
-    ortho_by_contents: FailableWordVecToOrthoVec,
-    db_filter: FailableHashsetWordsToHashsetNumbers,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    let contents_left_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![first_w])?);
-    let contents_right_orthos: Vec<Ortho> =
-        up_helper::filter_base(ortho_by_contents(conn, vec![second_w])?);
-
-    let contents_potential_pairings_with_untested_origins =
-        iproduct!(contents_left_orthos.iter(), contents_right_orthos.iter())
-            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
-
-    let contents_filtered_pairs = get_relevant_pairs(
-        db_filter,
-        conn,
-        &contents_left_orthos,
-        &contents_right_orthos,
-    )?;
-
-    let contents_origin_pairings = filter_by_origins_form_a_valid_pair(
-        contents_potential_pairings_with_untested_origins,
-        &contents_filtered_pairs,
-    );
-
-    let contents_results = contents_origin_pairings
-        .flat_map(|(lo, ro)| up_helper::attempt_up(&contents_filtered_pairs, lo, ro));
-
-    Ok(contents_results.collect())
-}
-
-fn filter_by_origins_form_a_valid_pair<'a>(
-    hop_potential_pairings_with_untested_origins: impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a,
-    hop_filtered_pairs: &'a HashSet<i64>,
-) -> impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a {
-    hop_potential_pairings_with_untested_origins.filter_map(|(lo, ro)| {
-        if hop_filtered_pairs.contains(&ints_to_big_int(lo.get_origin(), ro.get_origin())) {
-            Some((lo, ro))
-        } else {
-            None
-        }
-    })
-}
-fn get_relevant_pairs(
-    db_filter: FailableHashsetWordsToHashsetNumbers,
-    conn: Option<&PgConnection>,
-    left_orthos_by_origin: &[Ortho],
-    right_orthos_by_origin: &[Ortho],
-) -> Result<HashSet<i64>, Error> {
-    let origin_filtered_pairs = db_filter(
-        conn,
-        left_orthos_by_origin
-            .iter()
-            .flat_map(|lo| lo.get_vocabulary())
-            .collect(),
-        right_orthos_by_origin
-            .iter()
-            .flat_map(|ro| ro.get_vocabulary())
-            .collect(),
-    )?;
-    Ok(origin_filtered_pairs)
 }
 
 #[cfg(test)]
@@ -321,29 +294,6 @@ mod tests {
         }
 
         Ok(ans)
-    }
-
-    fn fake_pair_hash_db_filter(
-        _conn: Option<&PgConnection>,
-        _to_filter: HashSet<Word>,
-        _second: HashSet<Word>,
-    ) -> Result<HashSet<i64>, anyhow::Error> {
-        let pairs = vec![
-            (1, 2),
-            (3, 4),
-            (1, 3),
-            (2, 4),
-            (5, 6),
-            (7, 8),
-            (5, 7),
-            (6, 8),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-            (4, 8),
-        ];
-        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
-        Ok(res)
     }
 
     fn fake_get_hashes_and_words_of_pairs_with_words_in(
@@ -512,7 +462,7 @@ mod tests {
             4, // a b c d + e f g h
             8,
             fake_ortho_by_contents,
-            fake_pair_hash_db_filter,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
         )
         .unwrap();
 

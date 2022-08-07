@@ -432,6 +432,25 @@ fn get_ortho_by_contents(
     Ok(res)
 }
 
+fn get_base_ortho_by_contents(
+    conn: Option<&PgConnection>,
+    other_contents: Vec<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, contents, table as orthotopes};
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        orthotopes.filter(contents.overlaps_with(other_contents).and(base.eq(true))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 pub(crate) fn phrase_exists_db_filter(
     conn: Option<&PgConnection>,
     left: HashSet<i64>,
