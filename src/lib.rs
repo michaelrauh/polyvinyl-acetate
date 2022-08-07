@@ -394,6 +394,25 @@ fn get_ortho_by_hop(
     Ok(res)
 }
 
+fn get_base_ortho_by_hop(
+    conn: Option<&PgConnection>,
+    other_hop: Vec<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, hop, table as orthotopes};
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        orthotopes.filter(hop.overlaps_with(other_hop).and(base.eq(true))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 fn get_ortho_by_contents(
     conn: Option<&PgConnection>,
     other_contents: Vec<Word>,

@@ -14,28 +14,61 @@ pub fn up_by_hop(
     conn: Option<&PgConnection>,
     first_w: Word,
     second_w: Word,
-    ortho_by_hop: FailableWordVecToOrthoVec,
-    db_filter: FailableHashsetWordsToHashsetNumbers,
+    get_base_ortho_by_hop: FailableWordVecToOrthoVec,
+    get_hashes_and_words_of_pairs_with_words_in: fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<
+        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+        anyhow::Error,
+    >,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let hop_left_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![first_w])?);
-    let hop_right_orthos: Vec<Ortho> = up_helper::filter_base(ortho_by_hop(conn, vec![second_w])?);
+    let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![first_w])?;
+    let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![second_w])?;
 
-    let hop_filtered_pairs =
-        get_relevant_pairs(db_filter, conn, &hop_left_orthos, &hop_right_orthos)?;
+    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
+        conn,
+        hop_left_orthos
+            .iter()
+            .flat_map(|lo| lo.get_vocabulary())
+            .collect(),
+        hop_right_orthos
+            .iter()
+            .flat_map(|ro| ro.get_vocabulary())
+            .collect(),
+    )?;
 
-    let hop_potential_pairings_with_untested_origins =
-        iproduct!(hop_left_orthos.iter(), hop_right_orthos.iter())
-            .filter(|(lo, ro)| lo.get_dims() == ro.get_dims());
+    let filtered_lefts = hop_left_orthos
+        .into_iter()
+        .filter(|o| o.get_vocabulary().all(|w| all_firsts.contains(&w)));
+    let filtered_rights = hop_right_orthos
+        .into_iter()
+        .filter(|o| o.get_vocabulary().all(|w| all_seconds.contains(&w)));
+    let left_map =
+        Itertools::into_group_map_by(filtered_lefts.into_iter(), |o| o.get_dimensionality());
+    let right_map =
+        Itertools::into_group_map_by(filtered_rights.into_iter(), |o| o.get_dimensionality());
+    let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
+    let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
+    let keys = dimensionalities_left.union(&dimensionalities_right);
+    let conveniently_empty_vector = vec![];
+    let res = keys.flat_map(|dimensionality| {
+        let suspect_left = left_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        let suspect_right = right_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
+            .filter(|(lo, ro)| {
+                all_pairs.contains(&ints_to_big_int(lo.get_origin(), ro.get_origin()))
+                // this is the only difference to origin flow.
+            })
+            .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
+    });
 
-    let hop_origin_pairings = get_valid_pairings(
-        hop_potential_pairings_with_untested_origins,
-        &hop_filtered_pairs,
-    );
-
-    let hop_results =
-        hop_origin_pairings.flat_map(|(lo, ro)| up_helper::attempt_up(&hop_filtered_pairs, lo, ro));
-
-    Ok(hop_results.collect())
+    Ok(res.collect())
 }
 
 pub fn up_by_contents(
@@ -61,7 +94,7 @@ pub fn up_by_contents(
         &contents_right_orthos,
     )?;
 
-    let contents_origin_pairings = get_valid_pairings(
+    let contents_origin_pairings = filter_by_origins_form_a_valid_pair(
         contents_potential_pairings_with_untested_origins,
         &contents_filtered_pairs,
     );
@@ -129,7 +162,7 @@ pub fn up_by_origin(
     Ok(res.collect())
 }
 
-fn get_valid_pairings<'a>(
+fn filter_by_origins_form_a_valid_pair<'a>(
     hop_potential_pairings_with_untested_origins: impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a,
     hop_filtered_pairs: &'a HashSet<i64>,
 ) -> impl Iterator<Item = (&'a Ortho, &'a Ortho)> + 'a {
@@ -436,7 +469,7 @@ mod tests {
             2, // a b c d + e f g h
             6,
             fake_ortho_by_hop,
-            fake_pair_hash_db_filter,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
         )
         .unwrap();
 
