@@ -29,46 +29,66 @@ pub fn up_by_hop(
 
     let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
         conn,
-        hop_left_orthos
-            .iter()
-            .flat_map(|lo| lo.get_vocabulary())
-            .collect(),
-        hop_right_orthos
-            .iter()
-            .flat_map(|ro| ro.get_vocabulary())
-            .collect(),
+        total_vocabulary(&hop_left_orthos),
+        total_vocabulary(&hop_right_orthos),
     )?;
 
-    let filtered_lefts = hop_left_orthos
-        .into_iter()
-        .filter(|o| o.get_vocabulary().all(|w| all_firsts.contains(&w)));
-    let filtered_rights = hop_right_orthos
-        .into_iter()
-        .filter(|o| o.get_vocabulary().all(|w| all_seconds.contains(&w)));
-    let left_map =
-        Itertools::into_group_map_by(filtered_lefts.into_iter(), |o| o.get_dimensionality());
+    let left_map = group_orthos_of_right_vocabulary_by_dimensionality(hop_left_orthos, all_firsts);
     let right_map =
-        Itertools::into_group_map_by(filtered_rights.into_iter(), |o| o.get_dimensionality());
+        group_orthos_of_right_vocabulary_by_dimensionality(hop_right_orthos, all_seconds);
+
+    let res = attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
+        left_map, right_map, all_pairs,
+    );
+
+    Ok(res)
+}
+
+fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
+    left_map: std::collections::HashMap<usize, Vec<Ortho>>,
+    right_map: std::collections::HashMap<usize, Vec<Ortho>>,
+    all_pairs: HashSet<i64>,
+) -> Vec<Ortho> {
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
-    let keys = dimensionalities_left.union(&dimensionalities_right);
     let conveniently_empty_vector = vec![];
-    let res = keys.flat_map(|dimensionality| {
-        let suspect_left = left_map
-            .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
-        let suspect_right = right_map
-            .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
-        Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
+    dimensionalities_left
+        .union(&dimensionalities_right)
+        .flat_map(|dimensionality| {
+            Itertools::cartesian_product(
+                left_map
+                    .get(dimensionality)
+                    .unwrap_or(&conveniently_empty_vector)
+                    .into_iter(),
+                right_map
+                    .get(dimensionality)
+                    .unwrap_or(&conveniently_empty_vector)
+                    .into_iter(),
+            )
             .filter(|(lo, ro)| {
                 all_pairs.contains(&ints_to_big_int(lo.get_origin(), ro.get_origin()))
                 // this is the only difference to origin flow.
             })
             .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
-    });
+        })
+        .collect()
+}
 
-    Ok(res.collect())
+fn group_orthos_of_right_vocabulary_by_dimensionality(
+    orthos: Vec<Ortho>,
+    vocabulary: HashSet<i32>,
+) -> std::collections::HashMap<usize, Vec<Ortho>> {
+    Itertools::into_group_map_by(
+        orthos
+            .into_iter()
+            .filter(|o| o.get_vocabulary().all(|w| vocabulary.contains(&w)))
+            .into_iter(),
+        |o| o.get_dimensionality(),
+    )
+}
+
+fn total_vocabulary(orthos: &Vec<Ortho>) -> HashSet<i32> {
+    orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }
 
 pub fn up_by_contents(
