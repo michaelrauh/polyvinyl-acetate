@@ -6,7 +6,7 @@ use std::{
 use crate::{
     create_todo_entry,
     diesel::query_dsl::filter_dsl::FilterDsl,
-    get_hashes_of_pairs_with_words_in,
+    get_hashes_and_words_of_pairs_with_words_in, get_hashes_of_pairs_with_words_in,
     models::{NewOrthotope, NewTodo},
     schema::pairs::{dsl::pairs, id},
     up_handler, Word,
@@ -226,7 +226,7 @@ fn new_orthotopes_up_by_origin(
         pair.0,
         pair.1,
         crate::get_base_ortho_by_origin,
-        get_hashes_of_pairs_with_words_in,
+        get_hashes_and_words_of_pairs_with_words_in,
     )?;
     let up_iter = up_orthos.iter();
 

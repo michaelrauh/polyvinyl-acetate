@@ -77,12 +77,19 @@ pub fn up_by_origin(
     first_w: Word,
     second_w: Word,
     get_base_ortho_by_origin: FailableWordToOrthoVec,
-    get_hashes_of_pairs_with_words_in: FailableHashsetWordsToHashsetNumbers,
+    get_hashes_and_words_of_pairs_with_words_in: fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<
+        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+        anyhow::Error,
+    >,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
-    let all_pairs = get_hashes_of_pairs_with_words_in(
+    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
         conn,
         left_orthos_by_origin
             .iter()
@@ -94,12 +101,16 @@ pub fn up_by_origin(
             .collect(),
     )?;
 
-    let left_map = Itertools::into_group_map_by(left_orthos_by_origin.into_iter(), |o| {
-        o.get_dimensionality()
-    });
-    let right_map = Itertools::into_group_map_by(right_orthos_by_origin.into_iter(), |o| {
-        o.get_dimensionality()
-    });
+    let filtered_lefts = left_orthos_by_origin
+        .into_iter()
+        .filter(|o| o.get_vocabulary().all(|w| all_firsts.contains(&w)));
+    let filtered_rights = right_orthos_by_origin
+        .into_iter()
+        .filter(|o| o.get_vocabulary().all(|w| all_seconds.contains(&w)));
+    let left_map =
+        Itertools::into_group_map_by(filtered_lefts.into_iter(), |o| o.get_dimensionality());
+    let right_map =
+        Itertools::into_group_map_by(filtered_rights.into_iter(), |o| o.get_dimensionality());
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
     let keys = dimensionalities_left.union(&dimensionalities_right);
@@ -158,7 +169,7 @@ mod tests {
     use crate::up_handler::{up_by_contents, up_by_hop, up_by_origin};
     use crate::{ints_to_big_int, Word};
     use diesel::PgConnection;
-    use maplit::btreemap;
+    use maplit::{btreemap, hashset};
 
     fn fake_ortho_by_origin_two(
         _conn: Option<&PgConnection>,
@@ -284,11 +295,38 @@ mod tests {
         Ok(res)
     }
 
-    fn fake_pair_hash_db_filter_two(
+    fn fake_get_hashes_and_words_of_pairs_with_words_in(
         _conn: Option<&PgConnection>,
-        _to_filter: HashSet<Word>,
-        _second: HashSet<Word>,
-    ) -> Result<HashSet<i64>, anyhow::Error> {
+        _first_words: HashSet<Word>,
+        _second_words: HashSet<Word>,
+    ) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error> {
+        let pairs = vec![
+            (1, 2),
+            (3, 4),
+            (1, 3),
+            (2, 4),
+            (5, 6),
+            (7, 8),
+            (5, 7),
+            (6, 8),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+            (4, 8),
+        ];
+        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
+        Ok((
+            hashset! {1, 3, 2, 5, 7, 6, 4},
+            hashset! {2, 4, 3, 6, 8, 7, 5},
+            res,
+        ))
+    }
+
+    fn fake_get_hashes_and_words_of_pairs_with_words_in_two(
+        _conn: Option<&PgConnection>,
+        _first_words: HashSet<Word>,
+        _second_words: HashSet<Word>,
+    ) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error> {
         let pairs = vec![
             (1, 2),
             (3, 4),
@@ -303,13 +341,23 @@ mod tests {
             (3, 7),
         ];
         let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
-        Ok(res)
+        Ok((
+            hashset! {1, 3, 2, 5, 7, 6},
+            hashset! {2, 4, 3, 6, 8, 7, 5},
+            res,
+        ))
     }
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
-        let actual =
-            up_by_origin(None, 1, 5, fake_ortho_by_origin, fake_pair_hash_db_filter).unwrap();
+        let actual = up_by_origin(
+            None,
+            1,
+            5,
+            fake_ortho_by_origin,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
+        )
+        .unwrap();
 
         let expected = Ortho::zip_up(
             &Ortho::new(1, 2, 3, 4),
@@ -331,7 +379,7 @@ mod tests {
             1,
             5,
             fake_ortho_by_origin,
-            fake_pair_hash_db_filter_two,
+            fake_get_hashes_and_words_of_pairs_with_words_in_two,
         )
         .unwrap();
 
@@ -345,7 +393,7 @@ mod tests {
             1,
             5,
             fake_ortho_by_origin_two,
-            fake_pair_hash_db_filter,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
         )
         .unwrap();
 
@@ -359,7 +407,7 @@ mod tests {
             1,
             7,
             fake_ortho_by_origin_three,
-            fake_pair_hash_db_filter,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
         )
         .unwrap();
 
@@ -373,7 +421,7 @@ mod tests {
             1,
             5,
             fake_ortho_by_origin_four,
-            fake_pair_hash_db_filter,
+            fake_get_hashes_and_words_of_pairs_with_words_in,
         )
         .unwrap();
 

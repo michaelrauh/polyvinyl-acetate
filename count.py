@@ -6,10 +6,10 @@ import json
 import time
 
 def get(x):
-	return int(r.urlopen("http://137.184.73.126:30001/" + x).read().decode('utf-8'))
+	return int(r.urlopen("http://0.0.0.0:30001/" + x).read().decode('utf-8'))
 
 def get_with_dims(dims):
-    return int(r.urlopen("http://137.184.73.126:30001/orthos?dims=" + dims).read().decode('utf-8'))
+    return int(r.urlopen("http://0.0.0.0:30001/orthos?dims=" + dims).read().decode('utf-8'))
 
 dims_11 = get_with_dims("1,1")
 dims_111 = get_with_dims("1,1,1")

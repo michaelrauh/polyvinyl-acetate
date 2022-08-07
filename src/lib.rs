@@ -9,6 +9,7 @@ use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
+use maplit::hashset;
 use schema::{phrases, sentences, todos};
 mod book_todo_handler;
 pub mod ortho;
@@ -85,6 +86,54 @@ pub fn get_hashes_of_pairs_with_words_in(
     .collect();
 
     Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
+pub fn get_hashes_and_words_of_pairs_with_words_in(
+    conn: Option<&PgConnection>,
+    first_words: HashSet<Word>,
+    second_words: HashSet<Word>,
+) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error> {
+    let firsts: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
+        ),
+        (
+            crate::schema::pairs::first_word,
+            crate::schema::pairs::second_word,
+            crate::schema::pairs::pair_hash,
+        ),
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    let seconds: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
+        ),
+        (
+            crate::schema::pairs::first_word,
+            crate::schema::pairs::second_word,
+            crate::schema::pairs::pair_hash,
+        ),
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+    let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
+    let mut firsts = hashset! {};
+    let mut seconds = hashset! {};
+    let mut hashes = hashset! {};
+    domain.into_iter().for_each(|(f, s, h)| {
+        firsts.insert(f);
+        seconds.insert(s);
+        hashes.insert(h);
+    });
+    Ok((firsts, seconds, hashes))
 }
 
 pub fn get_phrases_with_matching_hashes(
