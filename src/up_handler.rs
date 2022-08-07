@@ -10,6 +10,61 @@ use crate::{
 };
 use diesel::PgConnection;
 
+pub fn up_by_origin(
+    conn: Option<&PgConnection>,
+    first_w: Word,
+    second_w: Word,
+    get_base_ortho_by_origin: FailableWordToOrthoVec,
+    get_hashes_and_words_of_pairs_with_words_in: fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<
+        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+        anyhow::Error,
+    >,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
+    let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
+
+    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
+        conn,
+        total_vocabulary(&left_orthos_by_origin),
+        total_vocabulary(&right_orthos_by_origin),
+    )?;
+
+    let left_map =
+        group_orthos_of_right_vocabulary_by_dimensionality(left_orthos_by_origin, all_firsts);
+    let right_map =
+        group_orthos_of_right_vocabulary_by_dimensionality(right_orthos_by_origin, all_seconds);
+
+    let res = attempt_up_for_pairs_of_matching_dimensionality(left_map, right_map, all_pairs);
+
+    Ok(res)
+}
+
+fn attempt_up_for_pairs_of_matching_dimensionality(
+    left_map: std::collections::HashMap<usize, Vec<Ortho>>,
+    right_map: std::collections::HashMap<usize, Vec<Ortho>>,
+    all_pairs: HashSet<i64>,
+) -> Vec<Ortho> {
+    let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
+    let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
+    let keys = dimensionalities_left.union(&dimensionalities_right);
+    let conveniently_empty_vector = vec![];
+    keys.flat_map(|dimensionality| {
+        let suspect_left = left_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        let suspect_right = right_map
+            .get(dimensionality)
+            .unwrap_or(&conveniently_empty_vector);
+        Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
+            .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
+    })
+    .collect()
+}
+
 pub fn up_by_hop(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -123,63 +178,6 @@ pub fn up_by_contents(
         .flat_map(|(lo, ro)| up_helper::attempt_up(&contents_filtered_pairs, lo, ro));
 
     Ok(contents_results.collect())
-}
-
-pub fn up_by_origin(
-    conn: Option<&PgConnection>,
-    first_w: Word,
-    second_w: Word,
-    get_base_ortho_by_origin: FailableWordToOrthoVec,
-    get_hashes_and_words_of_pairs_with_words_in: fn(
-        Option<&PgConnection>,
-        HashSet<i32>,
-        HashSet<i32>,
-    ) -> Result<
-        (HashSet<Word>, HashSet<Word>, HashSet<i64>),
-        anyhow::Error,
-    >,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
-    let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
-
-    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
-        conn,
-        left_orthos_by_origin
-            .iter()
-            .flat_map(|lo| lo.get_vocabulary())
-            .collect(),
-        right_orthos_by_origin
-            .iter()
-            .flat_map(|ro| ro.get_vocabulary())
-            .collect(),
-    )?;
-
-    let filtered_lefts = left_orthos_by_origin
-        .into_iter()
-        .filter(|o| o.get_vocabulary().all(|w| all_firsts.contains(&w)));
-    let filtered_rights = right_orthos_by_origin
-        .into_iter()
-        .filter(|o| o.get_vocabulary().all(|w| all_seconds.contains(&w)));
-    let left_map =
-        Itertools::into_group_map_by(filtered_lefts.into_iter(), |o| o.get_dimensionality());
-    let right_map =
-        Itertools::into_group_map_by(filtered_rights.into_iter(), |o| o.get_dimensionality());
-    let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
-    let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
-    let keys = dimensionalities_left.union(&dimensionalities_right);
-    let conveniently_empty_vector = vec![];
-    let res = keys.flat_map(|dimensionality| {
-        let suspect_left = left_map
-            .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
-        let suspect_right = right_map
-            .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
-        Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
-            .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
-    });
-
-    Ok(res.collect())
 }
 
 fn filter_by_origins_form_a_valid_pair<'a>(
