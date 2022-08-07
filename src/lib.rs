@@ -9,6 +9,7 @@ use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
+use maplit::hashset;
 use schema::{phrases, sentences, todos};
 mod book_todo_handler;
 pub mod ortho;
@@ -26,7 +27,7 @@ pub mod worker_helper;
 
 use crate::models::{NewOrthotope, Orthotope};
 use crate::ortho::Ortho;
-use crate::schema::orthotopes;
+use crate::schema::orthotopes::{self};
 use crate::schema::pairs::table as pairs;
 use crate::{models::NewTodo, schema::books::dsl::books};
 use diesel::query_dsl::methods::SelectDsl;
@@ -85,6 +86,54 @@ pub fn get_hashes_of_pairs_with_words_in(
     .collect();
 
     Ok(firsts.intersection(&seconds).cloned().collect())
+}
+
+pub fn get_hashes_and_words_of_pairs_with_words_in(
+    conn: Option<&PgConnection>,
+    first_words: HashSet<Word>,
+    second_words: HashSet<Word>,
+) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error> {
+    let firsts: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
+        ),
+        (
+            crate::schema::pairs::first_word,
+            crate::schema::pairs::second_word,
+            crate::schema::pairs::pair_hash,
+        ),
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+
+    let seconds: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
+        diesel::QueryDsl::filter(
+            pairs,
+            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
+        ),
+        (
+            crate::schema::pairs::first_word,
+            crate::schema::pairs::second_word,
+            crate::schema::pairs::pair_hash,
+        ),
+    )
+    .load(conn.expect("do not pass a test dummy in production"))?
+    .iter()
+    .cloned()
+    .collect();
+    let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
+    let mut firsts = hashset! {};
+    let mut seconds = hashset! {};
+    let mut hashes = hashset! {};
+    domain.into_iter().for_each(|(f, s, h)| {
+        firsts.insert(f);
+        seconds.insert(s);
+        hashes.insert(h);
+    });
+    Ok((firsts, seconds, hashes))
 }
 
 pub fn get_phrases_with_matching_hashes(
@@ -269,6 +318,26 @@ pub fn get_ortho_by_origin(
     Ok(res)
 }
 
+pub fn get_base_ortho_by_origin(
+    conn: Option<&PgConnection>,
+    o: Word,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, origin, table as orthotopes};
+    use diesel::query_dsl::filter_dsl::FilterDsl;
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        FilterDsl::filter(orthotopes, origin.eq(o).and(base.eq(true))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 pub fn get_ortho_by_origin_batch(
     conn: Option<&PgConnection>,
     o: HashSet<Word>,
@@ -295,12 +364,14 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let hop = Vec::from_iter(ortho.get_hop());
     let contents = Vec::from_iter(ortho.get_contents());
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
+    let base = ortho.is_base();
     NewOrthotope {
         information,
         origin,
         hop,
         contents,
         info_hash,
+        base,
     }
 }
 
@@ -323,6 +394,25 @@ fn get_ortho_by_hop(
     Ok(res)
 }
 
+fn get_base_ortho_by_hop(
+    conn: Option<&PgConnection>,
+    other_hop: Vec<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, hop, table as orthotopes};
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        orthotopes.filter(hop.overlaps_with(other_hop).and(base.eq(true))),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
 fn get_ortho_by_contents(
     conn: Option<&PgConnection>,
     other_contents: Vec<Word>,
@@ -330,6 +420,25 @@ fn get_ortho_by_contents(
     use crate::schema::orthotopes::{contents, table as orthotopes};
     let results: Vec<Vec<u8>> = SelectDsl::select(
         orthotopes.filter(contents.overlaps_with(other_contents)),
+        schema::orthotopes::information,
+    )
+    .load(conn.expect("don't use test connections in production"))?;
+
+    let res: Vec<Ortho> = results
+        .iter()
+        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
+        .collect();
+
+    Ok(res)
+}
+
+fn get_base_ortho_by_contents(
+    conn: Option<&PgConnection>,
+    other_contents: Vec<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error> {
+    use crate::schema::orthotopes::{base, contents, table as orthotopes};
+    let results: Vec<Vec<u8>> = SelectDsl::select(
+        orthotopes.filter(contents.overlaps_with(other_contents).and(base.eq(true))),
         schema::orthotopes::information,
     )
     .load(conn.expect("don't use test connections in production"))?;

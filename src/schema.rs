@@ -13,6 +13,7 @@ table! {
         origin -> Int4,
         hop -> Array<Int4>,
         contents -> Array<Int4>,
+        base -> Bool,
         info_hash -> Int8,
     }
 }
