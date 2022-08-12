@@ -89,8 +89,24 @@ impl Ortho {
             })
     }
 
+    pub(crate) fn axis_has_exact_phrase(
+        &self,
+        phrase: &[Word],
+        loc: &Location,
+        axis: Word,
+    ) -> bool {
+        self.axis_has_phrase(phrase, loc, axis)
+            && self
+                .optional_name_at_location(&loc.add_n(axis, phrase.len()))
+                .is_none()
+    }
+
     pub(crate) fn origin_has_phrase(&self, phrase: &[Word]) -> bool {
         self.axis_has_phrase(phrase, &Location::default(), phrase[1])
+    }
+
+    pub(crate) fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+        self.axis_has_exact_phrase(phrase, &Location::default(), phrase[1])
     }
 
     pub(crate) fn get_bottom_right_corner(&self) -> &Location {
@@ -582,6 +598,27 @@ mod tests {
         assert!(!wider.contents_has_phrase(&vec![6, 5]));
         assert!(tricky_ortho.hop_has_phrase(&vec![2, 5]));
         assert!(tricky_two.contents_has_phrase(&vec![2, 5]));
+    }
+
+    #[test]
+    fn it_can_detect_if_it_contains_an_exact_full_length_phrase() {
+        // 1 2  2 5
+        // 3 4  4 6
+
+        // 1 2 5
+        // 3 4 6
+
+        let wider = Ortho::zip_over(
+            &Ortho::new(1, 2, 3, 4),
+            &Ortho::new(2, 5, 4, 6),
+            &btreemap! {
+                5 => 2,
+                4 => 3
+            },
+            5,
+        );
+        assert!(!wider.origin_has_full_length_phrase(&vec![1, 2]));
+        assert!(wider.origin_has_full_length_phrase(&vec![1, 2, 5]));
     }
 
     #[test]

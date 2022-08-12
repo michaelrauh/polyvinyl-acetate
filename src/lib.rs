@@ -232,6 +232,12 @@ pub fn vec_of_words_to_big_int(v: Vec<Word>) -> i64 {
     hasher.finish() as i64
 }
 
+pub fn vec_of_big_ints_to_big_int(v: Vec<i64>) -> i64 {
+    let mut hasher = DefaultHasher::new();
+    v.hash(&mut hasher);
+    hasher.finish() as i64
+}
+
 pub fn string_refs_to_signed_int(l: &str, r: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     l.hash(&mut hasher);

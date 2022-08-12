@@ -1,11 +1,13 @@
 use anyhow::Error;
-use std::collections::{BTreeMap, HashSet};
+
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
+    ortho::Ortho, vec_of_big_ints_to_big_int, vec_of_words_to_big_int, FailableWordToOrthoVec,
+    FailableWordVecToOrthoVec, Word,
 };
 
 pub(crate) fn over_by_origin(
@@ -20,59 +22,126 @@ pub(crate) fn over_by_origin(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
+    let head = phrase[0];
+    let shift_left = phrase[1];
+    let shift_right = phrase[2];
 
-    let orthos_by_origin_left = ortho_by_origin(conn, phrase[0])?;
+    let orthos_by_origin_left = ortho_by_origin(conn, head)?;
     let lhs_by_origin = orthos_by_origin_left
         .iter()
-        .filter(|o| o.origin_has_phrase(lhs_phrase_head)) 
-        .filter(|o| o.axis_length(phrase[1]) == (phrase.len() - 2)); // fuse the above two calls into one
-    let orthos_by_origin_right = ortho_by_origin(conn, phrase[1])?;
+        .filter(|o| o.origin_has_full_length_phrase(lhs_phrase_head));
+    let orthos_by_origin_right = ortho_by_origin(conn, shift_left)?;
+
     let rhs_by_origin = orthos_by_origin_right
         .iter()
-        .filter(|o| o.origin_has_phrase(rhs_phrase_head))
-        .filter(|o| o.axis_length(phrase[2]) == (phrase.len() - 2)); // fuse the above two calls into one
+        .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
 
-    let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
-        .filter(|(l, r)| l.get_dims() == r.get_dims())
-        .map(|(l, r)| (l, r, phrase[1], phrase[2])); // group by dims before taking the cartesian product
-    
-    let all_inputs = origin_potential_pairings.clone();
-
-    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings // this can be hidden behind a helper with its sibling
+    let phrase_center_to_left: HashMap<i64, i64> = lhs_by_origin
         .clone()
-        .flat_map(|(l, _r, sl, _sr)| {
-            let phrases = l.phrases(sl);
+        .flat_map(|o| {
+            let phrases = o.phrases(shift_left);
             phrases
                 .iter()
-                .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+                .map(|p| {
+                    (
+                        vec_of_words_to_big_int(p[1..].to_vec()),
+                        vec_of_words_to_big_int(p.to_vec()),
+                    )
+                })
+                .collect::<Vec<(i64, i64)>>()
         })
         .collect();
 
-    let all_phrase_heads_right: HashSet<i64> = origin_potential_pairings
-        .flat_map(|(_l, r, _sl, sr)| {
-            let phrases = r.phrases(sr);
+    let phrase_center_to_right: HashMap<i64, i64> = rhs_by_origin
+        .clone()
+        .flat_map(|o| {
+            let phrases = o.phrases(shift_right);
             phrases
                 .iter()
-                .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+                .map(|p| {
+                    (
+                        vec_of_words_to_big_int(p[..p.len() - 1].to_vec()),
+                        vec_of_words_to_big_int(p.to_vec()),
+                    )
+                })
+                .collect::<Vec<(i64, i64)>>()
         })
         .collect();
 
-    // filter phrases that don't share a middle
-    // that is, intersect on middle of phrase
-    // phrase is only being used along shift axis so the middles must overlap
+    let lhs_ortho_to_centers: BTreeMap<&Ortho, i64> = lhs_by_origin
+        .clone()
+        .map(|o| {
+            let phrases = o.phrases(shift_left);
+
+            let mut phrases_per = phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+                .collect::<Vec<i64>>();
+            phrases_per.sort();
+            let summary = vec_of_big_ints_to_big_int(phrases_per);
+            (o, summary)
+        })
+        .collect();
+
+    let rhs_ortho_to_centers: BTreeMap<&Ortho, i64> = rhs_by_origin
+        .clone()
+        .map(|o| {
+            let phrases = o.phrases(shift_right);
+            let mut phrases_per = phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+                .collect::<Vec<i64>>();
+            phrases_per.sort();
+            let summary = vec_of_big_ints_to_big_int(phrases_per);
+            (o, summary)
+        })
+        .collect();
+
+    let hash_map_left = phrase_center_to_left.clone();
+    let left_keys = hash_map_left.keys().collect::<HashSet<_>>();
+    let hash_map_right = phrase_center_to_right.clone();
+    let right_keys = hash_map_right.keys().collect::<HashSet<_>>();
+
+    let valid_centers = left_keys.intersection(&right_keys).collect::<HashSet<_>>();
+    let all_phrase_heads_left = phrase_center_to_left
+        .into_iter()
+        .filter(|(k, _v)| valid_centers.contains(&k))
+        .map(|(_k, v)| v)
+        .collect();
+    let all_phrase_heads_right = phrase_center_to_right
+        .into_iter()
+        .filter(|(k, _v)| valid_centers.contains(&k))
+        .map(|(_k, v)| v)
+        .collect();
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
-    let mut res = vec![];
-    for (lo, ro, lhs, rhs) in all_inputs {
-        // check phrase centers overlap for these particular orthos before messing with mappings
-        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) { // shift axis is fixed and so need not be repeated
-            res.push(answer);
-        }
-    }
-    Ok(res)
+    let left_map = Itertools::into_group_map_by(lhs_by_origin.into_iter(), |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_origin.into_iter(), |o| o.get_dims());
+
+    let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
+    let dims_right = HashSet::from_iter(right_map.keys());
+    let conveniently_empty_vector = vec![];
+
+    Ok(dims_left
+        .union(&dims_right)
+        .flat_map(|dims| {
+            Itertools::cartesian_product(
+                left_map
+                    .get(dims)
+                    .unwrap_or(&conveniently_empty_vector)
+                    .into_iter(),
+                right_map
+                    .get(dims)
+                    .unwrap_or(&conveniently_empty_vector)
+                    .into_iter(),
+            )
+            .filter(|(lo, ro)| lhs_ortho_to_centers[*lo] == rhs_ortho_to_centers[*ro])
+            .flat_map(|(lo, ro)| {
+                attempt_combine_over_with_phrases(&all_phrases, lo, ro, shift_left, shift_right)
+            })
+        })
+        .collect())
 }
 
 pub(crate) fn over_by_hop(
@@ -705,6 +774,10 @@ mod tests {
         // a b | b e    =   a b e
         // c d | d f        c d f
 
+        // 1 2 | 2 5  =     1 2 5
+        // 3 4 | 4 6        3 4 6
+
+        // center = { 2 4 }
         let expected = Ortho::zip_over(
             &Ortho::new(1, 2, 3, 4),
             &Ortho::new(2, 5, 4, 6),
