@@ -39,7 +39,7 @@ pub(crate) fn over_forward(
         .collect::<HashSet<_>>();
     let forwards = project_forward_batch(conn, lasts)?;
 
-    let desired_phrases = Itertools::cartesian_product(all_phrases.iter(), forwards.iter())
+    let desired_phrases = Itertools::cartesian_product(all_phrases.iter(), forwards.iter()) // group before filter
         .filter(|(old_phrase, (f, _s))| {
             let last = old_phrase.last().expect("orthos cannot have empty phrases");
             last == f
@@ -72,7 +72,7 @@ pub(crate) fn over_forward(
         &Vec<i32>,
         std::collections::BTreeSet<&Ortho>,
     > = hashmap! {};
-    Itertools::cartesian_product(all_phrases.iter(), all_potential_orthos.iter())
+    Itertools::cartesian_product(all_phrases.iter(), all_potential_orthos.iter()) // group before product
         .filter(|(phrase, ortho)| ortho.get_origin() == phrase[1])
         .for_each(|(phrase, ortho)| {
             phrase_to_ortho
@@ -82,7 +82,7 @@ pub(crate) fn over_forward(
                 })
                 .or_insert(btreeset! {ortho});
         });
-    for old_phrase in all_phrases.clone() {
+    for old_phrase in all_phrases.clone() { // flatten this out
         let last = old_phrase.last().expect("orthos cannot have empty phrases");
         let nexts = forwards
             .iter()
@@ -100,7 +100,7 @@ pub(crate) fn over_forward(
                 for potential_ortho in phrase_to_ortho.get(&old_phrase).unwrap_or(&btreeset! {}) {
                     let phrase_tail = &current_phrase[1..];
                     if potential_ortho.origin_has_phrase(phrase_tail)
-                        && potential_ortho.axis_length(current_phrase[2])
+                        && potential_ortho.axis_length(current_phrase[2]) // fuse length check to existence
                             == current_phrase.len() - 2
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
@@ -150,7 +150,7 @@ pub(crate) fn over_back(
         .collect::<HashSet<_>>();
     let backwards = project_backward_batch(conn, firsts)?;
 
-    let desired_phrases = Itertools::cartesian_product(all_phrases.iter(), backwards.iter())
+    let desired_phrases = Itertools::cartesian_product(all_phrases.iter(), backwards.iter()) // group before product
         .filter(|(old_phrase, (_f, s))| {
             let first = old_phrase[0];
             first == *s
@@ -185,7 +185,7 @@ pub(crate) fn over_back(
         all_potential_orthos.iter(),
         backwards.iter()
     )
-    .filter(|(phrase, ortho, (f, s))| ortho.get_origin() == *f && phrase[0] == *s)
+    .filter(|(phrase, ortho, (f, s))| ortho.get_origin() == *f && phrase[0] == *s) // avoid this filter
     .for_each(|(phrase, ortho, _p)| {
         phrase_to_ortho
             .entry(phrase)
@@ -196,7 +196,7 @@ pub(crate) fn over_back(
     });
 
     let mut ans: Vec<Ortho> = vec![];
-    for old_phrase in all_phrases.clone() {
+    for old_phrase in all_phrases.clone() { // flatten this out
         let first = old_phrase[0];
         let prevs = backwards
             .iter()
@@ -215,7 +215,7 @@ pub(crate) fn over_back(
                     let phrase_head = &current_phrase[..current_phrase.len() - 1];
                     if potential_ortho.origin_has_phrase(phrase_head)
                         && potential_ortho.axis_length(current_phrase[1])
-                            == current_phrase.len() - 2
+                            == current_phrase.len() - 2 // fuse length to phrase check 
                         && old_orthotope.get_dims() == potential_ortho.get_dims()
                     {
                         for found in attempt_combine_over_with_phrases(

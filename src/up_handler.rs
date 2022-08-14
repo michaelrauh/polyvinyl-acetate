@@ -98,7 +98,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
     let keys = dimensionalities_left.union(&dimensionalities_right);
-    let conveniently_empty_vector = vec![];
+    let conveniently_empty_vector = vec![]; // intersect keys instead of union
     keys.flat_map(|dimensionality| {
         let suspect_left = left_map
             .get(dimensionality)
@@ -146,7 +146,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
 ) -> Vec<Ortho> {
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
-    let conveniently_empty_vector = vec![];
+    let conveniently_empty_vector = vec![]; // intersect keys instead of union
     dimensionalities_left
         .union(&dimensionalities_right)
         .flat_map(|dimensionality| {
