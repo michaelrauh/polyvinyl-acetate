@@ -67,14 +67,6 @@ impl Ortho {
             .is_some()
     }
 
-    pub(crate) fn hop_has_phrase(&self, phrase: &[Word]) -> bool {
-        let loc = Location::singleton(phrase[0]);
-
-        loc.missing_axes(&self.get_hop())
-            .iter()
-            .any(|axis| self.axis_has_phrase(phrase, &loc, *axis))
-    }
-
     pub(crate) fn axis_has_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
         phrase
             .iter()
@@ -107,6 +99,14 @@ impl Ortho {
 
     pub(crate) fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
         self.axis_has_exact_phrase(phrase, &Location::default(), phrase[1])
+    }
+
+    pub(crate) fn hop_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+        let loc = Location::singleton(phrase[0]);
+
+        loc.missing_axes(&self.get_hop())
+            .iter()
+            .any(|axis| self.axis_has_exact_phrase(phrase, &Location::singleton(phrase[0]), *axis))
     }
 
     pub(crate) fn get_bottom_right_corner(&self) -> &Location {
@@ -576,8 +576,6 @@ mod tests {
             5,
         );
 
-        let tricky_ortho = Ortho::new(2, 22, 2, 5);
-
         let tricky_two = Ortho::zip_over(
             &Ortho::new(2, 2, 22, 22),
             &Ortho::new(2, 2, 22, 5),
@@ -589,22 +587,15 @@ mod tests {
         );
 
         assert!(example_ortho.origin_has_phrase(&vec![1, 2]));
-        assert!(example_ortho.hop_has_phrase(&vec![3, 4]));
         assert!(example_ortho.origin_has_phrase(&vec![1, 3]));
-        assert!(example_ortho.hop_has_phrase(&vec![2, 4]));
         assert!(!example_ortho.origin_has_phrase(&vec![1, 5]));
-        assert!(!example_ortho.hop_has_phrase(&vec![2, 1]));
         assert!(wider.contents_has_phrase(&vec![5, 6]));
         assert!(!wider.contents_has_phrase(&vec![6, 5]));
-        assert!(tricky_ortho.hop_has_phrase(&vec![2, 5]));
         assert!(tricky_two.contents_has_phrase(&vec![2, 5]));
     }
 
     #[test]
     fn it_can_detect_if_it_contains_an_exact_full_length_phrase() {
-        // 1 2  2 5
-        // 3 4  4 6
-
         // 1 2 5
         // 3 4 6
 
@@ -619,8 +610,11 @@ mod tests {
         );
         assert!(!wider.origin_has_full_length_phrase(&vec![1, 2]));
         assert!(wider.origin_has_full_length_phrase(&vec![1, 2, 5]));
-    }
 
+        assert!(!wider.hop_has_full_length_phrase(&vec![3, 4]));
+        assert!(wider.hop_has_full_length_phrase(&vec![3, 4, 6]));
+    }
+ 
     #[test]
     fn it_has_a_hop() {
         let example_ortho = Ortho::new(1, 2, 3, 4);

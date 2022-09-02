@@ -82,7 +82,8 @@ pub(crate) fn over_forward(
                 })
                 .or_insert(btreeset! {ortho});
         });
-    for old_phrase in all_phrases.clone() { // flatten this out
+    for old_phrase in all_phrases.clone() {
+        // flatten this out
         let last = old_phrase.last().expect("orthos cannot have empty phrases");
         let nexts = forwards
             .iter()
@@ -196,7 +197,8 @@ pub(crate) fn over_back(
     });
 
     let mut ans: Vec<Ortho> = vec![];
-    for old_phrase in all_phrases.clone() { // flatten this out
+    for old_phrase in all_phrases.clone() {
+        // flatten this out
         let first = old_phrase[0];
         let prevs = backwards
             .iter()

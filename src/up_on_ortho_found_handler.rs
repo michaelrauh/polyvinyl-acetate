@@ -66,7 +66,7 @@ pub(crate) fn up_back(
 
     let orthos_to_left: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_backward)?
         .into_iter()
-        .filter(|o| old_ortho.get_dims() == o.get_dims())// group by dims
+        .filter(|o| old_ortho.get_dims() == o.get_dims()) // group by dims
         .collect();
 
     let backward_left_vocab = orthos_to_left
