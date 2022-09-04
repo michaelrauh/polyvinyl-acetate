@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
@@ -34,99 +34,32 @@ pub(crate) fn over_by_origin(
         .into_iter()
         .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
 
-    let lhs_ortho_to_phrases: Vec<(Ortho, Vec<Vec<Word>>)> = lhs_by_origin
+    let all_phrase_heads_left: HashSet<i64> = lhs_by_origin
         .clone()
-        .map(|o| {
+        .flat_map(|o| {
             let phrases = o.phrases(shift_left);
-            (o, phrases)
+            phrases
+                .iter()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<i64>>()
         })
         .collect();
 
-    let rhs_ortho_to_phrases: Vec<(Ortho, Vec<Vec<Word>>)> = rhs_by_origin
+    let all_phrase_heads_right: HashSet<i64> = rhs_by_origin
         .clone()
-        .map(|o| {
+        .flat_map(|o| {
             let phrases = o.phrases(shift_right);
-            (o, phrases)
-        })
-        .collect();
-
-    let phrase_center_to_left: HashMap<i64, i64> = lhs_ortho_to_phrases
-        .iter()
-        .flat_map(|(_o, phrases)| {
             phrases
                 .iter()
-                .map(|p| {
-                    (
-                        vec_of_words_to_big_int(p[1..].to_vec()),
-                        vec_of_words_to_big_int(p.to_vec()),
-                    )
-                })
-                .collect::<Vec<(i64, i64)>>()
+                .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                .collect::<Vec<i64>>()
         })
-        .collect();
-
-    let phrase_center_to_right: HashMap<i64, i64> = rhs_ortho_to_phrases
-        .iter()
-        .flat_map(|(_o, phrases)| {
-            phrases
-                .iter()
-                .map(|p| {
-                    (
-                        vec_of_words_to_big_int(p[..p.len() - 1].to_vec()),
-                        vec_of_words_to_big_int(p.to_vec()),
-                    )
-                })
-                .collect::<Vec<(i64, i64)>>()
-        })
-        .collect();
-
-    let lhs_ortho_to_centers: BTreeMap<&Ortho, i64> = lhs_ortho_to_phrases
-        .iter()
-        .map(|(o, phrases)| {
-            let mut phrases_per = phrases
-                .iter()
-                .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
-                .collect::<Vec<i64>>();
-            phrases_per.sort();
-            let summary = vec_of_big_ints_to_big_int(phrases_per);
-            (o, summary)
-        })
-        .collect();
-
-    let rhs_ortho_to_centers: BTreeMap<&Ortho, i64> = rhs_ortho_to_phrases
-        .iter()
-        .map(|(o, phrases)| {
-            let mut phrases_per = phrases
-                .iter()
-                .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
-                .collect::<Vec<i64>>();
-            phrases_per.sort();
-            let summary = vec_of_big_ints_to_big_int(phrases_per);
-            (o, summary)
-        })
-        .collect();
-
-    let hash_map_left = phrase_center_to_left.clone();
-    let left_keys = hash_map_left.keys().collect::<HashSet<_>>();
-    let hash_map_right = phrase_center_to_right.clone();
-    let right_keys = hash_map_right.keys().collect::<HashSet<_>>();
-
-    let valid_centers = left_keys.intersection(&right_keys).collect::<HashSet<_>>();
-    let all_phrase_heads_left = phrase_center_to_left
-        .into_iter()
-        .filter(|(k, _v)| valid_centers.contains(&k))
-        .map(|(_k, v)| v)
-        .collect();
-    let all_phrase_heads_right = phrase_center_to_right
-        .into_iter()
-        .filter(|(k, _v)| valid_centers.contains(&k))
-        .map(|(_k, v)| v)
         .collect();
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
-    let left_map = Itertools::into_group_map_by(lhs_by_origin.into_iter(), |o| o.get_dims());
-    let right_map = Itertools::into_group_map_by(rhs_by_origin.into_iter(), |o| o.get_dims());
+    let left_map = Itertools::into_group_map_by(lhs_by_origin.clone(), |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_origin.clone(), |o| o.get_dims());
 
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
@@ -144,7 +77,24 @@ pub(crate) fn over_by_origin(
                     .expect("do not get dims that do not exist")
                     .into_iter(),
             )
-            .filter(|(lo, ro)| lhs_ortho_to_centers[*lo] == rhs_ortho_to_centers[*ro])
+            .filter(|(lo, ro)| {
+                let phrases_left = lo.phrases(shift_left);
+                let mut phrases_per_left = phrases_left
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+                    .collect::<Vec<i64>>();
+                phrases_per_left.sort();
+                let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
+
+                let phrases_right = ro.phrases(shift_right);
+                let mut phrases_per_right = phrases_right
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+                    .collect::<Vec<i64>>();
+                phrases_per_right.sort();
+                let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                summary_left == summary_right
+            })
             .flat_map(|(lo, ro)| {
                 attempt_combine_over_with_phrases(&all_phrases, lo, ro, shift_left, shift_right)
             })
@@ -232,10 +182,10 @@ pub(crate) fn over_by_hop(
                 phrases_per_left.sort();
                 let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
 
-                let mut phrases_per_right = ro
-                    .phrases(axis_right)
+                let phrases_right = ro.phrases(axis_right);
+                let mut phrases_per_right = phrases_right
                     .iter()
-                    .map(|p| vec_of_words_to_big_int(p[..phrase.len() - 2].to_vec()))
+                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
                     .collect_vec();
                 phrases_per_right.sort();
                 let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
@@ -344,7 +294,7 @@ pub(crate) fn over_by_contents(
                         let mut phrases_per_right = ro
                             .phrases(axis_right)
                             .iter()
-                            .map(|p| vec_of_words_to_big_int(p[..phrase.len() - 2].to_vec()))
+                            .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
                             .collect_vec();
                         phrases_per_right.sort();
                         let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
