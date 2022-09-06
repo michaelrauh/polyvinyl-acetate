@@ -77,10 +77,6 @@ impl Ortho {
                 .is_none()
     }
 
-    pub(crate) fn origin_has_phrase(&self, phrase: &[Word]) -> bool {
-        self.axis_has_phrase(phrase, &Location::default(), phrase[1])
-    }
-
     pub(crate) fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
         self.axis_has_exact_phrase(phrase, &Location::default(), phrase[1])
     }
@@ -559,15 +555,6 @@ mod tests {
     fn it_has_an_origin() {
         let example_ortho = Ortho::new(1, 2, 3, 4);
         assert_eq!(example_ortho.get_origin(), 1);
-    }
-
-    #[test]
-    fn it_can_detect_if_it_contains_a_phrase() {
-        let example_ortho = Ortho::new(1, 2, 3, 4);
-
-        assert!(example_ortho.origin_has_phrase(&vec![1, 2]));
-        assert!(example_ortho.origin_has_phrase(&vec![1, 3]));
-        assert!(!example_ortho.origin_has_phrase(&vec![1, 5]));
     }
 
     #[test]

@@ -22,7 +22,7 @@ pub(crate) fn up_forward(
     let projected_forward = forward(conn, old_ortho.get_origin())?;
     let orthos_to_right: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_forward)?
         .iter()
-        .filter(|o| old_ortho.get_dims() == o.get_dims()) // group by dims
+        .filter(|o| old_ortho.get_dims() == o.get_dims())
         .cloned()
         .collect();
 
@@ -66,7 +66,7 @@ pub(crate) fn up_back(
 
     let orthos_to_left: Vec<Ortho> = get_ortho_by_origin_batch(conn, projected_backward)?
         .into_iter()
-        .filter(|o| old_ortho.get_dims() == o.get_dims()) // group by dims
+        .filter(|o| old_ortho.get_dims() == o.get_dims())
         .collect();
 
     let backward_left_vocab = orthos_to_left
