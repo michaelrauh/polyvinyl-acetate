@@ -1,11 +1,11 @@
-use anyhow::Error;
 use std::collections::{BTreeMap, HashSet};
 
 use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
+    ortho::Ortho, vec_of_big_ints_to_big_int, vec_of_words_to_big_int, FailableWordToOrthoVec,
+    FailableWordVecToOrthoVec, Word,
 };
 
 pub(crate) fn over_by_origin(
@@ -20,55 +20,86 @@ pub(crate) fn over_by_origin(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
+    let head = phrase[0];
+    let shift_left = phrase[1];
+    let shift_right = phrase[2];
 
-    let orthos_by_origin_left = ortho_by_origin(conn, phrase[0])?;
+    let orthos_by_origin_left = ortho_by_origin(conn, head)?;
     let lhs_by_origin = orthos_by_origin_left
-        .iter()
-        .filter(|o| o.origin_has_phrase(lhs_phrase_head))
-        .filter(|o| o.axis_length(phrase[1]) == (phrase.len() - 2));
+        .into_iter()
+        .filter(|o| o.origin_has_full_length_phrase(lhs_phrase_head));
+    let orthos_by_origin_right = ortho_by_origin(conn, shift_left)?;
 
-    let orthos_by_origin_right = ortho_by_origin(conn, phrase[1])?;
     let rhs_by_origin = orthos_by_origin_right
-        .iter()
-        .filter(|o| o.origin_has_phrase(rhs_phrase_head))
-        .filter(|o| o.axis_length(phrase[2]) == (phrase.len() - 2));
+        .into_iter()
+        .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
 
-    let origin_potential_pairings = Itertools::cartesian_product(lhs_by_origin, rhs_by_origin)
-        .filter(|(l, r)| l.get_dims() == r.get_dims())
-        .map(|(l, r)| (l, r, phrase[1], phrase[2]));
-
-    let all_inputs = origin_potential_pairings.clone();
-
-    let all_phrase_heads_left: HashSet<i64> = origin_potential_pairings
+    let all_phrase_heads_left: HashSet<i64> = lhs_by_origin
         .clone()
-        .flat_map(|(l, _r, sl, _sr)| {
-            let phrases = l.phrases(sl);
+        .flat_map(|o| {
+            let phrases = o.phrases(shift_left);
             phrases
                 .iter()
                 .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+                .collect::<Vec<i64>>()
         })
         .collect();
 
-    let all_phrase_heads_right: HashSet<i64> = origin_potential_pairings
-        .flat_map(|(_l, r, _sl, sr)| {
-            let phrases = r.phrases(sr);
+    let all_phrase_heads_right: HashSet<i64> = rhs_by_origin
+        .clone()
+        .flat_map(|o| {
+            let phrases = o.phrases(shift_right);
             phrases
                 .iter()
                 .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+                .collect::<Vec<i64>>()
         })
         .collect();
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
-    let mut res = vec![];
-    for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
-            res.push(answer);
-        }
-    }
-    Ok(res)
+    let left_map = Itertools::into_group_map_by(lhs_by_origin.clone(), |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_origin.clone(), |o| o.get_dims());
+
+    let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
+    let dims_right = HashSet::from_iter(right_map.keys());
+
+    Ok(dims_left
+        .intersection(&dims_right)
+        .flat_map(|dims| {
+            Itertools::cartesian_product(
+                left_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+                right_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+            )
+            .filter(|(lo, ro)| {
+                let phrases_left = lo.phrases(shift_left);
+                let mut phrases_per_left = phrases_left
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+                    .collect::<Vec<i64>>();
+                phrases_per_left.sort();
+                let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
+
+                let phrases_right = ro.phrases(shift_right);
+                let mut phrases_per_right = phrases_right
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+                    .collect::<Vec<i64>>();
+                phrases_per_right.sort();
+                let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                summary_left == summary_right
+            })
+            .flat_map(|(lo, ro)| {
+                attempt_combine_over_with_phrases(&all_phrases, lo, ro, shift_left, shift_right)
+            })
+        })
+        .collect())
 }
 
 pub(crate) fn over_by_hop(
@@ -87,39 +118,18 @@ pub(crate) fn over_by_hop(
     let orthos_by_hop_left = ortho_by_hop(conn, vec![phrase[0]])?;
     let lhs_by_hop = orthos_by_hop_left
         .iter()
-        .filter(|o| o.hop_has_phrase(lhs_phrase_head))
-        .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
-            if o.axis_length(axis) == phrase.len() - 2 {
-                Some((o, axis))
-            } else {
-                None
-            }
-        });
+        .filter(|o| o.hop_has_full_length_phrase(lhs_phrase_head));
 
     let orthos_by_hop_right = ortho_by_hop(conn, vec![phrase[1]])?;
     let rhs_by_hop = orthos_by_hop_right
         .iter()
-        .filter(|o| o.hop_has_phrase(rhs_phrase_head))
-        .filter_map(|o| {
-            let axis = o.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
-            if o.axis_length(axis) == phrase.len() - 2 {
-                Some((o, axis))
-            } else {
-                None
-            }
-        });
+        .filter(|o| o.hop_has_full_length_phrase(rhs_phrase_head));
 
-    let hop_potential_pairings = Itertools::cartesian_product(lhs_by_hop, rhs_by_hop)
-        .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-        .map(|((l, lx), (r, rx))| (l, r, lx, rx));
-
-    let all_inputs = hop_potential_pairings.clone();
-
-    let all_phrase_heads_left: HashSet<i64> = hop_potential_pairings
+    let all_phrase_heads_left: HashSet<i64> = lhs_by_hop
         .clone()
-        .flat_map(|(l, _r, sl, _sr)| {
-            let phrases = l.phrases(sl);
+        .flat_map(|o| {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
+            let phrases = o.phrases(axis);
             phrases
                 .iter()
                 .map(|p| vec_of_words_to_big_int(p.to_vec()))
@@ -127,25 +137,68 @@ pub(crate) fn over_by_hop(
         })
         .collect();
 
-    let all_phrase_heads_right: HashSet<i64> = hop_potential_pairings
-        .flat_map(|(_l, r, _sl, sr)| {
-            let phrases = r.phrases(sr);
+    let all_phrase_heads_right: HashSet<i64> = rhs_by_hop
+        .clone()
+        .flat_map(|o| {
+            let axis = o.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
+            let phrases = o.phrases(axis);
             phrases
                 .iter()
                 .map(|p| vec_of_words_to_big_int(p.to_vec()))
                 .collect::<Vec<_>>()
         })
         .collect();
+
+    let left_map = Itertools::into_group_map_by(lhs_by_hop.into_iter(), |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_hop.into_iter(), |o| o.get_dims());
+
+    let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
+    let dims_right = HashSet::from_iter(right_map.keys());
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
-    let mut res = vec![];
-    for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
-            res.push(answer);
-        }
-    }
-    Ok(res)
+    Ok(dims_left
+        .intersection(&dims_right)
+        .flat_map(|dims| {
+            Itertools::cartesian_product(
+                left_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+                right_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+            )
+            .filter(|(lo, ro)| {
+                let axis_left = lo.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
+                let axis_right = ro.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
+
+                let mut phrases_per_left = lo
+                    .phrases(axis_left)
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+                    .collect_vec();
+                phrases_per_left.sort();
+                let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
+
+                let phrases_right = ro.phrases(axis_right);
+                let mut phrases_per_right = phrases_right
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+                    .collect_vec();
+                phrases_per_right.sort();
+                let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                summary_left == summary_right
+            })
+            .flat_map(|(lo, ro)| {
+                let axis_left = lo.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
+                let axis_right = ro.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
+
+                attempt_combine_over_with_phrases(&all_phrases, lo, ro, axis_left, axis_right)
+            })
+        })
+        .collect())
 }
 
 pub(crate) fn over_by_contents(
@@ -164,113 +217,108 @@ pub(crate) fn over_by_contents(
     let orthos_by_contents_left = ortho_by_contents(conn, vec![phrase[0]])?;
     let lhs_by_contents = orthos_by_contents_left
         .iter()
-        .filter(|o| o.contents_has_phrase(lhs_phrase_head))
-        .map(|o| {
-            (
-                o,
-                o.axes_of_change_between_names_for_contents(phrase[0], phrase[1]),
-            )
-        })
-        .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
-        .filter(|(o, a)| o.axis_length(*a) == phrase.len() - 2)
-        .map(|(o, a)| (o, a));
+        .filter(|o| o.contents_has_full_length_phrase(lhs_phrase_head));
 
     let orthos_by_contents_right = ortho_by_contents(conn, vec![phrase[1]])?;
     let rhs_by_contents = orthos_by_contents_right
         .iter()
-        .filter(|o| o.contents_has_phrase(rhs_phrase_head))
-        .map(|o| {
-            (
-                o,
-                o.axes_of_change_between_names_for_contents(phrase[1], phrase[2]),
-            )
-        })
-        .flat_map(|(o, axs)| axs.into_iter().map(|axis| (o, axis)).collect::<Vec<_>>())
-        .filter(|(o, a)| o.axis_length(*a) == phrase.len() - 2)
-        .map(|(o, a)| (o, a));
+        .filter(|o| o.contents_has_full_length_phrase(rhs_phrase_head));
 
-    let contents_potential_pairings =
-        Itertools::cartesian_product(lhs_by_contents, rhs_by_contents)
-            .filter(|((l, _lx), (r, _rx))| l.get_dims() == r.get_dims())
-            .map(|((l, lx), (r, rx))| (l, r, lx, rx));
-
-    let all_inputs = contents_potential_pairings.clone();
-
-    let all_phrase_heads_left: HashSet<i64> = contents_potential_pairings
+    let all_phrase_heads_left: HashSet<i64> = lhs_by_contents
         .clone()
-        .flat_map(|(l, _r, sl, _sr)| {
-            let phrases = l.phrases(sl);
-            phrases
-                .iter()
-                .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+        .flat_map(|o| {
+            let axes = o.axes_of_change_between_names_for_contents(phrase[0], phrase[1]);
+            axes.iter()
+                .flat_map(|axis| {
+                    let phrases = o.phrases(*axis);
+                    phrases
+                        .iter()
+                        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                        .collect::<Vec<_>>()
+                })
+                .collect_vec()
         })
         .collect();
 
-    let all_phrase_heads_right: HashSet<i64> = contents_potential_pairings
-        .flat_map(|(_l, r, _sl, sr)| {
-            let phrases = r.phrases(sr);
-            phrases
-                .iter()
-                .map(|p| vec_of_words_to_big_int(p.to_vec()))
-                .collect::<Vec<_>>()
+    let all_phrase_heads_right: HashSet<i64> = rhs_by_contents
+        .clone()
+        .flat_map(|o| {
+            let axes = o.axes_of_change_between_names_for_contents(phrase[1], phrase[2]);
+            axes.iter()
+                .flat_map(|axis| {
+                    let phrases = o.phrases(*axis);
+                    phrases
+                        .iter()
+                        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                        .collect::<Vec<_>>()
+                })
+                .collect_vec()
         })
         .collect();
+
+    let left_map = Itertools::into_group_map_by(lhs_by_contents.into_iter(), |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_contents.into_iter(), |o| o.get_dims());
+
+    let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
+    let dims_right = HashSet::from_iter(right_map.keys());
 
     let all_phrases = phrase_exists_db_filter(conn, all_phrase_heads_left, all_phrase_heads_right)?;
 
-    let mut res = vec![];
-    for (lo, ro, lhs, rhs) in all_inputs {
-        for answer in attempt_combine_over_with_phrases(&all_phrases, lo, ro, lhs, rhs) {
-            res.push(answer);
-        }
-    }
-    Ok(res)
-}
+    Ok(dims_left
+        .intersection(&dims_right)
+        .flat_map(|dims| {
+            Itertools::cartesian_product(
+                left_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+                right_map
+                    .get(dims)
+                    .expect("do not get dims that do not exist")
+                    .into_iter(),
+            )
+            .filter(|(lo, ro)| {
+                let axes_left = lo.axes_of_change_between_names_for_contents(phrase[0], phrase[1]);
+                let axes_right = ro.axes_of_change_between_names_for_contents(phrase[1], phrase[2]);
 
-pub fn attempt_combine_over(
-    conn: Option<&PgConnection>,
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, Error>,
-    lo: &Ortho,
-    ro: &Ortho,
-    left_shift_axis: Word,
-    right_shift_axis: Word,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    let mut ans = vec![];
-    let mut lo_hop_set = lo.get_hop();
+                Itertools::cartesian_product(axes_left.into_iter(), axes_right.into_iter()).any(
+                    |(axis_left, axis_right)| {
+                        let mut phrases_per_left = lo
+                            .phrases(axis_left)
+                            .iter()
+                            .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+                            .collect_vec();
+                        phrases_per_left.sort();
+                        let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
 
-    lo_hop_set.remove(&left_shift_axis);
-    let lo_hop = Vec::from_iter(lo_hop_set.iter().cloned());
+                        let mut phrases_per_right = ro
+                            .phrases(axis_right)
+                            .iter()
+                            .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+                            .collect_vec();
+                        phrases_per_right.sort();
+                        let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                        summary_left == summary_right
+                    },
+                )
+            })
+            .flat_map(|(lo, ro)| {
+                let axes_left = lo.axes_of_change_between_names_for_contents(phrase[0], phrase[1]);
+                let axes_right = ro.axes_of_change_between_names_for_contents(phrase[1], phrase[2]);
 
-    let mut ro_hop_set = ro.get_hop();
-    ro_hop_set.remove(&right_shift_axis);
-
-    let fixed_right_hand: Vec<Word> = ro_hop_set.iter().cloned().collect();
-
-    let lo_hop_len = lo_hop.len();
-    let left_hand_coordinate_configurations =
-        Itertools::permutations(lo_hop.into_iter(), lo_hop_len);
-
-    for left_mapping in left_hand_coordinate_configurations {
-        if axis_lengths_match(&left_mapping, &fixed_right_hand, lo, ro) {
-            let mapping = make_mapping(
-                left_mapping,
-                fixed_right_hand.clone(),
-                right_shift_axis,
-                left_shift_axis,
-            );
-
-            if mapping_works(&mapping, lo, ro, right_shift_axis, left_shift_axis) {
-                let ortho_to_add = Ortho::zip_over(lo, ro, &mapping, right_shift_axis);
-
-                if phrases_work(phrase_exists, &ortho_to_add, left_shift_axis, conn)? {
-                    ans.push(ortho_to_add);
-                }
-            }
-        }
-    }
-
-    Ok(ans)
+                Itertools::cartesian_product(axes_left.into_iter(), axes_right.into_iter())
+                    .flat_map(|(axis_left, axis_right)| {
+                        attempt_combine_over_with_phrases(
+                            &all_phrases,
+                            lo,
+                            ro,
+                            axis_left,
+                            axis_right,
+                        )
+                    })
+            })
+        })
+        .collect())
 }
 
 pub fn attempt_combine_over_with_phrases(
@@ -315,22 +363,6 @@ pub fn attempt_combine_over_with_phrases(
     }
 
     ans
-}
-
-fn phrases_work(
-    phrase_exists: fn(Option<&PgConnection>, Vec<Word>) -> Result<bool, anyhow::Error>,
-    ortho_to_add: &Ortho,
-    shift_axis: Word,
-    conn: Option<&PgConnection>,
-) -> Result<bool, anyhow::Error> {
-    let phrases = ortho_to_add.phrases(shift_axis);
-
-    for phrase in phrases {
-        if !phrase_exists(conn, phrase)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
 }
 
 fn phrases_work_precomputed(
@@ -701,6 +733,10 @@ mod tests {
         // a b | b e    =   a b e
         // c d | d f        c d f
 
+        // 1 2 | 2 5  =     1 2 5
+        // 3 4 | 4 6        3 4 6
+
+        // center = { 2 4 }
         let expected = Ortho::zip_over(
             &Ortho::new(1, 2, 3, 4),
             &Ortho::new(2, 5, 4, 6),

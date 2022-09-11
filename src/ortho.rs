@@ -51,30 +51,6 @@ impl Ortho {
         }
     }
 
-    pub(crate) fn contents_has_phrase(&self, phrase: &[Word]) -> bool {
-        let head = &phrase[0];
-        let hop = self.get_hop();
-
-        self.location_at_name(*head)
-            .into_iter()
-            .filter(|loc| loc.is_contents() && loc.is_edge(&hop))
-            .flat_map(|loc| {
-                loc.missing_axes(&hop)
-                    .into_iter()
-                    .find(|axis| self.axis_has_phrase(phrase, loc, *axis))
-            })
-            .next()
-            .is_some()
-    }
-
-    pub(crate) fn hop_has_phrase(&self, phrase: &[Word]) -> bool {
-        let loc = Location::singleton(phrase[0]);
-
-        loc.missing_axes(&self.get_hop())
-            .iter()
-            .any(|axis| self.axis_has_phrase(phrase, &loc, *axis))
-    }
-
     pub(crate) fn axis_has_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
         phrase
             .iter()
@@ -89,8 +65,43 @@ impl Ortho {
             })
     }
 
-    pub(crate) fn origin_has_phrase(&self, phrase: &[Word]) -> bool {
-        self.axis_has_phrase(phrase, &Location::default(), phrase[1])
+    pub(crate) fn axis_has_exact_phrase(
+        &self,
+        phrase: &[Word],
+        loc: &Location,
+        axis: Word,
+    ) -> bool {
+        self.axis_has_phrase(phrase, loc, axis)
+            && self
+                .optional_name_at_location(&loc.add_n(axis, phrase.len()))
+                .is_none()
+    }
+
+    pub(crate) fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+        self.axis_has_exact_phrase(phrase, &Location::default(), phrase[1])
+    }
+
+    pub(crate) fn hop_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+        let loc = Location::singleton(phrase[0]);
+
+        loc.missing_axes(&self.get_hop())
+            .iter()
+            .any(|axis| self.axis_has_exact_phrase(phrase, &Location::singleton(phrase[0]), *axis))
+    }
+
+    pub(crate) fn contents_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+        let head = &phrase[0];
+        let hop = self.get_hop();
+
+        self.location_at_name(*head)
+            .into_iter()
+            .filter(|loc| loc.is_contents() && loc.is_edge(&hop))
+            .any(|starting_location| {
+                starting_location
+                    .missing_axes(&hop)
+                    .into_iter()
+                    .any(|axis| self.axis_has_exact_phrase(phrase, starting_location, axis))
+            })
     }
 
     pub(crate) fn get_bottom_right_corner(&self) -> &Location {
@@ -547,8 +558,9 @@ mod tests {
     }
 
     #[test]
-    fn it_can_detect_if_it_contains_a_phrase() {
-        let example_ortho = Ortho::new(1, 2, 3, 4);
+    fn it_can_detect_if_it_contains_an_exact_full_length_phrase() {
+        // 1 2 5
+        // 3 4 6
 
         let wider = Ortho::zip_over(
             &Ortho::new(1, 2, 3, 4),
@@ -559,29 +571,57 @@ mod tests {
             },
             5,
         );
+        assert!(!wider.origin_has_full_length_phrase(&vec![1, 2]));
+        assert!(wider.origin_has_full_length_phrase(&vec![1, 2, 5]));
 
-        let tricky_ortho = Ortho::new(2, 22, 2, 5);
+        assert!(!wider.hop_has_full_length_phrase(&vec![3, 4]));
+        assert!(wider.hop_has_full_length_phrase(&vec![3, 4, 6]));
 
-        let tricky_two = Ortho::zip_over(
-            &Ortho::new(2, 2, 22, 22),
-            &Ortho::new(2, 2, 22, 5),
+        let abde = Ortho::new(1, 2, 4, 5);
+
+        let bcef = Ortho::new(2, 3, 5, 6);
+
+        let degh = Ortho::new(4, 5, 7, 8);
+
+        let efhi = Ortho::new(5, 6, 8, 9);
+
+        let abcdef = Ortho::zip_over(
+            &abde,
+            &bcef,
             &btreemap! {
-                2 => 2,
-                22 => 22
+                3 => 2,
+                5 => 4
             },
-            2,
+            3,
         );
 
-        assert!(example_ortho.origin_has_phrase(&vec![1, 2]));
-        assert!(example_ortho.hop_has_phrase(&vec![3, 4]));
-        assert!(example_ortho.origin_has_phrase(&vec![1, 3]));
-        assert!(example_ortho.hop_has_phrase(&vec![2, 4]));
-        assert!(!example_ortho.origin_has_phrase(&vec![1, 5]));
-        assert!(!example_ortho.hop_has_phrase(&vec![2, 1]));
-        assert!(wider.contents_has_phrase(&vec![5, 6]));
-        assert!(!wider.contents_has_phrase(&vec![6, 5]));
-        assert!(tricky_ortho.hop_has_phrase(&vec![2, 5]));
-        assert!(tricky_two.contents_has_phrase(&vec![2, 5]));
+        let defghi = Ortho::zip_over(
+            &degh,
+            &efhi,
+            &btreemap! {
+                6 => 5,
+                8 => 7
+            },
+            6,
+        );
+
+        let bigger = Ortho::zip_over(
+            &abcdef,
+            &defghi,
+            &btreemap! {
+                5 => 2,
+                7 => 4
+            },
+            7,
+        );
+
+        // a b c   1 2 3
+        // d e f   4 5 6
+        // g h i   7 8 9
+
+        // phrase: c f i   3 6 9
+        assert!(!bigger.contents_has_full_length_phrase(&vec![3, 6]));
+        assert!(bigger.contents_has_full_length_phrase(&vec![3, 6, 9]));
     }
 
     #[test]

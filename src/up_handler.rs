@@ -97,15 +97,14 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
 ) -> Vec<Ortho> {
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
-    let keys = dimensionalities_left.union(&dimensionalities_right);
-    let conveniently_empty_vector = vec![];
+    let keys = dimensionalities_left.intersection(&dimensionalities_right);
     keys.flat_map(|dimensionality| {
         let suspect_left = left_map
             .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
+            .expect("key must exist as it is from this set");
         let suspect_right = right_map
             .get(dimensionality)
-            .unwrap_or(&conveniently_empty_vector);
+            .expect("key must exist as it is from this set");
         Itertools::cartesian_product(suspect_left.into_iter(), suspect_right.into_iter())
             .flat_map(|(lo, ro)| up_helper::attempt_up(&all_pairs, lo, ro))
     })
@@ -146,18 +145,18 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
 ) -> Vec<Ortho> {
     let dimensionalities_left: HashSet<&usize> = HashSet::from_iter(left_map.keys());
     let dimensionalities_right: HashSet<&usize> = HashSet::from_iter(right_map.keys());
-    let conveniently_empty_vector = vec![];
+
     dimensionalities_left
-        .union(&dimensionalities_right)
+        .intersection(&dimensionalities_right)
         .flat_map(|dimensionality| {
             Itertools::cartesian_product(
                 left_map
                     .get(dimensionality)
-                    .unwrap_or(&conveniently_empty_vector)
+                    .expect("key must exist as it is from this set")
                     .into_iter(),
                 right_map
                     .get(dimensionality)
-                    .unwrap_or(&conveniently_empty_vector)
+                    .expect("key must exist as it is from this set")
                     .into_iter(),
             )
             .filter(|(lo, ro)| {
