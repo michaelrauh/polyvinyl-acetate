@@ -4,8 +4,7 @@ use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_big_ints_to_big_int, vec_of_words_to_big_int, FailableWordToOrthoVec,
-    FailableWordVecToOrthoVec, Word,
+    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
 };
 
 pub(crate) fn over_by_origin(
@@ -78,21 +77,8 @@ pub(crate) fn over_by_origin(
                     .into_iter(),
             )
             .filter(|(lo, ro)| {
-                let phrases_left = lo.phrases(shift_left);
-                let mut phrases_per_left = phrases_left
-                    .iter()
-                    .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
-                    .collect::<Vec<i64>>();
-                phrases_per_left.sort();
-                let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
-
-                let phrases_right = ro.phrases(shift_right);
-                let mut phrases_per_right = phrases_right
-                    .iter()
-                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
-                    .collect::<Vec<i64>>();
-                phrases_per_right.sort();
-                let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                let summary_left = lo.phrase_tail_summary(shift_left);
+                let summary_right = ro.phrase_head_summary(shift_right);
                 summary_left == summary_right
             })
             .flat_map(|(lo, ro)| {
@@ -174,21 +160,8 @@ pub(crate) fn over_by_hop(
                 let axis_left = lo.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
                 let axis_right = ro.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
 
-                let mut phrases_per_left = lo
-                    .phrases(axis_left)
-                    .iter()
-                    .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
-                    .collect_vec();
-                phrases_per_left.sort();
-                let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
-
-                let phrases_right = ro.phrases(axis_right);
-                let mut phrases_per_right = phrases_right
-                    .iter()
-                    .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
-                    .collect_vec();
-                phrases_per_right.sort();
-                let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                let summary_left = lo.phrase_tail_summary(axis_left);
+                let summary_right = ro.phrase_head_summary(axis_right);
                 summary_left == summary_right
             })
             .flat_map(|(lo, ro)| {
@@ -283,21 +256,8 @@ pub(crate) fn over_by_contents(
 
                 Itertools::cartesian_product(axes_left.into_iter(), axes_right.into_iter()).any(
                     |(axis_left, axis_right)| {
-                        let mut phrases_per_left = lo
-                            .phrases(axis_left)
-                            .iter()
-                            .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
-                            .collect_vec();
-                        phrases_per_left.sort();
-                        let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
-
-                        let mut phrases_per_right = ro
-                            .phrases(axis_right)
-                            .iter()
-                            .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
-                            .collect_vec();
-                        phrases_per_right.sort();
-                        let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+                        let summary_left = lo.phrase_tail_summary(axis_left);
+                        let summary_right = ro.phrase_head_summary(axis_right);
                         summary_left == summary_right
                     },
                 )

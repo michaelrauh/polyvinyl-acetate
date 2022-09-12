@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, HashSet};
 
-use crate::Word;
+use crate::{vec_of_big_ints_to_big_int, vec_of_words_to_big_int, Word};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct Ortho {
-    pub(crate) info: BTreeMap<Location, Word>,
+    pub info: BTreeMap<Location, Word>,
 }
 
 impl Ortho {
-    pub(crate) fn get_origin(&self) -> Word {
+    pub fn get_origin(&self) -> Word {
         let (_k, v) = self
             .info
             .iter()
@@ -21,25 +21,25 @@ impl Ortho {
         *v
     }
 
-    pub(crate) fn get_hop(&self) -> HashSet<Word> {
+    pub fn get_hop(&self) -> HashSet<Word> {
         self.info
             .iter()
             .filter_map(|(k, v)| if k.length() == 1 { Some(*v) } else { None })
             .collect()
     }
 
-    pub(crate) fn get_contents(&self) -> HashSet<Word> {
+    pub fn get_contents(&self) -> HashSet<Word> {
         self.info
             .iter()
             .filter_map(|(k, v)| if k.length() > 1 { Some(*v) } else { None })
             .collect()
     }
 
-    pub(crate) fn is_base(&self) -> bool {
+    pub fn is_base(&self) -> bool {
         self.get_bottom_right_corner().each_location_is_length_one()
     }
 
-    pub(crate) fn new(a: Word, b: Word, c: Word, d: Word) -> Ortho {
+    pub fn new(a: Word, b: Word, c: Word, d: Word) -> Ortho {
         Ortho {
             info: btreemap! {Location { info: btreemap! {} } => a, Location {
                 info: btreemap! {b => 1},
@@ -51,7 +51,7 @@ impl Ortho {
         }
     }
 
-    pub(crate) fn axis_has_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
+    pub fn axis_has_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
         phrase
             .iter()
             .skip(1)
@@ -65,23 +65,18 @@ impl Ortho {
             })
     }
 
-    pub(crate) fn axis_has_exact_phrase(
-        &self,
-        phrase: &[Word],
-        loc: &Location,
-        axis: Word,
-    ) -> bool {
+    fn axis_has_exact_phrase(&self, phrase: &[Word], loc: &Location, axis: Word) -> bool {
         self.axis_has_phrase(phrase, loc, axis)
             && self
                 .optional_name_at_location(&loc.add_n(axis, phrase.len()))
                 .is_none()
     }
 
-    pub(crate) fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+    pub fn origin_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
         self.axis_has_exact_phrase(phrase, &Location::default(), phrase[1])
     }
 
-    pub(crate) fn hop_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+    pub fn hop_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
         let loc = Location::singleton(phrase[0]);
 
         loc.missing_axes(&self.get_hop())
@@ -89,7 +84,7 @@ impl Ortho {
             .any(|axis| self.axis_has_exact_phrase(phrase, &Location::singleton(phrase[0]), *axis))
     }
 
-    pub(crate) fn contents_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
+    pub fn contents_has_full_length_phrase(&self, phrase: &[Word]) -> bool {
         let head = &phrase[0];
         let hop = self.get_hop();
 
@@ -104,22 +99,18 @@ impl Ortho {
             })
     }
 
-    pub(crate) fn get_bottom_right_corner(&self) -> &Location {
+    pub fn get_bottom_right_corner(&self) -> &Location {
         self.info
             .keys()
             .max_by(|left, right| left.length().cmp(&right.length()))
             .expect("don't get the bottom right corner of empty orthos")
     }
 
-    pub(crate) fn get_dims(&self) -> BTreeMap<usize, usize> {
+    pub fn get_dims(&self) -> BTreeMap<usize, usize> {
         self.get_bottom_right_corner().dims()
     }
 
-    pub(crate) fn zip_up(
-        l: &Ortho,
-        r: &Ortho,
-        old_axis_to_new_axis: &BTreeMap<Word, Word>,
-    ) -> Ortho {
+    pub fn zip_up(l: &Ortho, r: &Ortho, old_axis_to_new_axis: &BTreeMap<Word, Word>) -> Ortho {
         let shift_axis = r.get_origin();
         let right_with_lefts_coordinate_system: BTreeMap<Location, Word> = r
             .info
@@ -135,18 +126,18 @@ impl Ortho {
         Ortho { info: combined }
     }
 
-    pub(crate) fn name_at_location(&self, location: &Location) -> Word {
+    pub fn name_at_location(&self, location: &Location) -> Word {
         *self
             .info
             .get(location)
             .expect("locations must be present to be queried")
     }
 
-    pub(crate) fn optional_name_at_location(&self, location: &Location) -> Option<Word> {
+    pub fn optional_name_at_location(&self, location: &Location) -> Option<Word> {
         self.info.get(location).copied()
     }
 
-    pub(crate) fn get_dimensionality(&self) -> usize {
+    pub fn get_dimensionality(&self) -> usize {
         self.info
             .keys()
             .max_by(|left, right| left.length().cmp(&right.length()))
@@ -154,14 +145,14 @@ impl Ortho {
             .length()
     }
 
-    pub(crate) fn get_names_at_distance(&self, dist: usize) -> HashSet<Word> {
+    pub fn get_names_at_distance(&self, dist: usize) -> HashSet<Word> {
         self.info
             .iter()
             .filter_map(|(k, v)| if k.length() == dist { Some(*v) } else { None })
             .collect()
     }
 
-    pub(crate) fn zip_over(
+    pub fn zip_over(
         l: &Ortho,
         r: &Ortho,
         mapping: &BTreeMap<Word, Word>,
@@ -180,7 +171,7 @@ impl Ortho {
         Ortho { info: combined }
     }
 
-    pub(crate) fn axis_length(&self, name: Word) -> usize {
+    pub fn axis_length(&self, name: Word) -> usize {
         self.info
             .keys()
             .max_by(|left, right| left.count_axis(name).cmp(&right.count_axis(name)))
@@ -204,15 +195,15 @@ impl Ortho {
             .collect()
     }
 
-    pub(crate) fn to_vec(&self) -> Vec<(&Location, Word)> {
+    pub fn to_vec(&self) -> Vec<(&Location, Word)> {
         self.info.iter().map(|(a, b)| (a, *b)).collect()
     }
 
-    pub(crate) fn get_vocabulary(&self) -> impl Iterator<Item = i32> + '_ {
+    pub fn get_vocabulary(&self) -> impl Iterator<Item = i32> + '_ {
         self.info.iter().map(|(_, b)| *b)
     }
 
-    pub(crate) fn phrases(&self, shift_axis: Word) -> Vec<Vec<Word>> {
+    pub fn phrases(&self, shift_axis: Word) -> Vec<Vec<Word>> {
         let length = self.axis_length(shift_axis);
         self.info
             .iter()
@@ -231,11 +222,7 @@ impl Ortho {
             .collect()
     }
 
-    pub(crate) fn axis_of_change_between_names_for_hop(
-        &self,
-        from_name: Word,
-        to_name: Word,
-    ) -> Word {
+    pub fn axis_of_change_between_names_for_hop(&self, from_name: Word, to_name: Word) -> Word {
         let all_locations_for_to_name = self.location_at_name(to_name);
         let to_location = all_locations_for_to_name
             .iter()
@@ -249,7 +236,7 @@ impl Ortho {
             .expect("there should be an axis of change from hop")
     }
 
-    pub(crate) fn axes_of_change_between_names_for_contents(
+    pub fn axes_of_change_between_names_for_contents(
         &self,
         from_name: Word,
         to_name: Word,
@@ -268,7 +255,7 @@ impl Ortho {
         missing_axeses.collect()
     }
 
-    pub(crate) fn all_full_length_phrases(&self) -> Vec<Vec<Word>> {
+    pub fn all_full_length_phrases(&self) -> Vec<Vec<Word>> {
         self.get_hop()
             .iter()
             .flat_map(|axis| {
@@ -282,13 +269,35 @@ impl Ortho {
             .collect()
     }
 
-    pub(crate) fn origin_phrases(&self) -> Vec<Vec<Word>> {
+    pub fn origin_phrases(&self) -> Vec<Vec<Word>> {
         self.get_hop()
             .iter()
             .map(|axis| {
                 self.extract_phrase_along(*axis, self.axis_length(*axis), &Location::default())
             })
             .collect()
+    }
+
+    pub fn phrase_tail_summary(&self, shift_axis: Word) -> i64 {
+        let phrases_left = self.phrases(shift_axis);
+        let mut phrases_per_left = phrases_left
+            .iter()
+            .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
+            .collect::<Vec<i64>>();
+        phrases_per_left.sort();
+        let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
+        summary_left
+    }
+
+    pub fn phrase_head_summary(&self, shift_axis: Word) -> i64 {
+        let phrases_right = self.phrases(shift_axis);
+        let mut phrases_per_right = phrases_right
+            .iter()
+            .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
+            .collect::<Vec<i64>>();
+        phrases_per_right.sort();
+        let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
+        summary_right
     }
 }
 
@@ -326,15 +335,15 @@ impl Location {
         res
     }
 
-    pub(crate) fn count_axis(&self, axis: Word) -> usize {
+    pub fn count_axis(&self, axis: Word) -> usize {
         *self.info.get(&axis).unwrap_or(&0)
     }
 
-    pub(crate) fn add(&self, axis: Word) -> Location {
+    pub fn add(&self, axis: Word) -> Location {
         self.add_n(axis, 1)
     }
 
-    pub(crate) fn add_n(&self, axis: Word, n: usize) -> Location {
+    pub fn add_n(&self, axis: Word, n: usize) -> Location {
         let mut res: BTreeMap<Word, usize> = self.info.to_owned();
         *res.entry(axis).or_insert(0) += n;
         Location { info: res }
@@ -359,11 +368,11 @@ impl Location {
         self.info.values().any(|i| i > &1)
     }
 
-    pub(crate) fn default() -> Location {
+    pub fn default() -> Location {
         Location { info: btreemap! {} }
     }
 
-    pub(crate) fn singleton(name: Word) -> Location {
+    pub fn singleton(name: Word) -> Location {
         Location {
             info: btreemap! {name => 1},
         }

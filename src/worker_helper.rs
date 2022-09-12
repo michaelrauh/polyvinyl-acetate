@@ -4,6 +4,7 @@ use crate::{
     sentence_todo_handler,
 };
 
+#[tracing::instrument]
 pub fn handle_todo(todo: Todo) -> amiquip::Result<(), anyhow::Error> {
     let res = match todo.domain.as_str() {
         "books" => book_todo_handler::handle_book_todo(todo),

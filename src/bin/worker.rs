@@ -32,6 +32,11 @@ fn get() -> Result<(), anyhow::Error> {
     channel.qos(0, 1, false)?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
+
+    let subscriber = tracing_subscriber::FmtSubscriber::new();
+    tracing::subscriber::set_global_default(subscriber)?;
+
+
     println!("Waiting for messages");
 
     for (i, message) in consumer.receiver().iter().enumerate() {
