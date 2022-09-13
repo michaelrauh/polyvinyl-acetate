@@ -33,7 +33,7 @@ pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo) -> Result<(), anyh
         Ok(())
     })
 }
-
+// tracing::info!("in this one!!!!");
 #[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
@@ -149,6 +149,7 @@ pub fn handle_ortho_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info", skip_all)]
 fn new_orthotopes_up_forward(
     conn: &diesel::PgConnection,
     old_orthotope: Ortho,
