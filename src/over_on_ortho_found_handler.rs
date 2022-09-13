@@ -10,6 +10,7 @@ use crate::{
     Word,
 };
 
+#[tracing::instrument(skip_all)]
 pub(crate) fn over_forward(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,

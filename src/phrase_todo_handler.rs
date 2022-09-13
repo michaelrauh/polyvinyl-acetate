@@ -71,6 +71,7 @@ pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(
     })
 }
 
+#[tracing::instrument(level = "error")]
 pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {

@@ -132,6 +132,7 @@ pub fn handle_pair_todo_up(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument]
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -154,6 +155,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(skip_all)]
 fn single_ffbb(
     conn: &PgConnection,
     first: Word,

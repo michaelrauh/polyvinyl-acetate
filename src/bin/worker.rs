@@ -4,7 +4,8 @@ use amiquip::{
 };
 use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
-use std::env;
+use std::{env, io};
+use tracing::{span_enabled, Level, trace_span};
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -32,15 +33,17 @@ fn get() -> Result<(), anyhow::Error> {
     channel.qos(0, 1, false)?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
-
-    let subscriber = tracing_subscriber::FmtSubscriber::new();
-    tracing::subscriber::set_global_default(subscriber)?;
-
-
-    println!("Waiting for messages");
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(Level::TRACE)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    let number_of_teams: i32 = 3;
+    tracing::info!(number_of_teams, "We've got {} teams!", number_of_teams);
 
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);
+        // tracing::info!(number_of_teams, "We've got {} teams!", number_of_teams);
+        let _ = tracing::info_span!("here");
         match message {
             ConsumerMessage::Delivery(delivery) => {
                 let todo: Todo = bincode::deserialize(&delivery.body)?;

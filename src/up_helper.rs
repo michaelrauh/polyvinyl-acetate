@@ -5,6 +5,7 @@ use itertools::{zip, Itertools};
 use std::collections::{BTreeMap, HashSet};
 
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
+    let _ = tracing::info_span!("try this one").entered();
     let lo_hop = lo.get_hop();
     let lo_hop_len = lo_hop.len();
     let left_hand_coordinate_configurations =

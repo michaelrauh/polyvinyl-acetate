@@ -7,6 +7,7 @@ use crate::ortho::Ortho;
 use crate::{ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 use diesel::PgConnection;
 
+#[tracing::instrument(skip_all)]
 pub fn up_by_origin(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -21,6 +22,7 @@ pub fn up_by_origin(
         anyhow::Error,
     >,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
+    let _  = tracing::info_span!("this").entered();
     let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
