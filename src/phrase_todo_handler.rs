@@ -17,6 +17,7 @@ use crate::{
     schema::phrases::id,
 };
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -35,6 +36,7 @@ pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(),
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -53,6 +55,7 @@ pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), an
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -71,7 +74,7 @@ pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(
     })
 }
 
-#[tracing::instrument(level = "error")]
+#[tracing::instrument(level = "info")]
 pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -94,6 +97,7 @@ pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_by_origin(
     conn: &PgConnection,
     phrase: Vec<Word>,
@@ -108,6 +112,8 @@ fn new_orthotopes_by_origin(
     let res = orthos.iter().map(ortho_to_orthotope).collect();
     Ok(res)
 }
+
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_by_hop(
     conn: &PgConnection,
     phrase: Vec<Word>,
@@ -122,6 +128,8 @@ fn new_orthotopes_by_hop(
     let res = orthos.iter().map(ortho_to_orthotope).collect();
     Ok(res)
 }
+
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_by_contents(
     conn: &PgConnection,
     phrase: Vec<Word>,
@@ -137,6 +145,7 @@ fn new_orthotopes_by_contents(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_phrase(conn: &PgConnection, pk: i32) -> Result<Vec<Word>, anyhow::Error> {
     let phrase: Vec<Word> = phrases
         .filter(id.eq(pk))

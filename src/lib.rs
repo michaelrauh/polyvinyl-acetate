@@ -51,11 +51,13 @@ type FailableHashsetWordsToHashsetNumbers = fn(
 
 type Word = i32;
 
+#[tracing::instrument(level = "info")]
 pub fn establish_connection_safe() -> Result<PgConnection, ConnectionError> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     PgConnection::establish(&database_url)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_hashes_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
     first_words: HashSet<Word>,
@@ -88,6 +90,7 @@ pub fn get_hashes_of_pairs_with_words_in(
     Ok(firsts.intersection(&seconds).cloned().collect())
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_hashes_and_words_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
     first_words: HashSet<Word>,
@@ -136,6 +139,7 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     Ok((firsts, seconds, hashes))
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_phrases_with_matching_hashes(
     conn: Option<&PgConnection>,
     all_phrases: HashSet<i64>,
@@ -156,6 +160,7 @@ pub fn get_phrases_with_matching_hashes(
     Ok(ps)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn project_forward_batch(
     conn: Option<&PgConnection>,
     from: HashSet<Word>,
@@ -176,6 +181,7 @@ fn project_forward_batch(
     Ok(seconds)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn project_backward_batch(
     conn: Option<&PgConnection>,
     from: HashSet<Word>,
@@ -198,6 +204,7 @@ fn project_backward_batch(
     Ok(firsts)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn create_todo_entry(
     conn: &PgConnection,
     all_todos: Vec<NewTodo>,
@@ -252,6 +259,7 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn project_forward(
     conn: Option<&PgConnection>,
     from: Word,
@@ -266,6 +274,7 @@ fn project_forward(
     Ok(seconds)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn project_backward(
     conn: Option<&PgConnection>,
     from: Word,
@@ -282,6 +291,7 @@ fn project_backward(
     Ok(firsts)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn insert_orthotopes(
     conn: &PgConnection,
     new_orthos: HashSet<NewOrthotope>,
@@ -304,6 +314,7 @@ pub fn insert_orthotopes(
     Ok(final_res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_ortho_by_origin(
     conn: Option<&PgConnection>,
     o: Word,
@@ -324,6 +335,7 @@ pub fn get_ortho_by_origin(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_base_ortho_by_origin(
     conn: Option<&PgConnection>,
     o: Word,
@@ -344,6 +356,7 @@ pub fn get_base_ortho_by_origin(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub fn get_ortho_by_origin_batch(
     conn: Option<&PgConnection>,
     o: HashSet<Word>,
@@ -381,6 +394,7 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     }
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_ortho_by_hop(
     conn: Option<&PgConnection>,
     other_hop: Vec<Word>,
@@ -400,6 +414,7 @@ fn get_ortho_by_hop(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_base_ortho_by_hop(
     conn: Option<&PgConnection>,
     other_hop: Vec<Word>,
@@ -419,6 +434,7 @@ fn get_base_ortho_by_hop(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_ortho_by_contents(
     conn: Option<&PgConnection>,
     other_contents: Vec<Word>,
@@ -438,6 +454,7 @@ fn get_ortho_by_contents(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_base_ortho_by_contents(
     conn: Option<&PgConnection>,
     other_contents: Vec<Word>,
@@ -457,6 +474,7 @@ fn get_base_ortho_by_contents(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub(crate) fn phrase_exists_db_filter(
     conn: Option<&PgConnection>,
     left: HashSet<i64>,
@@ -490,6 +508,7 @@ pub(crate) fn phrase_exists_db_filter(
     Ok(firsts.intersection(&seconds).cloned().collect())
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub(crate) fn phrase_exists_db_filter_head(
     conn: Option<&PgConnection>,
     left: HashSet<i64>,
@@ -510,6 +529,7 @@ pub(crate) fn phrase_exists_db_filter_head(
     Ok(firsts)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 pub(crate) fn phrase_exists_db_filter_tail(
     conn: Option<&PgConnection>,
     right: HashSet<i64>,
@@ -531,6 +551,7 @@ pub(crate) fn phrase_exists_db_filter_tail(
     Ok(seconds)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_relevant_vocabulary(
     conn: &PgConnection,
     words: HashSet<String>,
@@ -544,6 +565,7 @@ fn get_relevant_vocabulary(
     Ok(res.into_iter().collect())
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_relevant_vocabulary_reverse(
     conn: &PgConnection,
     words: HashSet<Word>,

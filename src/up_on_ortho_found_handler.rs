@@ -3,7 +3,7 @@ use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
 
-#[tracing::instrument(level = "info", skip_all)]
+#[tracing::instrument(level = "info", skip(conn, get_ortho_by_origin_batch, forward, get_pair_hashes_relevant_to_vocabularies))]
 pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,

@@ -7,7 +7,7 @@ use crate::ortho::Ortho;
 use crate::{ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 use diesel::PgConnection;
 
-#[tracing::instrument(skip_all)]
+#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_origin, get_hashes_and_words_of_pairs_with_words_in))]
 pub fn up_by_origin(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -22,7 +22,6 @@ pub fn up_by_origin(
         anyhow::Error,
     >,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
-    let _  = tracing::info_span!("this").entered();
     let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
@@ -42,6 +41,7 @@ pub fn up_by_origin(
     ))
 }
 
+#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_hop, get_hashes_and_words_of_pairs_with_words_in))]
 pub fn up_by_hop(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -67,6 +67,7 @@ pub fn up_by_hop(
     )?)
 }
 
+#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_contents, get_hashes_and_words_of_pairs_with_words_in))]
 pub fn up_by_contents(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -92,6 +93,7 @@ pub fn up_by_contents(
     )?)
 }
 
+#[tracing::instrument(level = "info")]
 fn attempt_up_for_pairs_of_matching_dimensionality(
     left_map: std::collections::HashMap<usize, Vec<Ortho>>,
     right_map: std::collections::HashMap<usize, Vec<Ortho>>,
@@ -113,6 +115,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
     .collect()
 }
 
+#[tracing::instrument(level = "info", skip(conn, get_hashes_and_words_of_pairs_with_words_in))]
 fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     get_hashes_and_words_of_pairs_with_words_in: fn(
         Option<&PgConnection>,
@@ -140,6 +143,7 @@ fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info")]
 fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
     left_map: std::collections::HashMap<usize, Vec<Ortho>>,
     right_map: std::collections::HashMap<usize, Vec<Ortho>>,
@@ -169,6 +173,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
         .collect()
 }
 
+#[tracing::instrument(level = "info")]
 fn group_orthos_of_right_vocabulary_by_dimensionality(
     orthos: Vec<Ortho>,
     vocabulary: HashSet<i32>,
@@ -182,6 +187,7 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
     )
 }
 
+#[tracing::instrument(level = "info")]
 fn total_vocabulary(orthos: &Vec<Ortho>) -> HashSet<i32> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }
