@@ -45,7 +45,7 @@ global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
 // There are other OTel crates that provide pipelines for the vendors
 // mentioned earlier.
 let tracer = opentelemetry_jaeger::new_pipeline()
-.with_agent_endpoint("host.docker.internal:6831")
+// .with_agent_endpoint("0.0.0.0:6831")
     .with_service_name("pvac")
     .install_simple().expect("tracer made");
 

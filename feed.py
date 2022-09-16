@@ -6,10 +6,10 @@ import urllib.parse as p
 import json
 
 def get(x):
-	return int(r.urlopen("http://0.0.0.0:30001/" + x).read().decode('utf-8'))
+	return int(r.urlopen("http://68.183.99.83:30001/" + x).read().decode('utf-8'))
 
 def post(x, data):
-    req = r.Request("http://0.0.0.0:30001/" + x)
+    req = r.Request("http://68.183.99.83:30001/" + x)
     req.add_header('Content-Type', 'application/json')
     return r.urlopen(req, data).read().decode('utf-8')
 
