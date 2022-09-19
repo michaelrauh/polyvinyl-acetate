@@ -7,7 +7,14 @@ use crate::ortho::Ortho;
 use crate::{ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word};
 use diesel::PgConnection;
 
-#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_origin, get_hashes_and_words_of_pairs_with_words_in))]
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_base_ortho_by_origin,
+        get_hashes_and_words_of_pairs_with_words_in
+    )
+)]
 pub fn up_by_origin(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -41,7 +48,14 @@ pub fn up_by_origin(
     ))
 }
 
-#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_hop, get_hashes_and_words_of_pairs_with_words_in))]
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_base_ortho_by_hop,
+        get_hashes_and_words_of_pairs_with_words_in
+    )
+)]
 pub fn up_by_hop(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -67,7 +81,14 @@ pub fn up_by_hop(
     )?)
 }
 
-#[tracing::instrument(level = "info", skip(conn, get_base_ortho_by_contents, get_hashes_and_words_of_pairs_with_words_in))]
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_base_ortho_by_contents,
+        get_hashes_and_words_of_pairs_with_words_in
+    )
+)]
 pub fn up_by_contents(
     conn: Option<&PgConnection>,
     first_w: Word,
@@ -115,7 +136,10 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
     .collect()
 }
 
-#[tracing::instrument(level = "info", skip(conn, get_hashes_and_words_of_pairs_with_words_in))]
+#[tracing::instrument(
+    level = "info",
+    skip(conn, get_hashes_and_words_of_pairs_with_words_in)
+)]
 fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     get_hashes_and_words_of_pairs_with_words_in: fn(
         Option<&PgConnection>,

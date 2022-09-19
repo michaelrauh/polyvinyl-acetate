@@ -10,7 +10,16 @@ use crate::{
     Word,
 };
 
-#[tracing::instrument(level = "info", skip(conn, get_ortho_by_origin_batch, project_forward_batch, get_phrases_with_matching_hashes, phrase_exists_db_filter_head))]
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_ortho_by_origin_batch,
+        project_forward_batch,
+        get_phrases_with_matching_hashes,
+        phrase_exists_db_filter_head
+    )
+)]
 pub(crate) fn over_forward(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,

@@ -4,12 +4,10 @@ use amiquip::{
 };
 use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
-use std::{env};
+use std::env;
 
 use opentelemetry::global;
-use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt,
-};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -37,28 +35,20 @@ fn get() -> Result<(), anyhow::Error> {
     channel.qos(0, 1, false)?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
-    
-    
-    // Allows you to pass along context (i.e., trace IDs) across services
-global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-// Sets up the machinery needed to export data to Jaeger
-// There are other OTel crates that provide pipelines for the vendors
-// mentioned earlier.
-let tracer = opentelemetry_jaeger::new_pipeline()
-// .with_agent_endpoint("0.0.0.0:6831")
-    .with_service_name("pvac")
-    .install_simple().expect("tracer made");
 
-// Create a tracing layer with the configured tracer
-let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+    global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+    let tracer = opentelemetry_jaeger::new_pipeline()
+        .with_service_name("pvac")
+        .install_simple()
+        .expect("tracer made");
 
-// The SubscriberExt and SubscriberInitExt traits are needed to extend the
-// Registry to accept `opentelemetry (the OpenTelemetryLayer type).
-tracing_subscriber::registry()
-    .with(opentelemetry)
-    // Continue logging to stdout
-    .with(fmt::Layer::default())
-    .try_init().expect("subscribed");
+    let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    tracing_subscriber::registry()
+        .with(opentelemetry)
+        // .with(fmt::Layer::default())
+        .try_init()
+        .expect("subscribed");
 
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);

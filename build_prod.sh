@@ -1,4 +1,15 @@
-source ./build_common.sh
+source ./passwords.sh
+
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install postgres-k bitnami/postgresql --set global.postgresql.auth.postgresPassword=$POSTGRES_PASSWORD
+helm install rabbit-k bitnami/rabbitmq --set auth.password=$RABBIT_PASSWORD
+
+DATABASE_URL=postgres://postgres:$POSTGRES_PASSWORD@postgres-k-postgresql.default.svc.cluster.local/postgres
+RABBIT_URL=amqp://user:$RABBIT_PASSWORD@rabbit-k-rabbitmq.default.svc:5672
+
+docker build -f Dockerfile.web --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac .
+docker build -f Dockerfile.relay --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac-relay .
+docker build -f Dockerfile.worker --build-arg DATABASE_URL=$DATABASE_URL --build-arg RABBIT_URL=$RABBIT_URL -t pvac-worker .
 
 helm upgrade --install ingress-nginx ingress-nginx \
   --repo https://kubernetes.github.io/ingress-nginx \
