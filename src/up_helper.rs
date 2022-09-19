@@ -4,7 +4,9 @@ use itertools::{zip, Itertools};
 
 use std::collections::{BTreeMap, HashSet};
 
+#[tracing::instrument(level = "info")]
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
+    let _ = tracing::info_span!("try this one").entered();
     let lo_hop = lo.get_hop();
     let lo_hop_len = lo_hop.len();
     let left_hand_coordinate_configurations =
@@ -20,6 +22,7 @@ pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho
         .collect()
 }
 
+#[tracing::instrument(level = "info")]
 fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
     for dist in 0..lo.get_dimensionality() {
         let lns = lo.get_names_at_distance(dist + 1);
@@ -31,6 +34,7 @@ fn diagonals_do_not_conflict(lo: &Ortho, ro: &Ortho) -> bool {
     true
 }
 
+#[tracing::instrument(level = "info")]
 fn mapping_is_complete(
     all_pairs: &HashSet<i64>,
     mapping: &BTreeMap<Word, Word>,
@@ -49,6 +53,7 @@ fn mapping_is_complete(
     true
 }
 
+#[tracing::instrument(level = "info")]
 fn mapping_works(
     left_mapping: &[Word],
     fixed_right_hand: &[Word],
@@ -59,6 +64,7 @@ fn mapping_works(
         .all(|d| all_pairs.contains(&d))
 }
 
+#[tracing::instrument(level = "info")]
 fn make_mapping(good_left_hand: &[Word], fixed_right_hand: &[Word]) -> BTreeMap<Word, Word> {
     zip(
         fixed_right_hand.iter().cloned(),

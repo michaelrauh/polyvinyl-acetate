@@ -20,6 +20,7 @@ use crate::{
 use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
 use diesel::{sql_query, PgConnection};
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo_up_by_origin(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -38,6 +39,7 @@ pub fn handle_pair_todo_up_by_origin(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo_up_by_contents(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -56,6 +58,7 @@ pub fn handle_pair_todo_up_by_contents(todo: Todo) -> Result<(), anyhow::Error> 
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo_up_by_hop(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -74,6 +77,7 @@ pub fn handle_pair_todo_up_by_hop(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo_ffbb(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -92,6 +96,7 @@ pub fn handle_pair_todo_ffbb(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo_fbbf(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -132,6 +137,7 @@ pub fn handle_pair_todo_up(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -154,6 +160,7 @@ pub fn handle_pair_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn single_ffbb(
     conn: &PgConnection,
     first: Word,
@@ -185,6 +192,7 @@ fn single_ffbb(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn single_fbbf(
     conn: &PgConnection,
     first: Word,
@@ -217,6 +225,7 @@ fn single_fbbf(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_up_by_origin(
     conn: &PgConnection,
     pair: (Word, Word),
@@ -234,6 +243,7 @@ fn new_orthotopes_up_by_origin(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_up_by_hop(
     conn: &PgConnection,
     pair: (Word, Word),
@@ -251,6 +261,7 @@ fn new_orthotopes_up_by_hop(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_up_by_contents(
     conn: &PgConnection,
     pair: (Word, Word),
@@ -268,6 +279,7 @@ fn new_orthotopes_up_by_contents(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_ffbb(
     conn: &PgConnection,
     pair: (Word, Word),
@@ -280,6 +292,7 @@ fn new_orthotopes_ffbb(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_fbbf(
     conn: &PgConnection,
     pair: (Word, Word),
@@ -297,6 +310,7 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     hasher.finish() as i64
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_pair(conn: &PgConnection, pk: i32) -> Result<(Word, Word), anyhow::Error> {
     let pair: (Word, Word) = pairs
         .filter(id.eq(pk))

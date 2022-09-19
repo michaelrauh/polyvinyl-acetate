@@ -3,6 +3,15 @@ use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
 
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_ortho_by_origin_batch,
+        forward,
+        get_pair_hashes_relevant_to_vocabularies
+    )
+)]
 pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
@@ -16,7 +25,6 @@ pub(crate) fn up_forward(
     if !old_ortho.is_base() {
         return Ok(vec![]);
     }
-
     let mut ans = vec![];
 
     let projected_forward = forward(conn, old_ortho.get_origin())?;

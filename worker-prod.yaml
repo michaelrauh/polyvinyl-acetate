@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: pvac-worker
   namespace: default
+  annotations:
+    "sidecar.jaegertracing.io/inject": "true"
 spec:
   selector:
     matchLabels:

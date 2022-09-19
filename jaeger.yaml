@@ -1,0 +1,26 @@
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: hotrod-traces
+  namespace: {namespace}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotrod-traces-query
+  namespace: {namespace}
+spec:
+  ports:
+    - name: http-query
+      port: 16686
+      protocol: TCP
+      targetPort: 16686
+      nodePort: 30686
+  selector:
+    app: jaeger
+    app.kubernetes.io/component: all-in-one
+    app.kubernetes.io/instance: hotrod-traces
+    app.kubernetes.io/managed-by: jaeger-operator
+    app.kubernetes.io/name: hotrod-traces
+    app.kubernetes.io/part-of: jaeger
+  type: NodePort

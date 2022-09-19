@@ -6,6 +6,9 @@ use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
 use std::env;
 
+use opentelemetry::global;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 fn main() {
     get().expect("Rabbit should not err");
 }
@@ -32,7 +35,20 @@ fn get() -> Result<(), anyhow::Error> {
     channel.qos(0, 1, false)?;
 
     let consumer = queue.consume(ConsumerOptions::default())?;
-    println!("Waiting for messages");
+
+    global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+    let tracer = opentelemetry_jaeger::new_pipeline()
+        .with_service_name("pvac")
+        .install_simple()
+        .expect("tracer made");
+
+    let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    tracing_subscriber::registry()
+        .with(opentelemetry)
+        // .with(fmt::Layer::default())
+        .try_init()
+        .expect("subscribed");
 
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);

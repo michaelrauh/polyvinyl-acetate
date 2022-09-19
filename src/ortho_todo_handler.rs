@@ -15,6 +15,7 @@ use crate::{
     up_on_ortho_found_handler,
 };
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -33,6 +34,7 @@ pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo) -> Result<(), anyh
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -51,6 +53,7 @@ pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo) -> Result<
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -69,6 +72,7 @@ pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo) -> Result<(),
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_over_forward(
     todo: crate::models::Todo,
 ) -> Result<(), anyhow::Error> {
@@ -89,6 +93,7 @@ pub(crate) fn handle_ortho_todo_over_forward(
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -107,6 +112,7 @@ pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo) -> Result<(
     })
 }
 
+#[tracing::instrument(level = "info")]
 pub(crate) fn handle_ortho_todo_over(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
     let conn = establish_connection_safe()?;
     conn.build_transaction().serializable().run(|| {
@@ -143,6 +149,7 @@ pub fn handle_ortho_todo(todo: Todo) -> Result<(), anyhow::Error> {
     })
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_up_forward(
     conn: &diesel::PgConnection,
     old_orthotope: Ortho,
@@ -161,6 +168,7 @@ fn new_orthotopes_up_forward(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_up_back(
     conn: &diesel::PgConnection,
     old_orthotope: Ortho,
@@ -179,6 +187,7 @@ fn new_orthotopes_up_back(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_over_forward(
     conn: &diesel::PgConnection,
     old_orthotope: Ortho,
@@ -198,6 +207,7 @@ fn new_orthotopes_over_forward(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn new_orthotopes_over_back(
     conn: &diesel::PgConnection,
     old_orthotope: Ortho,
@@ -217,6 +227,7 @@ fn new_orthotopes_over_back(
     Ok(res)
 }
 
+#[tracing::instrument(level = "info", skip(conn))]
 fn get_orthotope(conn: &diesel::PgConnection, other: i32) -> Result<Ortho, anyhow::Error> {
     use crate::diesel::ExpressionMethods;
     use crate::ortho_todo_handler::orthotopes::dsl::orthotopes;

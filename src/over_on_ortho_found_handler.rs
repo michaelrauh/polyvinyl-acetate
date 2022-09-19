@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Error;
 use diesel::PgConnection;
-use itertools::{Itertools};
+use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
@@ -10,6 +10,16 @@ use crate::{
     Word,
 };
 
+#[tracing::instrument(
+    level = "info",
+    skip(
+        conn,
+        get_ortho_by_origin_batch,
+        project_forward_batch,
+        get_phrases_with_matching_hashes,
+        phrase_exists_db_filter_head
+    )
+)]
 pub(crate) fn over_forward(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
@@ -232,31 +242,43 @@ pub(crate) fn over_back(
         std::collections::BTreeSet<&Ortho>,
     > = hashmap! {};
 
-    let all_firsts = backwards.iter().map(|(f, _s)| *f).collect::<HashSet<Word>>();
-    let all_seconds = backwards.iter().map(|(_f, s)| *s).collect::<HashSet<Word>>();
+    let all_firsts = backwards
+        .iter()
+        .map(|(f, _s)| *f)
+        .collect::<HashSet<Word>>();
+    let all_seconds = backwards
+        .iter()
+        .map(|(_f, s)| *s)
+        .collect::<HashSet<Word>>();
     let origin_to_ortho =
         Itertools::into_group_map_by(all_potential_orthos.iter(), |ortho| ortho.get_origin());
     let phrase_head_to_phrase =
-    Itertools::into_group_map_by(all_phrases.iter(), |phrase| phrase[0]);
+        Itertools::into_group_map_by(all_phrases.iter(), |phrase| phrase[0]);
 
     let origin_to_ortho_keys: HashSet<Word> = HashSet::from_iter(origin_to_ortho.keys().copied());
-    let phrase_head_to_phrase_keys: HashSet<Word> = HashSet::from_iter(phrase_head_to_phrase.keys().copied());
+    let phrase_head_to_phrase_keys: HashSet<Word> =
+        HashSet::from_iter(phrase_head_to_phrase.keys().copied());
 
     let relevant_origin_to_ortho_keys = all_firsts.intersection(&origin_to_ortho_keys);
     let relevant_phrase_head_to_phrase_keys = all_seconds.intersection(&phrase_head_to_phrase_keys);
 
-    Itertools::cartesian_product(relevant_origin_to_ortho_keys, relevant_phrase_head_to_phrase_keys)
+    Itertools::cartesian_product(
+        relevant_origin_to_ortho_keys,
+        relevant_phrase_head_to_phrase_keys,
+    )
     .for_each(|(origin, phrase_head)| {
-        let phrases = phrase_head_to_phrase.get(phrase_head).expect("intersection on key");
+        let phrases = phrase_head_to_phrase
+            .get(phrase_head)
+            .expect("intersection on key");
         let orthos = origin_to_ortho.get(origin).expect("intersection on key");
 
         Itertools::cartesian_product(phrases.iter(), orthos.iter()).for_each(|(phrase, ortho)| {
             phrase_to_ortho
-            .entry(phrase)
-            .and_modify(|s: &mut std::collections::BTreeSet<&Ortho>| {
-                s.insert(ortho);
-            })
-            .or_insert(btreeset! {*ortho});
+                .entry(phrase)
+                .and_modify(|s: &mut std::collections::BTreeSet<&Ortho>| {
+                    s.insert(ortho);
+                })
+                .or_insert(btreeset! {*ortho});
         })
     });
 
