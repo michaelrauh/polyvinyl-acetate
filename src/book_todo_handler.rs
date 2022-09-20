@@ -4,15 +4,17 @@ use crate::models::{NewSentence, NewWords, Sentence, Todo};
 use crate::schema::books::{id, table as books};
 use crate::schema::words::{self};
 use crate::{
-    create_todo_entry, establish_connection_safe, schema, sentences, string_to_signed_int, Book,
+    create_todo_entry, schema, sentences, string_to_signed_int, Book,
     NewTodo,
 };
 
+use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
 use itertools::Itertools;
 
-pub fn handle_book_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub fn handle_book_todo(todo: Todo, pool: Pool<ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let book = get_book(&conn, todo.other)?;
         let new_vocabulary = split_book_to_words(&book);

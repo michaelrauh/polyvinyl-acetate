@@ -8,6 +8,7 @@ use std::env;
 
 use opentelemetry::global;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use diesel::{r2d2::{ConnectionManager, Pool}, PgConnection};
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -50,13 +51,20 @@ fn get() -> Result<(), anyhow::Error> {
         .try_init()
         .expect("subscribed");
 
+
+    
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let manager = ConnectionManager::<PgConnection>::new(&database_url);
+    let pool = Pool::builder().max_size(1).build(manager).expect("Failed to create pool.");
+
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);
         match message {
             ConsumerMessage::Delivery(delivery) => {
                 let todo: Todo = bincode::deserialize(&delivery.body)?;
                 println!("todo: {:?}", &todo);
-                match worker_helper::handle_todo(todo) {
+                match worker_helper::handle_todo(todo, pool.clone()) {
                     Ok(_) => consumer.ack(delivery)?,
                     Err(e) => {
                         println!("requeuing because of {e}");

@@ -9,6 +9,7 @@ use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
+
 use maplit::hashset;
 use schema::{phrases, sentences, todos};
 mod book_todo_handler;
