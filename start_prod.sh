@@ -1,0 +1,1 @@
+./provision_prod.sh && ./build_prod.sh

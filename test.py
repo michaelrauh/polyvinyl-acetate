@@ -4,6 +4,7 @@ import urllib.request as r
 import urllib.parse as p
 import json
 import time
+from helpers import *
 
 # a b 
 # c d
@@ -11,18 +12,7 @@ import time
 # e f
 # g h
 
-def get(x):
-	return int(r.urlopen("http://0.0.0.0:30001/" + x).read().decode('utf-8'))
-
-def get_with_dims(dims):
-    return int(r.urlopen("http://0.0.0.0:30001/orthos?dims=" + dims).read().decode('utf-8'))
-
-def post(x, data):
-    req = r.Request("http://0.0.0.0:30001/" + x)
-    req.add_header('Content-Type', 'application/json')
-    return r.urlopen(req, data).read().decode('utf-8')
-
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
 post("add/", json.dumps({'title': 'two', 'body': 'e f. g h. e g. f h.'}).encode())
@@ -40,7 +30,7 @@ assert get("phrases") == 3 # many phrases will be added
 # up by origin
 assert get_with_dims("1,1,1") == 1 # there is one large ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # up by hop
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
@@ -50,7 +40,7 @@ time.sleep(15)
 print("ingesting up by hop")
 assert get_with_dims("1,1,1") == 1
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # up by contents
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
@@ -60,7 +50,7 @@ time.sleep(15)
 print("ingesting up by contents")
 assert get_with_dims("1,1,1") == 1
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # up by ortho forward
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode())
@@ -71,7 +61,7 @@ time.sleep(15)
 print("ingesting up by ortho forward")
 assert get_with_dims("1,1,1") == 1
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # up by ortho backward
 post("add/", json.dumps({'title': 'three', 'body': 'c g. a e. b f. d h.'}).encode())
@@ -82,7 +72,7 @@ time.sleep(15)
 print("ingesting up by ortho backward")
 assert get_with_dims("1,1,1") == 1
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # a b + b e = a b e
 # c d   d f   c d f
@@ -96,7 +86,7 @@ print("ingesting over by origin")
 # over by origin
 assert get_with_dims("2,1") == 1 # there is one wide ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 post("add/", json.dumps({'title': 'one', 'body': 'a b c d. a c. b d. a b.'}).encode()) # left ortho
 post("add/", json.dumps({'title': 'two', 'body': 'b e. d f. b d. e f.'}).encode()) # right ortho
@@ -108,7 +98,7 @@ print("ingesting over by hop")
 # over by hop
 assert get_with_dims("2,1") == 1 # there is one wide ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 
 # a b c
@@ -131,7 +121,7 @@ print("ingesting over by contents")
 # over by contents
 assert get_with_dims("2,2") == 1 # there is 3x3 ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # a b + b e = a b e
 # c d   d f   c d f
@@ -145,7 +135,7 @@ print("ingesting over by ortho forward")
 # over on ortho found forward
 assert get_with_dims("2,1") == 1 # there is one wide ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()
 
 # a b + b e = a b e
 # c d   d f   c d f
@@ -159,4 +149,4 @@ print("ingesting over by ortho backward")
 # over on ortho found backward
 assert get_with_dims("2,1") == 1 # there is one wide ortho found
 
-r.urlopen(r.Request(url = 'http://0.0.0.0:30001/', method = "DELETE"))
+delete()

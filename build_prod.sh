@@ -39,6 +39,7 @@ kubectl apply -f simplest.yaml
 NODE_NAME=$(doctl kubernetes cluster node-pool get pvac-cluster pvac-cluster-default-pool -o json | jq -r '.[0].nodes[0].name')
 WORKER_NODE_IP=$(doctl compute droplet get $NODE_NAME --template '{{.PublicIPv4}}')
 echo curl http://$WORKER_NODE_IP:30001/
+echo $WORKER_NODE_IP > worker_node_ip.txt
 echo 
 
 sleep 10
