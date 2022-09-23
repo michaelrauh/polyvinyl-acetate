@@ -50,6 +50,38 @@ type FailableHashsetWordsToHashsetNumbers = fn(
     second_words: HashSet<Word>,
 ) -> Result<HashSet<i64>, anyhow::Error>;
 
+type FailableWordToVecOfOrthosfn = fn(
+    Option<&PgConnection>,
+    HashSet<Word>,
+) -> Result<Vec<Ortho>, anyhow::Error>;
+
+type FailableWordsetToWordset = fn(
+    Option<&PgConnection>,
+    HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error>;
+
+type FailableWordsetToWordTupleset = fn(
+    Option<&PgConnection>,
+    HashSet<Word>,
+) -> Result<HashSet<(Word, Word)>, anyhow::Error>;
+
+type FailableHashsetsWordsToHashsetWords = fn(
+    Option<&PgConnection>,
+    HashSet<i64>,
+    HashSet<i64>,
+) -> Result<HashSet<i64>, anyhow::Error>;
+
+type FailableWordsetsToTupleWordsets = fn(
+    Option<&PgConnection>,
+    HashSet<i32>,
+    HashSet<i32>,
+) -> Result<
+    (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+    anyhow::Error,
+>;
+
+type FailableWorsetsToTupleWordsetsResult = Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
+
 type Word = i32;
 
 #[tracing::instrument(level = "info")]
@@ -96,7 +128,7 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
-) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error> {
+) ->  FailableWorsetsToTupleWordsetsResult{
     let firsts: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(
             pairs,

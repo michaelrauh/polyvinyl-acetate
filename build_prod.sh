@@ -28,7 +28,7 @@ kubectl apply -f relay-prod.yaml
 docker tag pvac-worker registry.digitalocean.com/pvac-containers/pvac:worker
 docker push registry.digitalocean.com/pvac-containers/pvac:worker
 kubectl apply -f worker-prod.yaml
-kubectl scale deployment/pvac-worker --replicas=17
+./scale_worker.sh
 
 kubectl create namespace observability
 kubectl create -f jaeger-operator.yaml -n observability

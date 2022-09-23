@@ -4,18 +4,14 @@ use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
+    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word, FailableHashsetsWordsToHashsetWords,
 };
 
 pub(crate) fn over_by_origin(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_origin: FailableWordToOrthoVec,
-    phrase_exists_db_filter: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    phrase_exists_db_filter: FailableHashsetsWordsToHashsetWords,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -70,11 +66,11 @@ pub(crate) fn over_by_origin(
                 left_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
                 right_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
             )
             .filter(|(lo, ro)| {
                 let summary_left = lo.phrase_tail_summary(shift_left);
@@ -92,11 +88,7 @@ pub(crate) fn over_by_hop(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_hop: FailableWordVecToOrthoVec,
-    phrase_exists_db_filter: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    phrase_exists_db_filter: FailableHashsetsWordsToHashsetWords,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -135,8 +127,8 @@ pub(crate) fn over_by_hop(
         })
         .collect();
 
-    let left_map = Itertools::into_group_map_by(lhs_by_hop.into_iter(), |o| o.get_dims());
-    let right_map = Itertools::into_group_map_by(rhs_by_hop.into_iter(), |o| o.get_dims());
+    let left_map = Itertools::into_group_map_by(lhs_by_hop, |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_hop, |o| o.get_dims());
 
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
@@ -150,11 +142,11 @@ pub(crate) fn over_by_hop(
                 left_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
                 right_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
             )
             .filter(|(lo, ro)| {
                 let axis_left = lo.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
@@ -178,11 +170,7 @@ pub(crate) fn over_by_contents(
     conn: Option<&PgConnection>,
     phrase: Vec<Word>,
     ortho_by_contents: FailableWordVecToOrthoVec,
-    phrase_exists_db_filter: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    phrase_exists_db_filter: FailableHashsetsWordsToHashsetWords,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
@@ -229,8 +217,8 @@ pub(crate) fn over_by_contents(
         })
         .collect();
 
-    let left_map = Itertools::into_group_map_by(lhs_by_contents.into_iter(), |o| o.get_dims());
-    let right_map = Itertools::into_group_map_by(rhs_by_contents.into_iter(), |o| o.get_dims());
+    let left_map = Itertools::into_group_map_by(lhs_by_contents, |o| o.get_dims());
+    let right_map = Itertools::into_group_map_by(rhs_by_contents, |o| o.get_dims());
 
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
@@ -244,11 +232,11 @@ pub(crate) fn over_by_contents(
                 left_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
                 right_map
                     .get(dims)
                     .expect("do not get dims that do not exist")
-                    .into_iter(),
+                    .iter(),
             )
             .filter(|(lo, ro)| {
                 let axes_left = lo.axes_of_change_between_names_for_contents(phrase[0], phrase[1]);
@@ -315,7 +303,7 @@ pub fn attempt_combine_over_with_phrases(
             if mapping_works(&mapping, lo, ro, right_shift_axis, left_shift_axis) {
                 let ortho_to_add = Ortho::zip_over(lo, ro, &mapping, right_shift_axis);
 
-                if phrases_work_precomputed(&all_phrases, &ortho_to_add, left_shift_axis) {
+                if phrases_work_precomputed(all_phrases, &ortho_to_add, left_shift_axis) {
                     ans.push(ortho_to_add);
                 }
             }

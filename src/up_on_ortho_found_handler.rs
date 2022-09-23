@@ -1,4 +1,4 @@
-use crate::{ortho::Ortho, up_helper, FailableHashsetWordsToHashsetNumbers, Word};
+use crate::{ortho::Ortho, up_helper, FailableHashsetWordsToHashsetNumbers, Word, FailableWordToVecOfOrthosfn};
 use anyhow::Error;
 use diesel::PgConnection;
 use std::collections::HashSet;
@@ -15,10 +15,7 @@ use std::collections::HashSet;
 pub(crate) fn up_forward(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
-    get_ortho_by_origin_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error>,
+    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
     forward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {
@@ -57,10 +54,7 @@ pub(crate) fn up_forward(
 pub(crate) fn up_back(
     conn: Option<&PgConnection>,
     old_ortho: Ortho,
-    get_ortho_by_origin_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error>,
+    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
     backward: fn(Option<&PgConnection>, Word) -> Result<HashSet<Word>, Error>,
     get_pair_hashes_relevant_to_vocabularies: FailableHashsetWordsToHashsetNumbers,
 ) -> Result<Vec<Ortho>, anyhow::Error> {

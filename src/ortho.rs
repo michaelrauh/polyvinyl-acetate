@@ -284,9 +284,8 @@ impl Ortho {
             .iter()
             .map(|p| vec_of_words_to_big_int(p[1..].to_vec()))
             .collect::<Vec<i64>>();
-        phrases_per_left.sort();
-        let summary_left = vec_of_big_ints_to_big_int(phrases_per_left);
-        summary_left
+        phrases_per_left.sort_unstable();
+        vec_of_big_ints_to_big_int(phrases_per_left)
     }
 
     pub fn phrase_head_summary(&self, shift_axis: Word) -> i64 {
@@ -295,9 +294,8 @@ impl Ortho {
             .iter()
             .map(|p| vec_of_words_to_big_int(p[..p.len() - 1].to_vec()))
             .collect::<Vec<i64>>();
-        phrases_per_right.sort();
-        let summary_right = vec_of_big_ints_to_big_int(phrases_per_right);
-        summary_right
+        phrases_per_right.sort_unstable();
+        vec_of_big_ints_to_big_int(phrases_per_right)
     }
 }
 
