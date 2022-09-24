@@ -29,6 +29,10 @@ pub(crate) fn over_by_origin(
         .into_iter()
         .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
 
+    if lhs_by_origin.clone().next().is_none() || rhs_by_origin.clone().next().is_none() {
+        return Ok(vec![])
+    }
+
     let all_phrase_heads_left: HashSet<i64> = lhs_by_origin
         .clone()
         .flat_map(|o| {
@@ -102,6 +106,10 @@ pub(crate) fn over_by_hop(
     let rhs_by_hop = orthos_by_hop_right
         .iter()
         .filter(|o| o.hop_has_full_length_phrase(rhs_phrase_head));
+
+    if lhs_by_hop.clone().next().is_none() || rhs_by_hop.clone().next().is_none() {
+        return Ok(vec![])
+    }
 
     let all_phrase_heads_left: HashSet<i64> = lhs_by_hop
         .clone()
@@ -184,6 +192,10 @@ pub(crate) fn over_by_contents(
     let rhs_by_contents = orthos_by_contents_right
         .iter()
         .filter(|o| o.contents_has_full_length_phrase(rhs_phrase_head));
+
+    if lhs_by_contents.clone().next().is_none() || rhs_by_contents.clone().next().is_none() {
+        return Ok(vec![])
+    }
 
     let all_phrase_heads_left: HashSet<i64> = lhs_by_contents
         .clone()

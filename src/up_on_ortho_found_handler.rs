@@ -1,5 +1,5 @@
 use crate::{ortho::Ortho, up_helper, FailableHashsetWordsToHashsetNumbers, Word, FailableWordToVecOfOrthosfn};
-use anyhow::Error;
+use anyhow::{Error, Ok};
 use diesel::PgConnection;
 use std::collections::HashSet;
 
@@ -30,6 +30,10 @@ pub(crate) fn up_forward(
         .filter(|o| old_ortho.get_dims() == o.get_dims())
         .cloned()
         .collect();
+
+    if orthos_to_right.is_empty() {
+        return Ok(vec![])
+    }
 
     let forward_left_vocab: HashSet<Word> =
         old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
@@ -70,6 +74,10 @@ pub(crate) fn up_back(
         .into_iter()
         .filter(|o| old_ortho.get_dims() == o.get_dims())
         .collect();
+
+    if orthos_to_left.is_empty() {
+        return Ok(vec![])
+    }
 
     let backward_left_vocab = orthos_to_left
         .iter()

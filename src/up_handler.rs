@@ -25,6 +25,10 @@ pub fn up_by_origin(
     let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, first_w)?;
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
+    if left_orthos_by_origin.is_empty() || right_orthos_by_origin.is_empty() {
+        return Ok(vec![])
+    }
+
     let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
         conn,
         total_vocabulary(&left_orthos_by_origin),
@@ -59,6 +63,10 @@ pub fn up_by_hop(
     let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![first_w])?;
     let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![second_w])?;
 
+    if hop_left_orthos.is_empty() || hop_right_orthos.is_empty() {
+        return Ok(vec![])
+    }
+
     find_corresponding_non_origin_checked_orthos_and_attempt_up(
         get_hashes_and_words_of_pairs_with_words_in,
         conn,
@@ -84,6 +92,10 @@ pub fn up_by_contents(
 ) -> Result<Vec<Ortho>, anyhow::Error> {
     let contents_left_orthos: Vec<Ortho> = get_base_ortho_by_contents(conn, vec![first_w])?;
     let contents_right_orthos: Vec<Ortho> = get_base_ortho_by_contents(conn, vec![second_w])?;
+
+    if contents_left_orthos.is_empty() || contents_right_orthos.is_empty() {
+        return Ok(vec![])
+    }
 
     find_corresponding_non_origin_checked_orthos_and_attempt_up(
         get_hashes_and_words_of_pairs_with_words_in,
