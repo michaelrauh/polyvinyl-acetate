@@ -37,19 +37,19 @@ fn get() -> Result<(), anyhow::Error> {
 
     let consumer = queue.consume(ConsumerOptions::default())?;
 
-    global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-    let tracer = opentelemetry_jaeger::new_pipeline()
-        .with_service_name("pvac")
-        .install_simple()
-        .expect("tracer made");
+    // global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+    // let tracer = opentelemetry_jaeger::new_pipeline()
+    //     .with_service_name("pvac")
+    //     .install_simple()
+    //     .expect("tracer made");
 
-    let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+    // let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
-    tracing_subscriber::registry()
-        .with(opentelemetry)
-        // .with(fmt::Layer::default())
-        .try_init()
-        .expect("subscribed");
+    // tracing_subscriber::registry()
+    //     .with(opentelemetry)
+    //     // .with(fmt::Layer::default())
+    //     .try_init()
+    //     .expect("subscribed");
 
 
     
