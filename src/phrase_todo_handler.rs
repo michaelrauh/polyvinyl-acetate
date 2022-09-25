@@ -12,14 +12,14 @@ use crate::schema::phrases::dsl::phrases;
 use crate::Word;
 
 use crate::{
-    create_todo_entry, establish_connection_safe, insert_orthotopes,
+    create_todo_entry, insert_orthotopes,
     models::{NewOrthotope, NewTodo},
     schema::phrases::id,
 };
 
-#[tracing::instrument(level = "info")]
-pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_origin(&conn, phrase)?;
@@ -36,9 +36,9 @@ pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo) -> Result<(),
     })
 }
 
-#[tracing::instrument(level = "info")]
-pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_hop(&conn, phrase)?;
@@ -55,9 +55,9 @@ pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo) -> Result<(), an
     })
 }
 
-#[tracing::instrument(level = "info")]
-pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
         let new_orthos = new_orthotopes_by_contents(&conn, phrase)?;
@@ -74,9 +74,9 @@ pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo) -> Result<(
     })
 }
 
-#[tracing::instrument(level = "info")]
-pub fn handle_phrase_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub fn handle_phrase_todo(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
             NewTodo {

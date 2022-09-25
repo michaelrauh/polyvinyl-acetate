@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 
-use anyhow::Error;
-use diesel::PgConnection;
 use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
     ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int,
-    Word,
+    Word, FailableWordToVecOfOrthosfn, FailableWordsetToWordset, FailableWordsetToWordTupleset,
 };
 
 #[tracing::instrument(
@@ -23,24 +21,18 @@ use crate::{
 pub(crate) fn over_forward(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
-    get_ortho_by_origin_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error>,
-    project_forward_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<HashSet<(Word, Word)>, Error>,
-    get_phrases_with_matching_hashes: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
-    phrase_exists_db_filter_head: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
+    project_forward_batch: FailableWordsetToWordTupleset,
+    get_phrases_with_matching_hashes: FailableWordsetToWordset,
+    phrase_exists_db_filter_head: FailableWordsetToWordset
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.origin_phrases();
+    let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
+    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_second_words)?;
+
+    if all_potential_orthos.is_empty() {
+        return Ok(vec![])
+    }
 
     let lasts = all_phrases
         .iter()
@@ -72,7 +64,6 @@ pub(crate) fn over_forward(
             Itertools::cartesian_product(old_phrases.iter(), second_words)
                 .map(|(old_phrase, second_word)| {
                     let current_phrase = old_phrase
-                        .clone()
                         .iter()
                         .chain(vec![*second_word].iter())
                         .copied()
@@ -94,8 +85,7 @@ pub(crate) fn over_forward(
     let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_heads)?;
 
     let mut ans: Vec<Ortho> = vec![];
-    let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_second_words)?;
+
     let mut phrase_to_ortho: std::collections::HashMap<
         &Vec<i32>,
         std::collections::BTreeSet<&Ortho>,
@@ -139,7 +129,6 @@ pub(crate) fn over_forward(
             .map(|(_f, s)| s);
         for next in nexts {
             let current_phrase = old_phrase
-                .clone()
                 .iter()
                 .chain(vec![next].iter())
                 .copied()
@@ -171,22 +160,10 @@ pub(crate) fn over_forward(
 pub(crate) fn over_back(
     conn: Option<&diesel::PgConnection>,
     old_orthotope: crate::ortho::Ortho,
-    get_ortho_by_origin_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error>,
-    project_backward_batch: fn(
-        Option<&PgConnection>,
-        HashSet<Word>,
-    ) -> Result<HashSet<(Word, Word)>, anyhow::Error>,
-    get_phrases_with_matching_hashes: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
-    phrase_exists_db_filter_head: fn(
-        Option<&PgConnection>,
-        HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error>,
+    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
+    project_backward_batch: FailableWordsetToWordTupleset,
+    get_phrases_with_matching_hashes: FailableWordsetToWordset,
+    phrase_exists_db_filter_head: FailableWordsetToWordset,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.origin_phrases();
 
@@ -195,6 +172,13 @@ pub(crate) fn over_back(
         .map(|old_phrase| old_phrase[0])
         .collect::<HashSet<_>>();
     let backwards = project_backward_batch(conn, firsts)?;
+
+    let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
+    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_first_words)?;
+
+    if all_potential_orthos.is_empty() {
+        return Ok(vec![])
+    }
 
     let first_to_phrase = Itertools::into_group_map_by(all_phrases.iter(), |phrase| phrase[0]);
     let second_to_backwards = Itertools::into_group_map_by(backwards.iter(), |(_f, s)| s);
@@ -235,8 +219,6 @@ pub(crate) fn over_back(
 
     let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_tails)?;
 
-    let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_first_words)?;
     let mut phrase_to_ortho: std::collections::HashMap<
         &Vec<i32>,
         std::collections::BTreeSet<&Ortho>,

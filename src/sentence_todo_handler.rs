@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use crate::models::{NewPair, NewPhrase, Pair, Phrase, Todo};
 use crate::{
-    create_todo_entry, establish_connection_safe, get_relevant_vocabulary, ints_to_big_int,
+    create_todo_entry, get_relevant_vocabulary, ints_to_big_int,
     vec_of_words_to_big_int, NewTodo, Word,
 };
 use diesel::PgConnection;
 
-pub fn handle_sentence_todo(todo: Todo) -> Result<(), anyhow::Error> {
-    let conn = establish_connection_safe()?;
+#[tracing::instrument(level = "info", skip(pool))]
+pub fn handle_sentence_todo(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+    let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let sentence = get_sentence(&conn, todo.other)?;
         let words = split_sentence(&sentence);

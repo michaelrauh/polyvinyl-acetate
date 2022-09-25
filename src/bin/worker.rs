@@ -8,6 +8,7 @@ use std::env;
 
 use opentelemetry::global;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use diesel::{r2d2::{ConnectionManager, Pool}, PgConnection};
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -36,19 +37,26 @@ fn get() -> Result<(), anyhow::Error> {
 
     let consumer = queue.consume(ConsumerOptions::default())?;
 
-    global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-    let tracer = opentelemetry_jaeger::new_pipeline()
-        .with_service_name("pvac")
-        .install_simple()
-        .expect("tracer made");
+    // global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+    // let tracer = opentelemetry_jaeger::new_pipeline()
+    //     .with_service_name("pvac")
+    //     .install_simple()
+    //     .expect("tracer made");
 
-    let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+    // let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
-    tracing_subscriber::registry()
-        .with(opentelemetry)
-        // .with(fmt::Layer::default())
-        .try_init()
-        .expect("subscribed");
+    // tracing_subscriber::registry()
+    //     .with(opentelemetry)
+    //     // .with(fmt::Layer::default())
+    //     .try_init()
+    //     .expect("subscribed");
+
+
+    
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let manager = ConnectionManager::<PgConnection>::new(&database_url);
+    let pool = Pool::builder().max_size(1).build(manager).expect("Failed to create pool.");
 
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);
@@ -56,7 +64,7 @@ fn get() -> Result<(), anyhow::Error> {
             ConsumerMessage::Delivery(delivery) => {
                 let todo: Todo = bincode::deserialize(&delivery.body)?;
                 println!("todo: {:?}", &todo);
-                match worker_helper::handle_todo(todo) {
+                match worker_helper::handle_todo(todo, pool.clone()) {
                     Ok(_) => consumer.ack(delivery)?,
                     Err(e) => {
                         println!("requeuing because of {e}");
