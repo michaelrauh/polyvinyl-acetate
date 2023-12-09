@@ -67,7 +67,7 @@ fn get() -> Result<(), anyhow::Error> {
                 match worker_helper::handle_todo(todo, pool.clone()) {
                     Ok(_) => consumer.ack(delivery)?,
                     Err(e) => {
-                        println!("requeuing because of {e}");
+                        println!("requeuing because of {:#}", e);
                         consumer.nack(delivery, true)?
                     }
                 }

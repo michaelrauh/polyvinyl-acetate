@@ -47,11 +47,25 @@ fn create_pair_entry(
 ) -> Result<Vec<Pair>, diesel::result::Error> {
     use crate::schema::pairs;
     use diesel::RunQueryDsl;
-    diesel::insert_into(pairs::table)
-        .values(&to_insert)
+
+    let to_insert_chunked: Vec<Vec<_>> = Vec::from_iter(to_insert)
+    .chunks(1000)
+    .map(|x| x.to_vec())
+    .collect();
+
+    let mut res = vec![];
+    for chunk in to_insert_chunked {
+        let chunk_res: Vec<_> = diesel::insert_into(pairs::table) 
+        .values(&chunk)
         .on_conflict_do_nothing()
-        .get_results(conn)
+        .get_results(conn)?;
+        res.push(chunk_res);
+    }
+
+    let final_res = res.into_iter().flatten().collect();
+    Ok(final_res)
 }
+
 
 fn create_phrases(
     conn: &PgConnection,
@@ -97,10 +111,23 @@ fn create_phrase_entry(
 ) -> Result<Vec<Phrase>, diesel::result::Error> {
     use crate::schema::phrases;
     use diesel::RunQueryDsl;
-    diesel::insert_into(phrases::table)
-        .values(&to_insert)
-        .on_conflict_do_nothing()
-        .get_results(conn)
+
+        let to_insert_chunked: Vec<Vec<_>> = Vec::from_iter(to_insert)
+        .chunks(1000)
+        .map(|x| x.to_vec())
+        .collect();
+    
+        let mut res = vec![];
+        for chunk in to_insert_chunked {
+            let chunk_res: Vec<_> = diesel::insert_into(phrases::table) 
+            .values(&chunk)
+            .on_conflict_do_nothing()
+            .get_results(conn)?;
+            res.push(chunk_res);
+        }
+    
+        let final_res = res.into_iter().flatten().collect();
+        Ok(final_res)
 }
 
 fn split_sentence_to_phrases(sentence: String) -> Vec<Vec<String>> {

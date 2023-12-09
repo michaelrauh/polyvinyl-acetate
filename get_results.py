@@ -6,4 +6,4 @@ import json
 import time
 from helpers import *
 
-print("\n\n" + str(splat_with_dims("2,2")))
+print("\n\n" + str(splat_with_dims("1,1")))

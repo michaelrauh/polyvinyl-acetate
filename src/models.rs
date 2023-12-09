@@ -53,7 +53,7 @@ pub struct Sentence {
     pub sentence_hash: i64,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, Clone)]
 #[table_name = "pairs"]
 pub struct NewPair {
     pub first_word: Word,
@@ -105,7 +105,7 @@ pub struct Words {
     pub word_hash: i64,
 }
 
-#[derive(Insertable, Debug)]
+#[derive(Insertable, Debug, Clone)]
 #[table_name = "phrases"]
 pub struct NewPhrase {
     pub words: Vec<Word>,

@@ -15,7 +15,7 @@ use itertools::Itertools;
 #[tracing::instrument(level = "info", skip(pool))]
 pub fn handle_book_todo(todo: Todo, pool: Pool<ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
-    conn.build_transaction().serializable().run(|| {
+    conn.build_transaction().run(|| {
         let book = get_book(&conn, todo.other)?;
         let new_vocabulary = split_book_to_words(&book);
         insert_vocabulary(&conn, &new_vocabulary)?;
