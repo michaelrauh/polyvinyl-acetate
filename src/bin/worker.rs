@@ -2,13 +2,14 @@ use amiquip::{
     AmqpValue, Connection, ConsumerMessage, ConsumerOptions, FieldTable, QueueDeclareOptions,
     Result,
 };
-use polyvinyl_acetate::models::Todo;
 use polyvinyl_acetate::worker_helper;
+use polyvinyl_acetate::{models::Todo, Holder};
 use std::env;
 
-use opentelemetry::global;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use diesel::{r2d2::{ConnectionManager, Pool}, PgConnection};
+use diesel::{
+    r2d2::{ConnectionManager, Pool},
+    PgConnection,
+};
 
 fn main() {
     get().expect("Rabbit should not err");
@@ -51,12 +52,14 @@ fn get() -> Result<(), anyhow::Error> {
     //     .try_init()
     //     .expect("subscribed");
 
-
-    
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let manager = ConnectionManager::<PgConnection>::new(&database_url);
-    let pool = Pool::builder().max_size(1).build(manager).expect("Failed to create pool.");
+    let pool = Pool::builder()
+        .max_size(1)
+        .build(manager)
+        .expect("Failed to create pool.");
+    let mut holder = Holder::new();
 
     for (i, message) in consumer.receiver().iter().enumerate() {
         println!("number of messages: {}", i);
@@ -64,7 +67,7 @@ fn get() -> Result<(), anyhow::Error> {
             ConsumerMessage::Delivery(delivery) => {
                 let todo: Todo = bincode::deserialize(&delivery.body)?;
                 println!("todo: {:?}", &todo);
-                match worker_helper::handle_todo(todo, pool.clone()) {
+                match worker_helper::handle_todo(todo, pool.clone(), &mut holder) {
                     Ok(_) => consumer.ack(delivery)?,
                     Err(e) => {
                         println!("requeuing because of {e}");

@@ -1,16 +1,19 @@
-use diesel::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::PgConnection;
 
 use crate::models::Todo;
 use crate::{
     book_todo_handler, ortho_todo_handler, pair_todo_handler, phrase_todo_handler,
-    sentence_todo_handler,
+    sentence_todo_handler, Holder,
 };
 
-
-pub fn handle_todo(todo: Todo, pool: Pool<ConnectionManager<PgConnection>>) -> amiquip::Result<(), anyhow::Error> {
+pub fn handle_todo(
+    todo: Todo,
+    pool: Pool<ConnectionManager<PgConnection>>,
+    holder: &mut Holder,
+) -> amiquip::Result<(), anyhow::Error> {
     let res = match todo.domain.as_str() {
-        "books" => book_todo_handler::handle_book_todo(todo, pool),
+        "books" => book_todo_handler::handle_book_todo(todo, holder),
         "sentences" => sentence_todo_handler::handle_sentence_todo(todo, pool),
         "pairs" => pair_todo_handler::handle_pair_todo(todo, pool),
         "ex_nihilo_ffbb" => pair_todo_handler::handle_pair_todo_ffbb(todo, pool),

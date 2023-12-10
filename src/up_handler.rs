@@ -4,7 +4,10 @@ use std::collections::HashSet;
 
 use crate::ortho::Ortho;
 
-use crate::{ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word, FailableWordsetsToTupleWordsets};
+use crate::{
+    ints_to_big_int, up_helper, FailableWordToOrthoVec, FailableWordVecToOrthoVec,
+    FailableWordsetsToTupleWordsets, Word,
+};
 use diesel::PgConnection;
 
 #[tracing::instrument(
@@ -26,7 +29,7 @@ pub fn up_by_origin(
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(conn, second_w)?;
 
     if left_orthos_by_origin.is_empty() || right_orthos_by_origin.is_empty() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
@@ -64,7 +67,7 @@ pub fn up_by_hop(
     let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(conn, vec![second_w])?;
 
     if hop_left_orthos.is_empty() || hop_right_orthos.is_empty() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     find_corresponding_non_origin_checked_orthos_and_attempt_up(
@@ -94,7 +97,7 @@ pub fn up_by_contents(
     let contents_right_orthos: Vec<Ortho> = get_base_ortho_by_contents(conn, vec![second_w])?;
 
     if contents_left_orthos.is_empty() || contents_right_orthos.is_empty() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     find_corresponding_non_origin_checked_orthos_and_attempt_up(

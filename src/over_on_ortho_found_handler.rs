@@ -5,7 +5,7 @@ use maplit::{btreeset, hashmap};
 
 use crate::{
     ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int,
-    Word, FailableWordToVecOfOrthosfn, FailableWordsetToWordset, FailableWordsetToWordTupleset,
+    FailableWordToVecOfOrthosfn, FailableWordsetToWordTupleset, FailableWordsetToWordset, Word,
 };
 
 #[tracing::instrument(
@@ -24,14 +24,14 @@ pub(crate) fn over_forward(
     get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
     project_forward_batch: FailableWordsetToWordTupleset,
     get_phrases_with_matching_hashes: FailableWordsetToWordset,
-    phrase_exists_db_filter_head: FailableWordsetToWordset
+    phrase_exists_db_filter_head: FailableWordsetToWordset,
 ) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
     let all_phrases = old_orthotope.origin_phrases();
     let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
     let all_potential_orthos = get_ortho_by_origin_batch(conn, all_second_words)?;
 
     if all_potential_orthos.is_empty() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let lasts = all_phrases
@@ -177,7 +177,7 @@ pub(crate) fn over_back(
     let all_potential_orthos = get_ortho_by_origin_batch(conn, all_first_words)?;
 
     if all_potential_orthos.is_empty() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let first_to_phrase = Itertools::into_group_map_by(all_phrases.iter(), |phrase| phrase[0]);

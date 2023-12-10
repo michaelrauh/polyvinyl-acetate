@@ -18,7 +18,10 @@ use crate::{
 };
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_phrase_todo_origin(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
@@ -37,7 +40,10 @@ pub(crate) fn handle_phrase_todo_origin(todo: crate::models::Todo, pool: diesel:
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_phrase_todo_hop(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
@@ -56,7 +62,10 @@ pub(crate) fn handle_phrase_todo_hop(todo: crate::models::Todo, pool: diesel::r2
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_phrase_todo_contents(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let phrase = get_phrase(&conn, todo.other)?;
@@ -75,7 +84,10 @@ pub(crate) fn handle_phrase_todo_contents(todo: crate::models::Todo, pool: diese
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_phrase_todo(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_phrase_todo(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![

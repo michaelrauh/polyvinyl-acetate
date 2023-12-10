@@ -20,7 +20,10 @@ use crate::{insert_orthotopes, models::ExNihilo, ortho::Ortho};
 use diesel::{sql_query, PgConnection};
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_up_by_origin(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_up_by_origin(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
@@ -39,7 +42,10 @@ pub fn handle_pair_todo_up_by_origin(todo: Todo, pool: diesel::r2d2::Pool<diesel
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_up_by_contents(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_up_by_contents(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
@@ -58,7 +64,10 @@ pub fn handle_pair_todo_up_by_contents(todo: Todo, pool: diesel::r2d2::Pool<dies
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_up_by_hop(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_up_by_hop(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
@@ -77,7 +86,10 @@ pub fn handle_pair_todo_up_by_hop(todo: Todo, pool: diesel::r2d2::Pool<diesel::r
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_ffbb(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_ffbb(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
@@ -96,7 +108,10 @@ pub fn handle_pair_todo_ffbb(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_fbbf(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_fbbf(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let pair = get_pair(&conn, todo.other)?;
@@ -115,7 +130,10 @@ pub fn handle_pair_todo_fbbf(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo_up(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo_up(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
@@ -138,7 +156,10 @@ pub fn handle_pair_todo_up(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::Co
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_pair_todo(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_pair_todo(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![

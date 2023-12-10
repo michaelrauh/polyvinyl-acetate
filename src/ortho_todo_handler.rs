@@ -1,10 +1,9 @@
 use std::collections::HashSet;
 
-use diesel::{QueryDsl, RunQueryDsl, PgConnection};
+use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 
 use crate::{
-    create_todo_entry, get_hashes_of_pairs_with_words_in,
-    insert_orthotopes,
+    create_todo_entry, get_hashes_of_pairs_with_words_in, insert_orthotopes,
     models::{NewOrthotope, NewTodo, Todo},
     ortho::Ortho,
     over_on_ortho_found_handler,
@@ -16,7 +15,10 @@ use crate::{
 };
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_ortho_todo_up(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
@@ -35,7 +37,10 @@ pub(crate) fn handle_ortho_todo_up(todo: crate::models::Todo, pool: diesel::r2d2
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_ortho_todo_up_forward(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
@@ -54,7 +59,10 @@ pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::Todo, pool: dies
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_ortho_todo_up_back(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
@@ -74,7 +82,8 @@ pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::Todo, pool: diesel:
 
 #[tracing::instrument(level = "info", skip(pool))]
 pub(crate) fn handle_ortho_todo_over_forward(
-    todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
 ) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
@@ -94,7 +103,10 @@ pub(crate) fn handle_ortho_todo_over_forward(
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_ortho_todo_over_back(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let old_orthotope = get_orthotope(&conn, todo.other)?;
@@ -113,7 +125,10 @@ pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::Todo, pool: diese
 }
 
 #[tracing::instrument(level = "info", skip(pool))]
-pub(crate) fn handle_ortho_todo_over(todo: crate::models::Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub(crate) fn handle_ortho_todo_over(
+    todo: crate::models::Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![
@@ -131,7 +146,10 @@ pub(crate) fn handle_ortho_todo_over(todo: crate::models::Todo, pool: diesel::r2
     })
 }
 #[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_ortho_todo(todo: Todo, pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>) -> Result<(), anyhow::Error> {
+pub fn handle_ortho_todo(
+    todo: Todo,
+    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
+) -> Result<(), anyhow::Error> {
     let conn = pool.get()?;
     conn.build_transaction().serializable().run(|| {
         let new_todos = vec![

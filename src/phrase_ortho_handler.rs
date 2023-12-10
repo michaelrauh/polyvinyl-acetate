@@ -4,7 +4,8 @@ use diesel::PgConnection;
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_words_to_big_int, FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word, FailableHashsetsWordsToHashsetWords,
+    ortho::Ortho, vec_of_words_to_big_int, FailableHashsetsWordsToHashsetWords,
+    FailableWordToOrthoVec, FailableWordVecToOrthoVec, Word,
 };
 
 pub(crate) fn over_by_origin(
@@ -30,7 +31,7 @@ pub(crate) fn over_by_origin(
         .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
 
     if lhs_by_origin.clone().next().is_none() || rhs_by_origin.clone().next().is_none() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let all_phrase_heads_left: HashSet<i64> = lhs_by_origin
@@ -108,7 +109,7 @@ pub(crate) fn over_by_hop(
         .filter(|o| o.hop_has_full_length_phrase(rhs_phrase_head));
 
     if lhs_by_hop.clone().next().is_none() || rhs_by_hop.clone().next().is_none() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let all_phrase_heads_left: HashSet<i64> = lhs_by_hop
@@ -194,7 +195,7 @@ pub(crate) fn over_by_contents(
         .filter(|o| o.contents_has_full_length_phrase(rhs_phrase_head));
 
     if lhs_by_contents.clone().next().is_none() || rhs_by_contents.clone().next().is_none() {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let all_phrase_heads_left: HashSet<i64> = lhs_by_contents

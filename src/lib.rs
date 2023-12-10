@@ -9,7 +9,6 @@ use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-
 use maplit::hashset;
 use schema::{phrases, sentences, todos};
 mod book_todo_handler;
@@ -50,39 +49,79 @@ type FailableHashsetWordsToHashsetNumbers = fn(
     second_words: HashSet<Word>,
 ) -> Result<HashSet<i64>, anyhow::Error>;
 
-type FailableWordToVecOfOrthosfn = fn(
-    Option<&PgConnection>,
-    HashSet<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error>;
+type FailableWordToVecOfOrthosfn =
+    fn(Option<&PgConnection>, HashSet<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
 
-type FailableWordsetToWordset = fn(
-    Option<&PgConnection>,
-    HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error>;
+type FailableWordsetToWordset =
+    fn(Option<&PgConnection>, HashSet<i64>) -> Result<HashSet<i64>, anyhow::Error>;
 
-type FailableWordsetToWordTupleset = fn(
-    Option<&PgConnection>,
-    HashSet<Word>,
-) -> Result<HashSet<(Word, Word)>, anyhow::Error>;
+type FailableWordsetToWordTupleset =
+    fn(Option<&PgConnection>, HashSet<Word>) -> Result<HashSet<(Word, Word)>, anyhow::Error>;
 
-type FailableHashsetsWordsToHashsetWords = fn(
-    Option<&PgConnection>,
-    HashSet<i64>,
-    HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error>;
+type FailableHashsetsWordsToHashsetWords =
+    fn(Option<&PgConnection>, HashSet<i64>, HashSet<i64>) -> Result<HashSet<i64>, anyhow::Error>;
 
-type FailableWordsetsToTupleWordsets = fn(
-    Option<&PgConnection>,
-    HashSet<i32>,
-    HashSet<i32>,
-) -> Result<
-    (HashSet<Word>, HashSet<Word>, HashSet<i64>),
-    anyhow::Error,
->;
+type FailableWordsetsToTupleWordsets =
+    fn(
+        Option<&PgConnection>,
+        HashSet<i32>,
+        HashSet<i32>,
+    ) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
 
-type FailableWorsetsToTupleWordsetsResult = Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
+type FailableWorsetsToTupleWordsetsResult =
+    Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
 
 type Word = i32;
+
+#[derive(Debug)]
+pub struct Holder {
+    books: HashMap<i32, Book>,
+    vocabulary: HashSet<String>,
+    sentences: HashMap<i64, String>,
+    todos: HashMap<String, HashSet<i64>>,
+}
+
+impl Holder {
+    pub fn new() -> Self {
+        todo!()
+    }
+
+    fn get_book(&self, pk: i32) -> Book {
+        self.books
+            .get(&pk)
+            .expect("do not deref nonexistant books").clone()
+    }
+
+    fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
+        // todo remove word hash from model
+        to_insert.iter().for_each(|x| {
+            self.vocabulary.insert(x.word.clone());
+        });
+    }
+
+    fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
+        let mut new_sentences = Vec::default();
+        sentences.iter().for_each(|x| {
+            let k = x.sentence_hash;
+            let inserted_anew = self.sentences.insert(k, x.sentence.clone()).is_none();
+
+            if inserted_anew {
+                new_sentences.push(k);
+            }
+        });
+        new_sentences
+    }
+
+    fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
+        let todos = self
+            .todos
+            .entry(domain.to_owned())
+            .or_insert(HashSet::default());
+        hashes.iter().for_each(|h| {
+            todos.insert(*h);
+        });
+    }
+}
 
 #[tracing::instrument(level = "info")]
 pub fn establish_connection_safe() -> Result<PgConnection, ConnectionError> {
@@ -128,7 +167,7 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     conn: Option<&PgConnection>,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
-) ->  FailableWorsetsToTupleWordsetsResult{
+) -> FailableWorsetsToTupleWordsetsResult {
     let firsts: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
         diesel::QueryDsl::filter(
             pairs,

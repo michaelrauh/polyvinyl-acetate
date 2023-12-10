@@ -18,7 +18,7 @@ pub struct NewBook {
     pub body: String,
 }
 
-#[derive(Queryable)]
+#[derive(Queryable, Debug, Clone)]
 pub struct Book {
     pub id: i32,
     pub title: String,
