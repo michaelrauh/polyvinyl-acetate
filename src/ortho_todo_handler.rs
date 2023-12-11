@@ -9,7 +9,6 @@ use crate::{
     up_on_ortho_found_handler, Holder,
 };
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_up(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -18,7 +17,6 @@ pub(crate) fn handle_ortho_todo_up(
         holder.insert_todos("ortho_up_back", vec![todo.other.into()]); // todo is it safe to use into here? // todo must a vec be made?
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_up_forward(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -29,7 +27,6 @@ pub(crate) fn handle_ortho_todo_up_forward(
         holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_up_back(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -40,7 +37,6 @@ pub(crate) fn handle_ortho_todo_up_back(
         holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_over_forward(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -51,7 +47,6 @@ pub(crate) fn handle_ortho_todo_over_forward(
         holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_over_back(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -62,7 +57,6 @@ pub(crate) fn handle_ortho_todo_over_back(
         holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn handle_ortho_todo_over(
     todo: crate::models::Todo,
     holder: &mut Holder
@@ -70,7 +64,6 @@ pub(crate) fn handle_ortho_todo_over(
         holder.insert_todos("ortho_over_forward", vec![todo.other.into()]); // todo is it safe to use into here? // todo must a vec be made?
         holder.insert_todos("ortho_over_back", vec![todo.other.into()]); // todo is it safe to use into here? // todo must a vec be made?
 }
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_ortho_todo(
     todo: Todo,
     holder: &mut Holder
@@ -80,7 +73,6 @@ pub fn handle_ortho_todo(
         
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_up_forward(
     holder: &mut Holder,
     old_orthotope: Ortho,
@@ -99,7 +91,6 @@ fn new_orthotopes_up_forward(
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_up_back(
     holder: &mut Holder,
     old_orthotope: Ortho,
@@ -118,7 +109,6 @@ fn new_orthotopes_up_back(
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_over_forward(
     holder: &mut Holder,
     old_orthotope: Ortho,
@@ -134,7 +124,6 @@ fn new_orthotopes_over_forward(
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_over_back(
     holder: &mut Holder,
     old_orthotope: Ortho,
@@ -150,7 +139,6 @@ fn new_orthotopes_over_back(
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_orthotope(holder: &Holder, other: i32) -> Ortho {
     holder.get_orthotope(other as i64)
 }

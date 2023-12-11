@@ -9,7 +9,6 @@ use crate::{
 };
 use crate::{insert_orthotopes, ortho::Ortho};
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_up_by_origin(todo: Todo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_origin(holder, pair);
@@ -17,7 +16,6 @@ pub fn handle_pair_todo_up_by_origin(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_up_by_contents(todo: Todo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_contents(holder, pair);
@@ -25,7 +23,6 @@ pub fn handle_pair_todo_up_by_contents(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_up_by_hop(todo: Todo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_hop(holder, pair);
@@ -33,7 +30,6 @@ pub fn handle_pair_todo_up_by_hop(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_ffbb(todo: Todo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_ffbb(holder, pair);
@@ -41,7 +37,6 @@ pub fn handle_pair_todo_ffbb(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_fbbf(todo: Todo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_fbbf(holder, pair);
@@ -49,31 +44,26 @@ pub fn handle_pair_todo_fbbf(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo_up(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("up_by_origin", vec![todo.other.into()]);
     holder.insert_todos("up_by_hop", vec![todo.other.into()]);
     holder.insert_todos("up_by_contents", vec![todo.other.into()]);
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_pair_todo(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("ex_nihilo_ffbb", vec![todo.other.into()]); // todo is it safe to use into here? // todo must a vec be made?
     holder.insert_todos("ex_nihilo_fbbf", vec![todo.other.into()]); // todo is it safe to use into here?
     holder.insert_todos("pair_up", vec![todo.other.into()]); // todo is it safe to use into here?
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn single_ffbb(holder: &mut Holder, first: Word, second: Word) -> Vec<Ortho> {
     holder.ffbb(first, second)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn single_fbbf(holder: &mut Holder, first: Word, second: Word) -> Vec<Ortho> {
     holder.fbbf(first, second)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_up_by_origin(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
     let up_orthos = up_handler::up_by_origin(
         holder,
@@ -88,7 +78,6 @@ fn new_orthotopes_up_by_origin(holder: &mut Holder, pair: (Word, Word)) -> Vec<N
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_up_by_hop(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
     let up_orthos = up_handler::up_by_hop(
         holder,
@@ -103,7 +92,6 @@ fn new_orthotopes_up_by_hop(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewO
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_up_by_contents(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
     let up_orthos = up_handler::up_by_contents(
         holder,
@@ -118,7 +106,6 @@ fn new_orthotopes_up_by_contents(holder: &mut Holder, pair: (Word, Word)) -> Vec
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_ffbb(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
     let ex_nihilo_orthos = single_ffbb(holder, pair.0, pair.1);
 
@@ -128,7 +115,6 @@ fn new_orthotopes_ffbb(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthot
     res
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn new_orthotopes_fbbf(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
     let ex_nihilo_orthos = single_fbbf(holder, pair.0, pair.1);
     let nihilo_iter = ex_nihilo_orthos.iter();
@@ -143,7 +129,6 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     hasher.finish() as i64
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_pair(holder: &Holder, pk: i32) -> (Word, Word) {
     let p = holder.get_pair(pk.into()); // todo remove cast
 

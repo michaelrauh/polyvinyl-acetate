@@ -7,12 +7,6 @@ use crate::{
     ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int, Word, Holder, get_ortho_by_origin_batch, project_forward_batch, get_phrases_with_matching_hashes, phrase_exists_db_filter_head, project_backward_batch, phrase_exists_db_filter_tail,
 };
 
-#[tracing::instrument(
-    level = "info",
-    skip(
-        holder,
-    )
-)]
 pub(crate) fn over_forward(
     holder: &mut Holder,
     old_orthotope: crate::ortho::Ortho,

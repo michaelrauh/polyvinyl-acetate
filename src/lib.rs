@@ -1,12 +1,4 @@
 pub mod models;
-pub mod schema;
-
-#[macro_use]
-extern crate diesel;
-extern crate dotenv;
-
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
 
 use maplit::hashset;
 
@@ -30,12 +22,8 @@ use models::{Book, Pair, Sentence};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
-    env,
     hash::{Hash, Hasher},
 };
-
-type FailableWorsetsToTupleWordsetsResult =
-    (HashSet<Word>, HashSet<Word>, HashSet<i64>);
 
 type Word = i32;
 
@@ -212,13 +200,6 @@ impl Holder {
     }
 }
 
-#[tracing::instrument(level = "info")]
-pub fn establish_connection_safe() -> Result<PgConnection, ConnectionError> {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-}
-
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_hashes_of_pairs_with_words_in(
     holder: &mut Holder,
     first_words: HashSet<Word>,
@@ -231,7 +212,6 @@ pub fn get_hashes_of_pairs_with_words_in(
     firsts.intersection(&seconds).cloned().collect()
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_hashes_and_words_of_pairs_with_words_in(
     holder: &Holder,
     first_words: HashSet<Word>,
@@ -253,7 +233,6 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     (firsts, seconds, hashes)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_phrases_with_matching_hashes(
     holder: &Holder,
     all_phrases: HashSet<i64>,
@@ -263,7 +242,6 @@ pub fn get_phrases_with_matching_hashes(
     .collect()
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn project_forward_batch(
     holder: &Holder,
     from: HashSet<Word>,
@@ -271,7 +249,6 @@ fn project_forward_batch(
     holder.get_words_of_pairs_with_first_word_in(from)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn project_backward_batch(
     holder: &Holder,
     from: HashSet<Word>,
@@ -311,7 +288,6 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn project_forward(
     holder: &Holder,
     from: Word,
@@ -319,7 +295,6 @@ fn project_forward(
     holder.get_second_words_of_pairs_with_first_word(from)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn project_backward(
     holder: &Holder,
     from: Word,
@@ -327,12 +302,10 @@ fn project_backward(
     holder.get_first_words_of_pairs_with_second_word(from)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn insert_orthotopes(holder: &mut Holder, new_orthos: HashSet<NewOrthotope>) -> Vec<i64> {
     holder.insert_orthos(new_orthos)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_ortho_by_origin(
     holder: &mut Holder,
     o: Word,
@@ -340,7 +313,6 @@ pub fn get_ortho_by_origin(
     holder.get_orthos_with_origin(o)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_base_ortho_by_origin(
     holder: &mut Holder,
     o: Word,
@@ -348,7 +320,6 @@ pub fn get_base_ortho_by_origin(
     holder.get_base_orthos_with_origin(o)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_ortho_by_origin_batch(
     holder: &mut Holder,
     o: HashSet<Word>,
@@ -373,7 +344,6 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     }
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_ortho_by_hop(
     holder: &Holder,
     other_hop: Vec<Word>,
@@ -381,7 +351,6 @@ fn get_ortho_by_hop(
     holder.get_orthos_with_hops_overlapping(other_hop)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_base_ortho_by_hop(
     holder: &Holder,
     other_hop: Vec<Word>,
@@ -389,7 +358,6 @@ fn get_base_ortho_by_hop(
     holder.get_base_orthos_with_hops_overlapping(other_hop)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_ortho_by_contents(
     holder: &Holder,
     other_contents: Vec<Word>,
@@ -397,7 +365,6 @@ fn get_ortho_by_contents(
     holder.get_orthos_with_contents_overlapping(other_contents)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_base_ortho_by_contents(
     holder: &Holder,
     other_contents: Vec<Word>,
@@ -405,7 +372,6 @@ fn get_base_ortho_by_contents(
     holder.get_base_orthos_with_contents_overlapping(other_contents)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter(
     holder: &Holder,
     left: HashSet<i64>,
@@ -417,7 +383,6 @@ pub(crate) fn phrase_exists_db_filter(
     firsts.intersection(&seconds).cloned().collect()
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter_head(
     holder: &Holder,
     left: HashSet<i64>,
@@ -425,7 +390,6 @@ pub(crate) fn phrase_exists_db_filter_head(
     holder.get_phrase_hash_with_phrase_head_matching(left)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter_tail(
     holder: &Holder,
     right: HashSet<i64>,
@@ -433,12 +397,10 @@ pub(crate) fn phrase_exists_db_filter_tail(
     holder.get_phrase_hash_with_phrase_tail_matching(right)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_relevant_vocabulary(holder: &Holder, words: HashSet<String>) -> HashMap<String, Word> {
     holder.get_vocabulary(words)
 }
 
-#[tracing::instrument(level = "info", skip(holder))]
 fn get_relevant_vocabulary_reverse(
     holder: &Holder,
     words: HashSet<Word>,

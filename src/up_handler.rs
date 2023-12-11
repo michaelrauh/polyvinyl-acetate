@@ -8,15 +8,6 @@ use crate::{
     Word, Holder,
 };
 
-
-#[tracing::instrument(
-    level = "info",
-    skip(
-        holder,
-        get_base_ortho_by_origin,
-        get_hashes_and_words_of_pairs_with_words_in
-    )
-)]
 pub fn up_by_origin(
     holder: &mut Holder,
     first_w: Word,
@@ -51,14 +42,6 @@ pub fn up_by_origin(
     )
 }
 
-#[tracing::instrument(
-    level = "info",
-    skip(
-        holder,
-        get_base_ortho_by_hop,
-        get_hashes_and_words_of_pairs_with_words_in
-    )
-)]
 pub fn up_by_hop(
     holder: &mut Holder,
     first_w: Word,
@@ -85,14 +68,6 @@ pub fn up_by_hop(
     )
 }
 
-#[tracing::instrument(
-    level = "info",
-    skip(
-        holder,
-        get_base_ortho_by_contents,
-        get_hashes_and_words_of_pairs_with_words_in
-    )
-)]
 pub fn up_by_contents(
     holder: &mut Holder,
     first_w: Word,
@@ -119,7 +94,6 @@ pub fn up_by_contents(
     )
 }
 
-#[tracing::instrument(level = "info")]
 fn attempt_up_for_pairs_of_matching_dimensionality(
     left_map: std::collections::HashMap<usize, Vec<Ortho>>,
     right_map: std::collections::HashMap<usize, Vec<Ortho>>,
@@ -141,10 +115,6 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
     .collect()
 }
 
-#[tracing::instrument(
-    level = "info",
-    skip(holder, get_hashes_and_words_of_pairs_with_words_in)
-)]
 fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     get_hashes_and_words_of_pairs_with_words_in: fn(
         &Holder,
@@ -169,7 +139,6 @@ fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     res
 }
 
-#[tracing::instrument(level = "info")]
 fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
     left_map: std::collections::HashMap<usize, Vec<Ortho>>,
     right_map: std::collections::HashMap<usize, Vec<Ortho>>,
@@ -199,7 +168,6 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
         .collect()
 }
 
-#[tracing::instrument(level = "info")]
 fn group_orthos_of_right_vocabulary_by_dimensionality(
     orthos: Vec<Ortho>,
     vocabulary: HashSet<i32>,
@@ -212,7 +180,6 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
     )
 }
 
-#[tracing::instrument(level = "info")]
 fn total_vocabulary(orthos: &[Ortho]) -> HashSet<i32> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }

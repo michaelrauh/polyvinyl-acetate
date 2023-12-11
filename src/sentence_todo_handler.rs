@@ -6,7 +6,6 @@ use crate::{
     Word,
 };
 
-#[tracing::instrument(level = "info", skip(holder))]
 pub fn handle_sentence_todo(todo: Todo, holder: &mut Holder) {
     let sentence = get_sentence(holder, todo.other);
     let words = split_sentence(&sentence);
