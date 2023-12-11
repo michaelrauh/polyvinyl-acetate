@@ -195,7 +195,7 @@ impl Holder {
         todo!()
     }
 
-    fn insert_book(&self, title: String, body: String) -> Book {
+    pub fn insert_book(&self, title: String, body: String) -> Book {
         todo!()
     }
 }
