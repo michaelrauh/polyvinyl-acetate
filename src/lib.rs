@@ -5,12 +5,11 @@ pub mod schema;
 extern crate diesel;
 extern crate dotenv;
 
-use diesel::dsl::any;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
 use maplit::hashset;
-use schema::{phrases, sentences, todos};
+
 mod book_todo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
@@ -22,16 +21,12 @@ mod sentence_todo_handler;
 mod up_handler;
 mod up_helper;
 mod up_on_ortho_found_handler;
-pub mod web_helper;
 pub mod worker_helper;
 
-use crate::models::{NewOrthotope, Orthotope};
+use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
-use crate::schema::orthotopes::{self};
-use crate::schema::pairs::table as pairs;
-use crate::{models::NewTodo, schema::books::dsl::books};
-use diesel::query_dsl::methods::SelectDsl;
-use models::Book;
+
+use models::{Book, Pair, Sentence};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -39,44 +34,16 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-type FailableWordVecToOrthoVec =
-    fn(Option<&PgConnection>, Vec<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
-type FailableWordToOrthoVec = fn(Option<&PgConnection>, Word) -> Result<Vec<Ortho>, anyhow::Error>;
-
-type FailableHashsetWordsToHashsetNumbers = fn(
-    conn: Option<&PgConnection>,
-    first_words: HashSet<Word>,
-    second_words: HashSet<Word>,
-) -> Result<HashSet<i64>, anyhow::Error>;
-
-type FailableWordToVecOfOrthosfn =
-    fn(Option<&PgConnection>, HashSet<Word>) -> Result<Vec<Ortho>, anyhow::Error>;
-
-type FailableWordsetToWordset =
-    fn(Option<&PgConnection>, HashSet<i64>) -> Result<HashSet<i64>, anyhow::Error>;
-
-type FailableWordsetToWordTupleset =
-    fn(Option<&PgConnection>, HashSet<Word>) -> Result<HashSet<(Word, Word)>, anyhow::Error>;
-
-type FailableHashsetsWordsToHashsetWords =
-    fn(Option<&PgConnection>, HashSet<i64>, HashSet<i64>) -> Result<HashSet<i64>, anyhow::Error>;
-
-type FailableWordsetsToTupleWordsets =
-    fn(
-        Option<&PgConnection>,
-        HashSet<i32>,
-        HashSet<i32>,
-    ) -> Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
-
 type FailableWorsetsToTupleWordsetsResult =
-    Result<(HashSet<Word>, HashSet<Word>, HashSet<i64>), anyhow::Error>;
+    (HashSet<Word>, HashSet<Word>, HashSet<i64>);
 
 type Word = i32;
 
 #[derive(Debug)]
 pub struct Holder {
+    // todo come back here. Must Holder store strings?
     books: HashMap<i32, Book>,
-    vocabulary: HashSet<String>,
+    vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
 }
@@ -86,17 +53,107 @@ impl Holder {
         todo!()
     }
 
+    fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
+        todo!()
+    }
+
+    fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
+        todo!()
+    }
+
+    fn get_orthos_with_hops_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_base_orthos_with_hops_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_orthos_with_contents_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_base_orthos_with_contents_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_words_of_pairs_with_second_word_in(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word)> {
+        todo!()
+    }
+
+    fn get_words_of_pairs_with_first_word_in(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word)> {
+        todo!()
+    }
+
+    fn get_hashes_and_words_of_pairs_with_first_word(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word, i64)> {
+        todo!()
+    }
+
+    fn get_hashes_and_words_of_pairs_with_second_word(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word, i64)> {
+        todo!()
+    }
+
+    fn get_phrase_hash_with_phrase_head_matching(&self, firsts: HashSet<i64>) -> HashSet<i64> {
+        todo!()
+    }
+
+    fn get_phrase_hash_with_phrase_tail_matching(&self, firsts: HashSet<i64>) -> HashSet<i64> {
+        todo!()
+    }
+
+    fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
+        todo!()
+    }
+
+    fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
+        todo!()
+    }
+
+    fn get_second_words_of_pairs_with_first_word(&self, seconds: Word) -> HashSet<Word> {
+        todo!()
+    }
+
+    fn get_first_words_of_pairs_with_second_word(&self, seconds: Word) -> HashSet<Word> {
+        todo!()
+    }
+
     fn get_book(&self, pk: i32) -> Book {
-        self.books
-            .get(&pk)
-            .expect("do not deref nonexistant books").clone()
+        self.books[&pk].clone()
+    }
+
+    fn ffbb(&self, first: Word, second: Word) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn fbbf(&self, first: Word, second: Word) -> Vec<Ortho> {
+        todo!()
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
-        // todo remove word hash from model
         to_insert.iter().for_each(|x| {
-            self.vocabulary.insert(x.word.clone());
+            self.vocabulary
+                .insert(x.word.clone(), x.word_hash.try_into().unwrap()); // todo come back here and just use the word hash. Convert word to i64
         });
+    }
+
+    fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
+        self.vocabulary
+            .iter()
+            .filter(|(k, _v)| words.contains(*k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
+    }
+
+    fn get_pair(&self, key: i64) -> Pair {
+        todo!()
+    }
+
+    fn get_phrase(&self, key: i64) -> Vec<Word> {
+        todo!()
+    }
+
+    fn get_orthotope(&self, key: i64) -> Ortho {
+        todo!()
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
@@ -121,6 +178,38 @@ impl Holder {
             todos.insert(*h);
         });
     }
+
+    fn get_sentence(&self, pk: i32) -> Sentence {
+        todo!()
+    }
+
+    fn insert_pairs(&self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
+        todo!()
+    }
+
+    fn insert_phrases(&self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
+        todo!()
+    }
+
+    fn insert_orthos(&mut self, to_insert: HashSet<NewOrthotope>) -> Vec<i64> {
+        todo!()
+    }
+
+    fn get_orthos_with_origin(&mut self, to_insert: Word) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_base_orthos_with_origin(&mut self, to_insert: Word) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn get_ortho_with_origin_in(&mut self, to_insert: HashSet<Word>) -> Vec<Ortho> {
+        todo!()
+    }
+
+    fn insert_book(&self, title: String, body: String) -> Book {
+        todo!()
+    }
 }
 
 #[tracing::instrument(level = "info")]
@@ -129,76 +218,29 @@ pub fn establish_connection_safe() -> Result<PgConnection, ConnectionError> {
     PgConnection::establish(&database_url)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_hashes_of_pairs_with_words_in(
-    conn: Option<&PgConnection>,
+    holder: &mut Holder,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
-) -> Result<HashSet<i64>, anyhow::Error> {
-    let firsts: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            pairs,
-            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
-        ),
-        crate::schema::pairs::pair_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
+) -> HashSet<i64> {
+    let firsts: HashSet<i64> = holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(first_words));
+    let seconds: HashSet<i64> = holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(second_words));
 
-    let seconds: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            pairs,
-            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
-        ),
-        crate::schema::pairs::pair_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
-
-    Ok(firsts.intersection(&seconds).cloned().collect())
+    // todo consider moving into holder
+    firsts.intersection(&seconds).cloned().collect()
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_hashes_and_words_of_pairs_with_words_in(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
-) -> FailableWorsetsToTupleWordsetsResult {
-    let firsts: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            pairs,
-            schema::pairs::first_word.eq(any(Vec::from_iter(first_words))),
-        ),
-        (
-            crate::schema::pairs::first_word,
-            crate::schema::pairs::second_word,
-            crate::schema::pairs::pair_hash,
-        ),
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
+) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>) {
+    let firsts: HashSet<(Word, Word, i64)> = holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
+    let seconds: HashSet<(Word, Word, i64)> = holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
 
-    let seconds: HashSet<(Word, Word, i64)> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            pairs,
-            schema::pairs::second_word.eq(any(Vec::from_iter(second_words))),
-        ),
-        (
-            crate::schema::pairs::first_word,
-            crate::schema::pairs::second_word,
-            crate::schema::pairs::pair_hash,
-        ),
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
+    // todo consider moving into holder
     let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
     let mut firsts = hashset! {};
     let mut seconds = hashset! {};
@@ -208,95 +250,33 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
         seconds.insert(s);
         hashes.insert(h);
     });
-    Ok((firsts, seconds, hashes))
+    (firsts, seconds, hashes)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_phrases_with_matching_hashes(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     all_phrases: HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error> {
-    use crate::phrases::dsl::phrases;
-    let ps: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            phrases,
-            schema::phrases::words_hash.eq(any(Vec::from_iter(all_phrases))),
-        ),
-        crate::schema::phrases::words_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
+) -> HashSet<i64> {
+    holder.get_phrases_matching(all_phrases).iter()
     .cloned()
-    .collect();
-
-    Ok(ps)
+    .collect()
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn project_forward_batch(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     from: HashSet<Word>,
-) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
-    let seconds_vec: Vec<(Word, Word)> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            pairs,
-            schema::pairs::first_word.eq(any(Vec::from_iter(from))),
-        ),
-        (
-            crate::schema::pairs::first_word,
-            crate::schema::pairs::second_word,
-        ),
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?;
-
-    let seconds = HashSet::from_iter(seconds_vec);
-    Ok(seconds)
+) -> HashSet<(Word, Word)> {
+    holder.get_words_of_pairs_with_first_word_in(from)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn project_backward_batch(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     from: HashSet<Word>,
-) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
-    let firsts_vec: Vec<(Word, Word)> = RunQueryDsl::load(
-        SelectDsl::select(
-            QueryDsl::filter(
-                pairs,
-                schema::pairs::second_word.eq(any(Vec::from_iter(from))),
-            ),
-            (
-                crate::schema::pairs::first_word,
-                crate::schema::pairs::second_word,
-            ),
-        ),
-        conn.expect("do not pass a test dummy in production"),
-    )?;
-
-    let firsts = HashSet::from_iter(firsts_vec);
-    Ok(firsts)
-}
-
-#[tracing::instrument(level = "info", skip(conn))]
-fn create_todo_entry(
-    conn: &PgConnection,
-    all_todos: Vec<NewTodo>,
-) -> Result<(), diesel::result::Error> {
-    if all_todos.is_empty() {
-        return Ok(());
-    }
-
-    let to_insert: Vec<Vec<NewTodo>> = Vec::from_iter(all_todos)
-        .chunks(1000)
-        .map(|x| x.to_vec())
-        .collect();
-
-    for chunk in to_insert {
-        diesel::insert_into(todos::table)
-            .values(chunk)
-            .execute(conn)?;
-    }
-
-    Ok(())
+) -> HashSet<(Word, Word)> {
+    holder.get_words_of_pairs_with_second_word_in(from)
 }
 
 pub fn string_to_signed_int(t: &str) -> i64 {
@@ -331,122 +311,49 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn project_forward(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     from: Word,
-) -> Result<HashSet<Word>, anyhow::Error> {
-    let seconds_vec: Vec<Word> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(pairs, schema::pairs::first_word.eq(from)),
-        crate::schema::pairs::second_word,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?;
-
-    let seconds = HashSet::from_iter(seconds_vec);
-    Ok(seconds)
+) -> HashSet<Word> {
+    holder.get_second_words_of_pairs_with_first_word(from)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn project_backward(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     from: Word,
-) -> Result<HashSet<Word>, anyhow::Error> {
-    let firsts_vec: Vec<Word> = RunQueryDsl::load(
-        SelectDsl::select(
-            QueryDsl::filter(pairs, schema::pairs::second_word.eq(from)),
-            crate::schema::pairs::first_word,
-        ),
-        conn.expect("do not pass a test dummy in production"),
-    )?;
-
-    let firsts = HashSet::from_iter(firsts_vec);
-    Ok(firsts)
+) -> HashSet<Word> {
+    holder.get_first_words_of_pairs_with_second_word(from)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
-pub fn insert_orthotopes(
-    conn: &PgConnection,
-    new_orthos: HashSet<NewOrthotope>,
-) -> Result<Vec<Orthotope>, diesel::result::Error> {
-    let to_insert: Vec<Vec<NewOrthotope>> = Vec::from_iter(new_orthos)
-        .chunks(1000)
-        .map(|x| x.to_vec())
-        .collect();
-
-    let mut res = vec![];
-    for chunk in to_insert {
-        let chunk_res: Vec<Orthotope> = diesel::insert_into(orthotopes::table)
-            .values(chunk)
-            .on_conflict_do_nothing()
-            .get_results(conn)?;
-        res.push(chunk_res);
-    }
-    let final_res = res.into_iter().flatten().collect();
-
-    Ok(final_res)
+#[tracing::instrument(level = "info", skip(holder))]
+pub fn insert_orthotopes(holder: &mut Holder, new_orthos: HashSet<NewOrthotope>) -> Vec<i64> {
+    holder.insert_orthos(new_orthos)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_ortho_by_origin(
-    conn: Option<&PgConnection>,
+    holder: &mut Holder,
     o: Word,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{origin, table as orthotopes};
-    use diesel::query_dsl::filter_dsl::FilterDsl;
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        FilterDsl::filter(orthotopes, origin.eq(o)),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_orthos_with_origin(o)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_base_ortho_by_origin(
-    conn: Option<&PgConnection>,
+    holder: &mut Holder,
     o: Word,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{base, origin, table as orthotopes};
-    use diesel::query_dsl::filter_dsl::FilterDsl;
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        FilterDsl::filter(orthotopes, origin.eq(o).and(base.eq(true))),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_base_orthos_with_origin(o)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub fn get_ortho_by_origin_batch(
-    conn: Option<&PgConnection>,
+    holder: &mut Holder,
     o: HashSet<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{origin, table as orthotopes};
-    use diesel::query_dsl::filter_dsl::FilterDsl;
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        FilterDsl::filter(orthotopes, origin.eq(any(Vec::from_iter(o)))),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_ortho_with_origin_in(o)
 }
 
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
@@ -466,187 +373,75 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     }
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn get_ortho_by_hop(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     other_hop: Vec<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{hop, table as orthotopes};
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        orthotopes.filter(hop.overlaps_with(other_hop)),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_orthos_with_hops_overlapping(other_hop)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn get_base_ortho_by_hop(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     other_hop: Vec<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{base, hop, table as orthotopes};
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        orthotopes.filter(hop.overlaps_with(other_hop).and(base.eq(true))),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_base_orthos_with_hops_overlapping(other_hop)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn get_ortho_by_contents(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     other_contents: Vec<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{contents, table as orthotopes};
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        orthotopes.filter(contents.overlaps_with(other_contents)),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_orthos_with_contents_overlapping(other_contents)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn get_base_ortho_by_contents(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     other_contents: Vec<Word>,
-) -> Result<Vec<Ortho>, anyhow::Error> {
-    use crate::schema::orthotopes::{base, contents, table as orthotopes};
-    let results: Vec<Vec<u8>> = SelectDsl::select(
-        orthotopes.filter(contents.overlaps_with(other_contents).and(base.eq(true))),
-        schema::orthotopes::information,
-    )
-    .load(conn.expect("don't use test connections in production"))?;
-
-    let res: Vec<Ortho> = results
-        .iter()
-        .map(|x| bincode::deserialize(x).expect("deserialization should succeed"))
-        .collect();
-
-    Ok(res)
+) -> Vec<Ortho> {
+    holder.get_base_orthos_with_contents_overlapping(other_contents)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     left: HashSet<i64>,
     right: HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error> {
-    use crate::phrases::dsl::phrases;
-    let firsts: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            phrases,
-            schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),
-        ),
-        crate::schema::phrases::words_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
+) -> HashSet<i64> {
+    let firsts = holder.get_phrase_hash_with_phrase_head_matching(left);
+    let seconds = holder.get_phrase_hash_with_phrase_tail_matching(right);
 
-    let seconds: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            phrases,
-            schema::phrases::phrase_tail.eq(any(Vec::from_iter(right))),
-        ),
-        crate::schema::phrases::words_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
-
-    Ok(firsts.intersection(&seconds).cloned().collect())
+    firsts.intersection(&seconds).cloned().collect()
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter_head(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     left: HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error> {
-    use crate::phrases::dsl::phrases;
-    let firsts: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            phrases,
-            schema::phrases::phrase_head.eq(any(Vec::from_iter(left))),
-        ),
-        crate::schema::phrases::words_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
-
-    Ok(firsts)
+) -> HashSet<i64> {
+    holder.get_phrase_hash_with_phrase_head_matching(left)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 pub(crate) fn phrase_exists_db_filter_tail(
-    conn: Option<&PgConnection>,
+    holder: &Holder,
     right: HashSet<i64>,
-) -> Result<HashSet<i64>, anyhow::Error> {
-    use crate::phrases::dsl::phrases;
-
-    let seconds: HashSet<i64> = diesel::QueryDsl::select(
-        diesel::QueryDsl::filter(
-            phrases,
-            schema::phrases::phrase_tail.eq(any(Vec::from_iter(right))),
-        ),
-        crate::schema::phrases::words_hash,
-    )
-    .load(conn.expect("do not pass a test dummy in production"))?
-    .iter()
-    .cloned()
-    .collect();
-
-    Ok(seconds)
+) -> HashSet<i64> {
+    holder.get_phrase_hash_with_phrase_tail_matching(right)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
-fn get_relevant_vocabulary(
-    conn: &PgConnection,
-    words: HashSet<String>,
-) -> Result<HashMap<String, Word>, diesel::result::Error> {
-    let res: Vec<(String, i32)> = SelectDsl::select(
-        schema::words::table.filter(schema::words::word.eq(any(Vec::from_iter(words.into_iter())))),
-        (schema::words::word, schema::words::id),
-    )
-    .load(conn)?;
-
-    Ok(res.into_iter().collect())
+#[tracing::instrument(level = "info", skip(holder))]
+fn get_relevant_vocabulary(holder: &Holder, words: HashSet<String>) -> HashMap<String, Word> {
+    holder.get_vocabulary(words)
 }
 
-#[tracing::instrument(level = "info", skip(conn))]
+#[tracing::instrument(level = "info", skip(holder))]
 fn get_relevant_vocabulary_reverse(
-    conn: &PgConnection,
+    holder: &Holder,
     words: HashSet<Word>,
-) -> Result<HashMap<Word, String>, diesel::result::Error> {
-    let res: Vec<(i32, String)> = SelectDsl::select(
-        schema::words::table.filter(schema::words::id.eq(any(Vec::from_iter(words.into_iter())))),
-        (schema::words::id, schema::words::word),
-    )
-    .load(conn)?;
-
-    Ok(res.into_iter().collect())
+) -> HashMap<Word, String> {
+    holder.get_vocabulary_slice_with_words(words)
 }

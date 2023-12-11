@@ -1,26 +1,18 @@
 use std::collections::HashMap;
 
-use crate::models::{NewPair, NewPhrase, Pair, Phrase, Todo};
+use crate::models::{NewPair, NewPhrase, Todo};
 use crate::{
-    create_todo_entry, get_relevant_vocabulary, ints_to_big_int, vec_of_words_to_big_int, NewTodo,
+    get_relevant_vocabulary, ints_to_big_int, vec_of_words_to_big_int, Holder,
     Word,
 };
-use diesel::PgConnection;
 
-#[tracing::instrument(level = "info", skip(pool))]
-pub fn handle_sentence_todo(
-    todo: Todo,
-    pool: diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>,
-) -> Result<(), anyhow::Error> {
-    let conn = pool.get()?;
-    conn.build_transaction().serializable().run(|| {
-        let sentence = get_sentence(&conn, todo.other)?;
-        let words = split_sentence(&sentence);
-        let vocab = get_relevant_vocabulary(&conn, words.into_iter().collect())?;
-        create_pairs(&conn, &sentence, &vocab)?;
-        create_phrases(&conn, sentence, &vocab)?;
-        Ok(())
-    })
+#[tracing::instrument(level = "info", skip(holder))]
+pub fn handle_sentence_todo(todo: Todo, holder: &mut Holder) {
+    let sentence = get_sentence(holder, todo.other);
+    let words = split_sentence(&sentence);
+    let vocab = get_relevant_vocabulary(holder, words.into_iter().collect());
+    create_pairs(holder, &sentence, &vocab);
+    create_phrases(holder, sentence, &vocab);
 }
 
 fn split_sentence(sentence: &str) -> Vec<String> {
@@ -44,23 +36,11 @@ pub fn split_sentence_to_pairs(sentence: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-fn create_pair_entry(
-    conn: &PgConnection,
-    to_insert: Vec<NewPair>,
-) -> Result<Vec<Pair>, diesel::result::Error> {
-    use crate::schema::pairs;
-    use diesel::RunQueryDsl;
-    diesel::insert_into(pairs::table)
-        .values(&to_insert)
-        .on_conflict_do_nothing()
-        .get_results(conn)
+fn create_pair_entry(holder: &mut Holder, to_insert: Vec<NewPair>) -> Vec<i64> {
+    holder.insert_pairs(to_insert)
 }
 
-fn create_phrases(
-    conn: &PgConnection,
-    sentence: String,
-    vocab: &HashMap<String, i32>,
-) -> Result<(), anyhow::Error> {
+fn create_phrases(holder: &mut Holder, sentence: String, vocab: &HashMap<String, i32>) {
     let ps: Vec<Vec<String>> = split_sentence_to_phrases(sentence);
     let pi32s: Vec<Vec<Word>> = ps
         .iter()
@@ -81,29 +61,12 @@ fn create_phrases(
         })
         .collect();
 
-    let phrases = create_phrase_entry(conn, new_phrases)?;
-    let to_insert: Vec<NewTodo> = phrases
-        .iter()
-        .map(|p| NewTodo {
-            domain: "phrases".to_owned(),
-            other: p.id,
-        })
-        .collect();
-    create_todo_entry(conn, to_insert)?;
-
-    Ok(())
+    let phrases = create_phrase_entry(holder, new_phrases);
+    holder.insert_todos("phrases", phrases);
 }
 
-fn create_phrase_entry(
-    conn: &PgConnection,
-    to_insert: Vec<NewPhrase>,
-) -> Result<Vec<Phrase>, diesel::result::Error> {
-    use crate::schema::phrases;
-    use diesel::RunQueryDsl;
-    diesel::insert_into(phrases::table)
-        .values(&to_insert)
-        .on_conflict_do_nothing()
-        .get_results(conn)
+fn create_phrase_entry(holder: &mut Holder, to_insert: Vec<NewPhrase>) -> Vec<i64> {
+    holder.insert_phrases(to_insert)
 }
 
 fn split_sentence_to_phrases(sentence: String) -> Vec<Vec<String>> {
@@ -133,11 +96,7 @@ fn tails(words: Vec<String>) -> Vec<Vec<String>> {
     acc
 }
 
-fn create_pairs(
-    conn: &PgConnection,
-    sentence: &str,
-    vocab: &HashMap<String, Word>,
-) -> Result<(), anyhow::Error> {
+fn create_pairs(holder: &mut Holder, sentence: &str, vocab: &HashMap<String, Word>) {
     let tuples = split_sentence_to_pairs(sentence);
     let new_pairs: Vec<NewPair> = tuples
         .iter()
@@ -156,29 +115,12 @@ fn create_pairs(
         })
         .collect();
 
-    let pairs = create_pair_entry(conn, new_pairs)?;
-    let to_insert: Vec<NewTodo> = pairs
-        .iter()
-        .map(|p| NewTodo {
-            domain: "pairs".to_owned(),
-            other: p.id,
-        })
-        .collect();
-    create_todo_entry(conn, to_insert)?;
-
-    Ok(())
+    let pairs = create_pair_entry(holder, new_pairs);
+    holder.insert_todos("pairs", pairs);
 }
 
-fn get_sentence(conn: &PgConnection, pk: i32) -> Result<String, anyhow::Error> {
-    use crate::schema::sentences::id;
-    use crate::sentences::dsl::sentences;
-    use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-    let sentence: String = sentences
-        .filter(id.eq(pk))
-        .select(crate::sentences::sentence)
-        .first(conn)?;
-
-    Ok(sentence)
+fn get_sentence(holder: &mut Holder, pk: i32) -> String {
+    holder.get_sentence(pk).sentence
 }
 
 #[cfg(test)]

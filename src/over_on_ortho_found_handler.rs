@@ -4,34 +4,25 @@ use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
-    ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int,
-    FailableWordToVecOfOrthosfn, FailableWordsetToWordTupleset, FailableWordsetToWordset, Word,
+    ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int, Word, Holder, get_ortho_by_origin_batch, project_forward_batch, get_phrases_with_matching_hashes, phrase_exists_db_filter_head, project_backward_batch, phrase_exists_db_filter_tail,
 };
 
 #[tracing::instrument(
     level = "info",
     skip(
-        conn,
-        get_ortho_by_origin_batch,
-        project_forward_batch,
-        get_phrases_with_matching_hashes,
-        phrase_exists_db_filter_head
+        holder,
     )
 )]
 pub(crate) fn over_forward(
-    conn: Option<&diesel::PgConnection>,
+    holder: &mut Holder,
     old_orthotope: crate::ortho::Ortho,
-    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
-    project_forward_batch: FailableWordsetToWordTupleset,
-    get_phrases_with_matching_hashes: FailableWordsetToWordset,
-    phrase_exists_db_filter_head: FailableWordsetToWordset,
-) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
+) -> Vec<crate::ortho::Ortho> {
     let all_phrases = old_orthotope.origin_phrases();
     let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_second_words)?;
+    let all_potential_orthos = get_ortho_by_origin_batch(holder, all_second_words);
 
     if all_potential_orthos.is_empty() {
-        return Ok(vec![]);
+        return vec![];
     }
 
     let lasts = all_phrases
@@ -39,7 +30,7 @@ pub(crate) fn over_forward(
         .map(|old_phrase| old_phrase.last().expect("orthos cannot have empty phrases"))
         .copied()
         .collect::<HashSet<_>>();
-    let forwards = project_forward_batch(conn, lasts)?;
+    let forwards = project_forward_batch(holder, lasts);
 
     let last_to_phrase = Itertools::into_group_map_by(all_phrases.iter(), |old_phrase| {
         old_phrase.last().expect("orthos cannot have empty phrases")
@@ -74,7 +65,7 @@ pub(crate) fn over_forward(
         })
         .collect::<HashSet<_>>();
 
-    let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
+    let actual_phrases = get_phrases_with_matching_hashes(holder, desired_phrases);
 
     let all_phrase_heads: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
@@ -82,7 +73,7 @@ pub(crate) fn over_forward(
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_heads)?;
+    let speculative_potential_phrases = phrase_exists_db_filter_head(holder, all_phrase_heads);
 
     let mut ans: Vec<Ortho> = vec![];
 
@@ -154,30 +145,26 @@ pub(crate) fn over_forward(
         }
     }
 
-    Ok(ans)
+    ans
 }
 
 pub(crate) fn over_back(
-    conn: Option<&diesel::PgConnection>,
+    holder: &mut Holder,
     old_orthotope: crate::ortho::Ortho,
-    get_ortho_by_origin_batch: FailableWordToVecOfOrthosfn,
-    project_backward_batch: FailableWordsetToWordTupleset,
-    get_phrases_with_matching_hashes: FailableWordsetToWordset,
-    phrase_exists_db_filter_head: FailableWordsetToWordset,
-) -> Result<Vec<crate::ortho::Ortho>, anyhow::Error> {
+) -> Vec<crate::ortho::Ortho> {
     let all_phrases = old_orthotope.origin_phrases();
 
     let firsts = all_phrases
         .iter()
         .map(|old_phrase| old_phrase[0])
         .collect::<HashSet<_>>();
-    let backwards = project_backward_batch(conn, firsts)?;
+    let backwards = project_backward_batch(holder, firsts);
 
     let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(conn, all_first_words)?;
+    let all_potential_orthos = get_ortho_by_origin_batch(holder, all_first_words);
 
     if all_potential_orthos.is_empty() {
-        return Ok(vec![]);
+        return vec![];
     }
 
     let first_to_phrase = Itertools::into_group_map_by(all_phrases.iter(), |phrase| phrase[0]);
@@ -210,14 +197,14 @@ pub(crate) fn over_back(
         })
         .collect::<HashSet<_>>();
 
-    let actual_phrases = get_phrases_with_matching_hashes(conn, desired_phrases)?;
+    let actual_phrases = get_phrases_with_matching_hashes(holder, desired_phrases);
     let all_phrase_tails: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
         .iter()
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases = phrase_exists_db_filter_head(conn, all_phrase_tails)?;
+    let speculative_potential_phrases = phrase_exists_db_filter_tail(holder, all_phrase_tails);
 
     let mut phrase_to_ortho: std::collections::HashMap<
         &Vec<i32>,
@@ -300,73 +287,17 @@ pub(crate) fn over_back(
         }
     }
 
-    Ok(ans)
+    ans
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         ortho::Ortho, over_on_ortho_found_handler::over_back,
-        over_on_ortho_found_handler::over_forward, vec_of_words_to_big_int, Word,
+        over_on_ortho_found_handler::over_forward, Holder,
     };
-    use diesel::PgConnection;
-    use maplit::{btreemap, hashset};
-    use std::collections::HashSet;
 
-    fn fake_forward_batch(
-        _conn: Option<&PgConnection>,
-        _from: HashSet<Word>,
-    ) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
-        // a b  | b e
-        // c d  | d f
-        let pairs = hashset! { (2,4), (2, 5)};
-        Ok(pairs)
-    }
-
-    fn fake_get_phrases_with_matching_hashes(
-        _conn: Option<&PgConnection>,
-        all_phrases: HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error> {
-        Ok(all_phrases)
-    }
-
-    fn fake_phrase_exists_db_filter_head(
-        _conn: Option<&PgConnection>,
-        _head: HashSet<i64>,
-    ) -> Result<HashSet<i64>, anyhow::Error> {
-        let res = hashset! {
-            vec_of_words_to_big_int(vec![1, 2, 5]),
-            vec_of_words_to_big_int(vec![3, 4, 6]),
-        };
-        Ok(res)
-    }
-
-    fn fake_backward_batch(
-        _conn: Option<&PgConnection>,
-        _from: HashSet<Word>,
-    ) -> Result<HashSet<(Word, Word)>, anyhow::Error> {
-        // a b  | b e
-        // c d  | d f
-        let pairs = hashset! { (1,2),};
-        Ok(pairs)
-    }
-
-    fn fake_ortho_by_origin_batch(
-        _conn: Option<&PgConnection>,
-        _o: HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let os = vec![Ortho::new(2, 5, 4, 6)];
-
-        Ok(os)
-    }
-
-    fn fake_ortho_by_origin_two_batch(
-        _conn: Option<&PgConnection>,
-        _o: HashSet<Word>,
-    ) -> Result<Vec<Ortho>, anyhow::Error> {
-        let os = vec![Ortho::new(1, 2, 3, 4)];
-        Ok(os)
-    }
+    use maplit::btreemap;
 
     #[test]
     fn it_creates_over_when_origin_points_to_origin_from_left() {
@@ -376,16 +307,11 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
-
+        let mut holder = Holder::new();
         let actual = over_forward(
-            None,
+            &mut holder,
             left_ortho.clone(),
-            fake_ortho_by_origin_batch,
-            fake_forward_batch,
-            fake_get_phrases_with_matching_hashes,
-            fake_phrase_exists_db_filter_head,
-        )
-        .unwrap();
+        );
 
         let expected = Ortho::zip_over(
             &left_ortho,
@@ -408,16 +334,11 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
-
+        let mut holder = Holder::new();
         let actual = over_back(
-            None,
+            &mut holder,
             right_ortho.clone(),
-            fake_ortho_by_origin_two_batch,
-            fake_backward_batch,
-            fake_get_phrases_with_matching_hashes,
-            fake_phrase_exists_db_filter_head,
-        )
-        .unwrap();
+        );
 
         let expected = Ortho::zip_over(
             &left_ortho,

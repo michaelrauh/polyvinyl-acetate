@@ -1,5 +1,0 @@
-CREATE TABLE books (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(256) UNIQUE NOT NULL,
-    body TEXT NOT NULL
-);

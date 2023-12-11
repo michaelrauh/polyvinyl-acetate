@@ -6,14 +6,13 @@ use crate::{string_to_signed_int, Book, Holder};
 use itertools::Itertools;
 
 #[tracing::instrument(level = "info", skip(holder))]
-pub fn handle_book_todo(todo: Todo, holder: &mut Holder) -> Result<(), anyhow::Error> {
+pub fn handle_book_todo(todo: Todo, holder: &mut Holder) {
     let book = holder.get_book(todo.other);
     let new_vocabulary = split_book_to_words(&book);
     insert_vocabulary(holder, &new_vocabulary);
     let new_sentences = split_book_to_sentences(&book);
     let sentence_hashes = insert_sentences(holder, &new_sentences);
     holder.insert_todos("sentences", sentence_hashes);
-    Ok(())
 }
 
 fn insert_vocabulary(holder: &mut Holder, vocabulary: &HashSet<String>) {
