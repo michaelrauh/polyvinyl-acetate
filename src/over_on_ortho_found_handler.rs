@@ -4,7 +4,10 @@ use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
-    ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int, Word, Holder, get_ortho_by_origin_batch, project_forward_batch, get_phrases_with_matching_hashes, phrase_exists_db_filter_head, project_backward_batch, phrase_exists_db_filter_tail,
+    get_ortho_by_origin_batch, get_phrases_with_matching_hashes, ortho::Ortho,
+    phrase_exists_db_filter_head, phrase_exists_db_filter_tail,
+    phrase_ortho_handler::attempt_combine_over_with_phrases, project_backward_batch,
+    project_forward_batch, vec_of_words_to_big_int, Holder, Word,
 };
 
 pub(crate) fn over_forward(
@@ -302,10 +305,7 @@ mod tests {
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
         let mut holder = Holder::new();
-        let actual = over_forward(
-            &mut holder,
-            left_ortho.clone(),
-        );
+        let actual = over_forward(&mut holder, left_ortho.clone());
 
         let expected = Ortho::zip_over(
             &left_ortho,
@@ -329,10 +329,7 @@ mod tests {
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
         let mut holder = Holder::new();
-        let actual = over_back(
-            &mut holder,
-            right_ortho.clone(),
-        );
+        let actual = over_back(&mut holder, right_ortho.clone());
 
         let expected = Ortho::zip_over(
             &left_ortho,

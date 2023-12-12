@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use crate::models::{NewPair, NewPhrase, Todo};
-use crate::{
-    get_relevant_vocabulary, ints_to_big_int, vec_of_words_to_big_int, Holder,
-    Word,
-};
+use crate::{get_relevant_vocabulary, ints_to_big_int, vec_of_words_to_big_int, Holder, Word};
 
 pub fn handle_sentence_todo(todo: Todo, holder: &mut Holder) {
     let sentence = get_sentence(holder, todo.other);

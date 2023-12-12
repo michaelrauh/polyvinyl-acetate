@@ -3,14 +3,11 @@ use std::collections::{BTreeMap, HashSet};
 use itertools::{zip, Itertools};
 
 use crate::{
-    ortho::Ortho, vec_of_words_to_big_int,
-    Word, Holder, get_ortho_by_origin, phrase_exists_db_filter, get_ortho_by_hop, get_ortho_by_contents,
+    get_ortho_by_contents, get_ortho_by_hop, get_ortho_by_origin, ortho::Ortho,
+    phrase_exists_db_filter, vec_of_words_to_big_int, Holder, Word,
 };
 
-pub(crate) fn over_by_origin(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<Ortho> {
+pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
     let head = phrase[0];
@@ -53,7 +50,8 @@ pub(crate) fn over_by_origin(
         })
         .collect();
 
-    let all_phrases = phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+    let all_phrases =
+        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
 
     let left_map = Itertools::into_group_map_by(lhs_by_origin.clone(), |o| o.get_dims());
     let right_map = Itertools::into_group_map_by(rhs_by_origin.clone(), |o| o.get_dims());
@@ -86,10 +84,7 @@ pub(crate) fn over_by_origin(
         .collect()
 }
 
-pub(crate) fn over_by_hop(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<Ortho> {
+pub(crate) fn over_by_hop(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
 
@@ -137,7 +132,8 @@ pub(crate) fn over_by_hop(
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
 
-    let all_phrases = phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+    let all_phrases =
+        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
 
     dims_left
         .intersection(&dims_right)
@@ -170,10 +166,7 @@ pub(crate) fn over_by_hop(
         .collect()
 }
 
-pub(crate) fn over_by_contents(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<Ortho> {
+pub(crate) fn over_by_contents(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
 
@@ -229,7 +222,8 @@ pub(crate) fn over_by_contents(
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
 
-    let all_phrases = phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+    let all_phrases =
+        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
 
     dims_left
         .intersection(&dims_right)
@@ -376,14 +370,13 @@ fn make_mapping(
 
 #[cfg(test)]
 mod tests {
-    
 
-    
     use maplit::btreemap;
 
     use crate::{
         ortho::Ortho,
-        phrase_ortho_handler::{over_by_contents, over_by_hop, over_by_origin}, Holder,
+        phrase_ortho_handler::{over_by_contents, over_by_hop, over_by_origin},
+        Holder,
     };
 
     use super::axis_lengths_match;
@@ -407,10 +400,7 @@ mod tests {
             5,
         );
         let mut holder: Holder = Holder::new();
-        let actual = over_by_origin(
-            &mut holder,
-            vec![1, 2, 5],
-        );
+        let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(vec![expected], actual);
     }
@@ -418,10 +408,7 @@ mod tests {
     #[test]
     fn over_filters_mismatched_dims() {
         let mut holder: Holder = Holder::new();
-        let actual = over_by_origin(
-            &mut holder,
-            vec![1, 2, 5],
-        );
+        let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
     }
@@ -429,10 +416,7 @@ mod tests {
     #[test]
     fn over_filters_shift_axis_is_wrong_length() {
         let mut holder: Holder = Holder::new();
-        let actual = over_by_origin(
-            &mut holder,
-            vec![1, 2, 5],
-        );
+        let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
     }
@@ -440,10 +424,7 @@ mod tests {
     #[test]
     fn over_filters_if_the_phrase_wont_result() {
         let mut holder: Holder = Holder::new();
-        let actual = over_by_origin(
-            &mut holder,
-            vec![1, 2, 5, 7],
-        );
+        let actual = over_by_origin(&mut holder, vec![1, 2, 5, 7]);
 
         assert_eq!(actual.len(), 0);
     }
@@ -495,10 +476,7 @@ mod tests {
     #[test]
     fn over_by_origin_filters_if_a_phrase_is_missing_from_db() {
         let mut holder: Holder = Holder::new();
-        let actual = over_by_origin(
-            &mut holder,
-            vec![1, 2, 5],
-        );
+        let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
     }
@@ -517,10 +495,7 @@ mod tests {
             5,
         );
         let mut holder: Holder = Holder::new();
-        let actual = over_by_hop(
-            &mut holder,
-            vec![3, 4, 6],
-        );
+        let actual = over_by_hop(&mut holder, vec![3, 4, 6]);
 
         assert_eq!(vec![expected], actual);
     }
@@ -576,12 +551,9 @@ mod tests {
             },
             7,
         );
-        
+
         let mut holder: Holder = Holder::new();
-        let actual = over_by_contents(
-            &mut holder,
-            vec![3, 6, 9],
-        );
+        let actual = over_by_contents(&mut holder, vec![3, 6, 9]);
 
         assert_eq!(vec![expected], actual);
     }

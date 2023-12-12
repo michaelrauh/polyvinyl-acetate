@@ -35,40 +35,22 @@ pub fn handle_phrase_todo(todo: Todo, holder: &mut Holder) {
     holder.insert_todos("phrase_by_contents", vec![todo.other.into()]); // todo is it safe to use into here? // todo must a vec be made?
 }
 
-fn new_orthotopes_by_origin(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<NewOrthotope> {
-    let orthos = phrase_ortho_handler::over_by_origin(
-        holder,
-        phrase,
-    );
+fn new_orthotopes_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<NewOrthotope> {
+    let orthos = phrase_ortho_handler::over_by_origin(holder, phrase);
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
     res
 }
 
-fn new_orthotopes_by_hop(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<NewOrthotope> {
-    let orthos = phrase_ortho_handler::over_by_hop(
-        holder,
-        phrase,
-    );
+fn new_orthotopes_by_hop(holder: &mut Holder, phrase: Vec<Word>) -> Vec<NewOrthotope> {
+    let orthos = phrase_ortho_handler::over_by_hop(holder, phrase);
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
     res
 }
 
-fn new_orthotopes_by_contents(
-    holder: &mut Holder,
-    phrase: Vec<Word>,
-) -> Vec<NewOrthotope> {
-    let orthos = phrase_ortho_handler::over_by_contents(
-        holder,
-        phrase,
-    );
+fn new_orthotopes_by_contents(holder: &mut Holder, phrase: Vec<Word>) -> Vec<NewOrthotope> {
+    let orthos = phrase_ortho_handler::over_by_contents(holder, phrase);
 
     let res = orthos.iter().map(ortho_to_orthotope).collect();
     res

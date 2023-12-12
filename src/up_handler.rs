@@ -3,10 +3,7 @@ use std::collections::HashSet;
 
 use crate::ortho::Ortho;
 
-use crate::{
-    ints_to_big_int, up_helper,
-    Word, Holder,
-};
+use crate::{ints_to_big_int, up_helper, Holder, Word};
 
 pub fn up_by_origin(
     holder: &mut Holder,
@@ -17,7 +14,8 @@ pub fn up_by_origin(
         &Holder,
         HashSet<i32>,
         HashSet<i32>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+    )
+        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
     let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(holder, first_w);
     let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(holder, second_w);
@@ -37,9 +35,7 @@ pub fn up_by_origin(
     let right_map =
         group_orthos_of_right_vocabulary_by_dimensionality(right_orthos_by_origin, all_seconds);
 
-    attempt_up_for_pairs_of_matching_dimensionality(
-        left_map, right_map, all_pairs,
-    )
+    attempt_up_for_pairs_of_matching_dimensionality(left_map, right_map, all_pairs)
 }
 
 pub fn up_by_hop(
@@ -51,7 +47,8 @@ pub fn up_by_hop(
         &Holder,
         HashSet<i32>,
         HashSet<i32>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+    )
+        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
     let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(holder, vec![first_w]);
     let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(holder, vec![second_w]);
@@ -77,7 +74,8 @@ pub fn up_by_contents(
         &Holder,
         HashSet<i32>,
         HashSet<i32>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+    )
+        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
     let contents_left_orthos: Vec<Ortho> = get_base_ortho_by_contents(holder, vec![first_w]);
     let contents_right_orthos: Vec<Ortho> = get_base_ortho_by_contents(holder, vec![second_w]);
@@ -120,7 +118,8 @@ fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
         &Holder,
         HashSet<i32>,
         HashSet<i32>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
+    )
+        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
     holder: &mut Holder,
     hop_left_orthos: Vec<Ortho>,
     hop_right_orthos: Vec<Ortho>,
@@ -190,13 +189,10 @@ mod tests {
 
     use crate::ortho::Ortho;
     use crate::up_handler::{up_by_contents, up_by_hop, up_by_origin};
-    use crate::{ints_to_big_int, Word, Holder};
+    use crate::{ints_to_big_int, Holder, Word};
     use maplit::{btreemap, hashset};
 
-    fn fake_ortho_by_origin_two(
-        _holder: &mut Holder,
-        o: Word,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_origin_two(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
         let mut pairs = btreemap! { 1 => vec![Ortho::new(
             1,
             2,
@@ -211,10 +207,7 @@ mod tests {
         pairs.entry(o).or_default().to_owned()
     }
 
-    fn fake_ortho_by_origin_four(
-        _holder: &mut Holder,
-        o: Word,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_origin_four(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
         let single = Ortho::new(1, 2, 3, 4);
         let l_one = Ortho::new(5, 6, 7, 8);
 
@@ -227,10 +220,7 @@ mod tests {
         pairs.entry(o).or_default().to_owned()
     }
 
-    fn fake_ortho_by_origin_three(
-        _holder: &mut Holder,
-        o: Word,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_origin_three(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
         let l_one = Ortho::new(1, 2, 4, 5);
         let l_two = Ortho::new(2, 3, 5, 6);
         let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
@@ -242,10 +232,7 @@ mod tests {
         pairs.entry(o).or_default().to_owned()
     }
 
-    fn fake_ortho_by_origin(
-        _holder: &mut Holder,
-        o: Word,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_origin(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
         let mut pairs = btreemap! { 1 => vec![Ortho::new(
             1,
             2,
@@ -260,10 +247,7 @@ mod tests {
         pairs.entry(o).or_default().to_owned()
     }
 
-    fn fake_ortho_by_hop(
-        _holder: &Holder,
-        o: Vec<Word>,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_hop(_holder: &Holder, o: Vec<Word>) -> Vec<Ortho> {
         let mut ans = vec![];
 
         if o.contains(&2) {
@@ -277,10 +261,7 @@ mod tests {
         ans
     }
 
-    fn fake_ortho_by_contents(
-        _holder: &Holder,
-        o: Vec<Word>,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_contents(_holder: &Holder, o: Vec<Word>) -> Vec<Ortho> {
         let mut ans = vec![];
 
         if o.contains(&4) {

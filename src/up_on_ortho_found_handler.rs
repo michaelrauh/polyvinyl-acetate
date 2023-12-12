@@ -1,6 +1,4 @@
-use crate::{
-    ortho::Ortho, up_helper, Word, Holder,
-};
+use crate::{ortho::Ortho, up_helper, Holder, Word};
 
 use std::collections::HashSet;
 
@@ -10,10 +8,10 @@ pub(crate) fn up_forward(
     get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
     forward: fn(&Holder, Word) -> HashSet<Word>,
     get_pair_hashes_relevant_to_vocabularies: fn(
-    holder: &mut Holder,
-    first_words: HashSet<Word>,
-    second_words: HashSet<Word>,
-) -> HashSet<i64>,
+        holder: &mut Holder,
+        first_words: HashSet<Word>,
+        second_words: HashSet<Word>,
+    ) -> HashSet<i64>,
 ) -> Vec<Ortho> {
     if !old_ortho.is_base() {
         return vec![];
@@ -57,10 +55,10 @@ pub(crate) fn up_back(
     get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
     backward: fn(&Holder, Word) -> HashSet<Word>,
     get_pair_hashes_relevant_to_vocabularies: fn(
-    holder: &mut Holder,
-    first_words: HashSet<Word>,
-    second_words: HashSet<Word>,
-) -> HashSet<i64>,
+        holder: &mut Holder,
+        first_words: HashSet<Word>,
+        second_words: HashSet<Word>,
+    ) -> HashSet<i64>,
 ) -> Vec<Ortho> {
     if !old_ortho.is_base() {
         return vec![];
@@ -102,31 +100,22 @@ pub(crate) fn up_back(
 mod tests {
     use crate::{
         ints_to_big_int, ortho::Ortho, up_on_ortho_found_handler::up_back,
-        up_on_ortho_found_handler::up_forward, Word, Holder,
+        up_on_ortho_found_handler::up_forward, Holder, Word,
     };
     use maplit::{btreemap, hashset};
     use std::collections::HashSet;
 
-    fn fake_forward(
-        _holder: &Holder,
-        from: Word,
-    ) -> HashSet<Word> {
+    fn fake_forward(_holder: &Holder, from: Word) -> HashSet<Word> {
         let mut pairs = btreemap! { 1 => hashset! {12, 2, 3, 5}, 2 => hashset! {4, 11}, 3 => hashset! {4, 5}, 4 => hashset! {11}, 5 => hashset! {11, 12}, 6 => hashset! {13}, 7 => hashset! {13}};
         pairs.entry(from).or_default().to_owned()
     }
 
-    fn fake_backward(
-        _holder: &Holder,
-        from: Word,
-    ) -> HashSet<Word> {
+    fn fake_backward(_holder: &Holder, from: Word) -> HashSet<Word> {
         let mut pairs = btreemap! { 2 => hashset! {1}, 3 => hashset! {1}, 4 => hashset! {2, 3}, 5 => hashset! {1}, 6 => hashset! {5, 4}, 7 => hashset! {5, 3}, 8 => hashset! {11, 12, 4}};
         pairs.entry(from).or_default().to_owned()
     }
 
-    fn fake_ortho_by_origin_batch(
-        _holder: &mut Holder,
-        _o: HashSet<Word>,
-    ) -> Vec<Ortho> {
+    fn fake_ortho_by_origin_batch(_holder: &mut Holder, _o: HashSet<Word>) -> Vec<Ortho> {
         let os = vec![Ortho::new(1, 2, 3, 4), Ortho::new(5, 6, 7, 8)];
 
         os

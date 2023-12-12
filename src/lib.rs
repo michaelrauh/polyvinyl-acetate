@@ -1,5 +1,6 @@
 pub mod models;
 
+use itertools::Itertools;
 use maplit::hashset;
 
 mod book_todo_handler;
@@ -18,7 +19,7 @@ pub mod worker_helper;
 use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
 
-use models::{Book, Pair, Sentence};
+use models::{Book, Orthotope, Pair, Sentence};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -29,11 +30,17 @@ type Word = i32;
 
 #[derive(Debug)]
 pub struct Holder {
-    // todo come back here. Must Holder store strings?
     books: HashMap<i32, Book>,
     vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
+    pairs_by_first: HashMap<Word, HashSet<Pair>>,
+    pairs_by_second: HashMap<Word, HashSet<Pair>>,
+    orthos_by_hop: HashMap<Word, HashSet<Orthotope>>,
+    orthos_by_contents: HashMap<Word, HashSet<Orthotope>>,
+    phrases_by_head: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
+    phrases_by_tail: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
+    phrases_by_hash: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
 }
 
 impl Holder {
@@ -41,56 +48,181 @@ impl Holder {
         todo!()
     }
 
+    // todo go back over vector usage and use iterators
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
-        todo!()
+        firsts
+            .iter()
+            .flat_map(|f| {
+                self.pairs_by_first
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|x| x.pair_hash)
+                    .collect::<HashSet<_>>()
+            })
+            .collect()
     }
 
     fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
-        todo!()
+        self.vocabulary
+            .iter()
+            .filter(|(_k, v)| firsts.contains(v))
+            .map(|(k, v)| (v.clone(), k.clone()))
+            .collect()
     }
 
-    fn get_orthos_with_hops_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
-        todo!()
+    fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
+        hop.iter()
+            .flat_map(|h| {
+                self.orthos_by_hop
+                    .get(h)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|o| o.information.clone())
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_base_orthos_with_hops_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
-        todo!()
+    fn get_base_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
+        hop.iter()
+            .flat_map(|h| {
+                self.orthos_by_hop
+                    .get(h)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .filter(|o| o.base)
+                    .map(|o| o.information.clone())
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_orthos_with_contents_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
-        todo!()
+    fn get_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
+        other_contents
+            .iter()
+            .flat_map(|c| {
+                self.orthos_by_contents
+                    .get(c)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|o| o.information.clone())
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_base_orthos_with_contents_overlapping(&self, firsts: Vec<Word>) -> Vec<Ortho> {
-        todo!()
+    fn get_base_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
+        other_contents
+            .iter()
+            .flat_map(|c| {
+                self.orthos_by_contents
+                    .get(c)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .filter(|o| o.base)
+                    .map(|o| o.information.clone())
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_words_of_pairs_with_second_word_in(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word)> {
-        todo!()
+    fn get_words_of_pairs_with_second_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
+        from.iter()
+            .flat_map(|f| {
+                self.pairs_by_second
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| (p.first_word, p.second_word))
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_words_of_pairs_with_first_word_in(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word)> {
-        todo!()
+    fn get_words_of_pairs_with_first_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
+        from.iter()
+            .flat_map(|f| {
+                self.pairs_by_first
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| (p.first_word, p.second_word))
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_hashes_and_words_of_pairs_with_first_word(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word, i64)> {
-        todo!()
+    fn get_hashes_and_words_of_pairs_with_first_word(
+        &self,
+        from: HashSet<Word>,
+    ) -> HashSet<(Word, Word, i64)> {
+        from.iter()
+            .flat_map(|f| {
+                self.pairs_by_first
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_hashes_and_words_of_pairs_with_second_word(&self, firsts: HashSet<Word>) -> HashSet<(Word, Word, i64)> {
-        todo!()
+    fn get_hashes_and_words_of_pairs_with_second_word(
+        &self,
+        from: HashSet<Word>,
+    ) -> HashSet<(Word, Word, i64)> {
+        from.iter()
+            .flat_map(|f| {
+                self.pairs_by_second
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_phrase_hash_with_phrase_head_matching(&self, firsts: HashSet<i64>) -> HashSet<i64> {
-        todo!()
+    fn get_phrase_hash_with_phrase_head_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
+        left.iter()
+            .flat_map(|f| {
+                self.phrases_by_head
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_phrase_hash_with_phrase_tail_matching(&self, firsts: HashSet<i64>) -> HashSet<i64> {
-        todo!()
+    fn get_phrase_hash_with_phrase_tail_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
+        left.iter()
+            .flat_map(|f| {
+                self.phrases_by_tail
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect_vec()
+            })
+            .collect()
     }
 
     fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
-        todo!()
+        phrases
+            .iter()
+            .flat_map(|f| {
+                self.phrases_by_hash
+                    .get(f)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect_vec()
+            })
+            .collect()
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
@@ -205,8 +337,10 @@ pub fn get_hashes_of_pairs_with_words_in(
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
 ) -> HashSet<i64> {
-    let firsts: HashSet<i64> = holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(first_words));
-    let seconds: HashSet<i64> = holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(second_words));
+    let firsts: HashSet<i64> =
+        holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(first_words));
+    let seconds: HashSet<i64> =
+        holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(second_words));
 
     // todo consider moving into holder
     firsts.intersection(&seconds).cloned().collect()
@@ -217,8 +351,10 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
 ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>) {
-    let firsts: HashSet<(Word, Word, i64)> = holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
-    let seconds: HashSet<(Word, Word, i64)> = holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
+    let firsts: HashSet<(Word, Word, i64)> =
+        holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
+    let seconds: HashSet<(Word, Word, i64)> =
+        holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
 
     // todo consider moving into holder
     let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
@@ -237,22 +373,18 @@ pub fn get_phrases_with_matching_hashes(
     holder: &Holder,
     all_phrases: HashSet<i64>,
 ) -> HashSet<i64> {
-    holder.get_phrases_matching(all_phrases).iter()
-    .cloned()
-    .collect()
+    holder
+        .get_phrases_matching(all_phrases)
+        .iter()
+        .cloned()
+        .collect()
 }
 
-fn project_forward_batch(
-    holder: &Holder,
-    from: HashSet<Word>,
-) -> HashSet<(Word, Word)> {
+fn project_forward_batch(holder: &Holder, from: HashSet<Word>) -> HashSet<(Word, Word)> {
     holder.get_words_of_pairs_with_first_word_in(from)
 }
 
-fn project_backward_batch(
-    holder: &Holder,
-    from: HashSet<Word>,
-) -> HashSet<(Word, Word)> {
+fn project_backward_batch(holder: &Holder, from: HashSet<Word>) -> HashSet<(Word, Word)> {
     holder.get_words_of_pairs_with_second_word_in(from)
 }
 
@@ -288,17 +420,11 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-fn project_forward(
-    holder: &Holder,
-    from: Word,
-) -> HashSet<Word> {
+fn project_forward(holder: &Holder, from: Word) -> HashSet<Word> {
     holder.get_second_words_of_pairs_with_first_word(from)
 }
 
-fn project_backward(
-    holder: &Holder,
-    from: Word,
-) -> HashSet<Word> {
+fn project_backward(holder: &Holder, from: Word) -> HashSet<Word> {
     holder.get_first_words_of_pairs_with_second_word(from)
 }
 
@@ -306,24 +432,15 @@ pub fn insert_orthotopes(holder: &mut Holder, new_orthos: HashSet<NewOrthotope>)
     holder.insert_orthos(new_orthos)
 }
 
-pub fn get_ortho_by_origin(
-    holder: &mut Holder,
-    o: Word,
-) -> Vec<Ortho> {
+pub fn get_ortho_by_origin(holder: &mut Holder, o: Word) -> Vec<Ortho> {
     holder.get_orthos_with_origin(o)
 }
 
-pub fn get_base_ortho_by_origin(
-    holder: &mut Holder,
-    o: Word,
-) -> Vec<Ortho> {
+pub fn get_base_ortho_by_origin(holder: &mut Holder, o: Word) -> Vec<Ortho> {
     holder.get_base_orthos_with_origin(o)
 }
 
-pub fn get_ortho_by_origin_batch(
-    holder: &mut Holder,
-    o: HashSet<Word>,
-) -> Vec<Ortho> {
+pub fn get_ortho_by_origin_batch(holder: &mut Holder, o: HashSet<Word>) -> Vec<Ortho> {
     holder.get_ortho_with_origin_in(o)
 }
 
@@ -344,31 +461,19 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     }
 }
 
-fn get_ortho_by_hop(
-    holder: &Holder,
-    other_hop: Vec<Word>,
-) -> Vec<Ortho> {
+fn get_ortho_by_hop(holder: &Holder, other_hop: Vec<Word>) -> Vec<Ortho> {
     holder.get_orthos_with_hops_overlapping(other_hop)
 }
 
-fn get_base_ortho_by_hop(
-    holder: &Holder,
-    other_hop: Vec<Word>,
-) -> Vec<Ortho> {
+fn get_base_ortho_by_hop(holder: &Holder, other_hop: Vec<Word>) -> Vec<Ortho> {
     holder.get_base_orthos_with_hops_overlapping(other_hop)
 }
 
-fn get_ortho_by_contents(
-    holder: &Holder,
-    other_contents: Vec<Word>,
-) -> Vec<Ortho> {
+fn get_ortho_by_contents(holder: &Holder, other_contents: Vec<Word>) -> Vec<Ortho> {
     holder.get_orthos_with_contents_overlapping(other_contents)
 }
 
-fn get_base_ortho_by_contents(
-    holder: &Holder,
-    other_contents: Vec<Word>,
-) -> Vec<Ortho> {
+fn get_base_ortho_by_contents(holder: &Holder, other_contents: Vec<Word>) -> Vec<Ortho> {
     holder.get_base_orthos_with_contents_overlapping(other_contents)
 }
 
@@ -383,17 +488,11 @@ pub(crate) fn phrase_exists_db_filter(
     firsts.intersection(&seconds).cloned().collect()
 }
 
-pub(crate) fn phrase_exists_db_filter_head(
-    holder: &Holder,
-    left: HashSet<i64>,
-) -> HashSet<i64> {
+pub(crate) fn phrase_exists_db_filter_head(holder: &Holder, left: HashSet<i64>) -> HashSet<i64> {
     holder.get_phrase_hash_with_phrase_head_matching(left)
 }
 
-pub(crate) fn phrase_exists_db_filter_tail(
-    holder: &Holder,
-    right: HashSet<i64>,
-) -> HashSet<i64> {
+pub(crate) fn phrase_exists_db_filter_tail(holder: &Holder, right: HashSet<i64>) -> HashSet<i64> {
     holder.get_phrase_hash_with_phrase_tail_matching(right)
 }
 
@@ -401,7 +500,7 @@ fn get_relevant_vocabulary(holder: &Holder, words: HashSet<String>) -> HashMap<S
     holder.get_vocabulary(words)
 }
 
-fn get_relevant_vocabulary_reverse(
+pub fn get_relevant_vocabulary_reverse(
     holder: &Holder,
     words: HashSet<Word>,
 ) -> HashMap<Word, String> {

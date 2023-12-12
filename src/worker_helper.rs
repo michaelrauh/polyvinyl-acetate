@@ -27,7 +27,7 @@ pub fn handle_todo(todo: Todo, holder: &mut Holder) {
         "phrase_by_origin" => phrase_todo_handler::handle_phrase_todo_origin(todo, holder),
         "phrase_by_hop" => phrase_todo_handler::handle_phrase_todo_hop(todo, holder),
         "phrase_by_contents" => phrase_todo_handler::handle_phrase_todo_contents(todo, holder),
-        _ => panic!()
+        _ => panic!(),
     };
     res
 }

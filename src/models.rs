@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::ortho::Ortho;
 use crate::Word;
 
 pub struct NewBook {
@@ -66,10 +67,10 @@ pub struct NewOrthotope {
     pub info_hash: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Orthotope {
     pub id: i32,
-    pub information: Vec<u8>,
+    pub information: Ortho,
     pub origin: Word,
     pub hop: Vec<Word>,
     pub contents: Vec<Word>,
