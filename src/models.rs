@@ -42,14 +42,14 @@ pub struct Sentence {
     pub sentence_hash: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewPair {
     pub first_word: Word,
     pub second_word: Word,
     pub pair_hash: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pair {
     pub id: i32,
     pub first_word: Word,
@@ -59,7 +59,7 @@ pub struct Pair {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NewOrthotope {
-    pub information: Vec<u8>,
+    pub information: Ortho,
     pub origin: Word,
     pub hop: Vec<Word>,
     pub contents: Vec<Word>,
@@ -67,7 +67,7 @@ pub struct NewOrthotope {
     pub info_hash: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Orthotope {
     pub id: i32,
     pub information: Ortho,

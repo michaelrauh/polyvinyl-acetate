@@ -19,7 +19,7 @@ pub mod worker_helper;
 use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
 
-use models::{Book, Orthotope, Pair, Sentence};
+use models::{Book, NewPair};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -34,13 +34,16 @@ pub struct Holder {
     vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
-    pairs_by_first: HashMap<Word, HashSet<Pair>>,
-    pairs_by_second: HashMap<Word, HashSet<Pair>>,
-    orthos_by_hop: HashMap<Word, HashSet<Orthotope>>,
-    orthos_by_contents: HashMap<Word, HashSet<Orthotope>>,
-    phrases_by_head: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
-    phrases_by_tail: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
-    phrases_by_hash: HashMap<i64, HashSet<Vec<Word>>>, // todo would it be better to save hashes here?
+    pairs_by_first: HashMap<Word, HashSet<NewPair>>,
+    pairs_by_second: HashMap<Word, HashSet<NewPair>>,
+    pairs_by_hash: HashMap<i64, NewPair>,
+    phrases_by_head: HashMap<i64, HashSet<i64>>,
+    phrases_by_tail: HashMap<i64, HashSet<i64>>,
+    phrases_by_hash: HashMap<i64, Vec<Word>>,
+    orthos_by_hash: HashMap<i64, Ortho>,
+    orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
+    orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
+    orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
 }
 
 impl Holder {
@@ -192,7 +195,7 @@ impl Holder {
                     .get(f)
                     .unwrap_or(&HashSet::default())
                     .iter()
-                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .copied()
                     .collect_vec()
             })
             .collect()
@@ -205,7 +208,7 @@ impl Holder {
                     .get(f)
                     .unwrap_or(&HashSet::default())
                     .iter()
-                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .copied()
                     .collect_vec()
             })
             .collect()
@@ -217,7 +220,6 @@ impl Holder {
             .flat_map(|f| {
                 self.phrases_by_hash
                     .get(f)
-                    .unwrap_or(&HashSet::default())
                     .iter()
                     .map(|p| vec_of_words_to_big_int(p.to_vec()))
                     .collect_vec()
@@ -226,27 +228,94 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
-        todo!()
+        seconds
+            .iter()
+            .flat_map(|s| {
+                self.pairs_by_second
+                    .get(s)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .map(|p| p.pair_hash)
+                    .collect_vec()
+            })
+            .collect()
     }
 
-    fn get_second_words_of_pairs_with_first_word(&self, seconds: Word) -> HashSet<Word> {
-        todo!()
+    fn get_second_words_of_pairs_with_first_word(&self, first: Word) -> HashSet<Word> {
+        self.pairs_by_first
+            .get(&first)
+            .unwrap_or(&HashSet::default())
+            .iter()
+            .map(|p| p.second_word)
+            .collect()
     }
 
-    fn get_first_words_of_pairs_with_second_word(&self, seconds: Word) -> HashSet<Word> {
-        todo!()
+    fn get_first_words_of_pairs_with_second_word(&self, second: Word) -> HashSet<Word> {
+        self.pairs_by_second
+            .get(&second)
+            .unwrap_or(&HashSet::default())
+            .iter()
+            .map(|p| p.first_word)
+            .collect()
     }
 
     fn get_book(&self, pk: i32) -> Book {
         self.books[&pk].clone()
     }
 
-    fn ffbb(&self, first: Word, second: Word) -> Vec<Ortho> {
-        todo!()
+    fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
+        // a b
+        // c d
+
+        // a -> b
+        // b -> d
+        // d <- c
+        // c <- a
+
+        self.get_second_words_of_pairs_with_first_word(b)
+            .into_iter()
+            .flat_map(|d| {
+                self.get_first_words_of_pairs_with_second_word(d)
+                    .into_iter()
+                    .filter(|c| b != *c)
+                    .flat_map(move |c| {
+                        self.get_first_words_of_pairs_with_second_word(c)
+                            .into_iter()
+                            .filter(|a_prime| a_prime == &a)
+                            .map(|_| (a, b, c, d))
+                            .collect_vec()
+                    })
+            })
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
+            .collect()
     }
 
-    fn fbbf(&self, first: Word, second: Word) -> Vec<Ortho> {
-        todo!()
+    // todo make sure all optimizations from silkworm are in place
+    fn fbbf(&self, b: Word, d: Word) -> Vec<Ortho> {
+        // a b
+        // c d
+
+        // b -> d
+        // d <- c
+        // c <- a
+        // a -> b
+
+        self.get_first_words_of_pairs_with_second_word(d)
+            .into_iter()
+            .flat_map(|c| {
+                self.get_first_words_of_pairs_with_second_word(c)
+                    .into_iter()
+                    .filter(|c| b != *c)
+                    .flat_map(move |a| {
+                        self.get_second_words_of_pairs_with_first_word(a)
+                            .into_iter()
+                            .filter(|b_prime| b_prime == &b)
+                            .map(|_| (a, b, c, d))
+                            .collect_vec()
+                    })
+            })
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
+            .collect()
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
@@ -264,16 +333,16 @@ impl Holder {
             .collect()
     }
 
-    fn get_pair(&self, key: i64) -> Pair {
-        todo!()
+    fn get_pair(&self, key: i64) -> NewPair {
+        self.pairs_by_hash[&key].clone()
     }
 
     fn get_phrase(&self, key: i64) -> Vec<Word> {
-        todo!()
+        self.phrases_by_hash[&key].to_owned()
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
-        todo!()
+        self.orthos_by_hash[&key].to_owned()
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
@@ -299,36 +368,126 @@ impl Holder {
         });
     }
 
-    fn get_sentence(&self, pk: i32) -> Sentence {
-        todo!()
+    fn get_sentence(&self, pk: i64) -> String {
+        self.sentences[&pk].clone()
     }
 
-    fn insert_pairs(&self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
-        todo!()
+    // todo remove casts for ids
+    fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
+        let mut res = vec![];
+        to_insert.iter().for_each(|new_pair| {
+            let inserted = self
+                .pairs_by_first
+                .entry(new_pair.first_word)
+                .or_default()
+                .insert(new_pair.clone());
+            if inserted {
+                res.push(new_pair.pair_hash);
+                self.pairs_by_hash
+                    .insert(new_pair.pair_hash, new_pair.clone());
+                self.pairs_by_second
+                    .entry(new_pair.second_word)
+                    .or_default()
+                    .insert(new_pair.clone());
+            }
+        });
+
+        res
     }
 
-    fn insert_phrases(&self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
-        todo!()
+    fn insert_phrases(&mut self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
+        let mut res = vec![];
+        to_insert.into_iter().for_each(|new_phrase| {
+            let inserted = self
+                .phrases_by_head
+                .entry(new_phrase.phrase_head)
+                .or_default()
+                .insert(new_phrase.words_hash);
+            if inserted {
+                res.push(new_phrase.words_hash);
+                self.phrases_by_tail
+                    .entry(new_phrase.phrase_tail)
+                    .or_default()
+                    .insert(new_phrase.words_hash);
+                self.phrases_by_hash
+                    .insert(new_phrase.words_hash, new_phrase.words);
+            }
+        });
+
+        res
+    }
+
+    fn get_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
+        self.orthos_by_origin
+            .get(&origin)
+            .unwrap_or(&HashSet::default())
+            .into_iter()
+            .cloned()
+            .collect_vec()
+    }
+
+    fn get_base_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
+        self.orthos_by_origin
+            .get(&origin)
+            .unwrap_or(&HashSet::default())
+            .into_iter()
+            .filter(|o| o.is_base())
+            .cloned()
+            .collect_vec()
+    }
+
+    fn get_ortho_with_origin_in(&self, origins: HashSet<Word>) -> Vec<Ortho> {
+        origins
+            .iter()
+            .flat_map(|o| {
+                self.orthos_by_origin
+                    .get(o)
+                    .unwrap_or(&HashSet::default())
+                    .iter()
+                    .cloned()
+                    .collect_vec()
+            })
+            .collect()
     }
 
     fn insert_orthos(&mut self, to_insert: HashSet<NewOrthotope>) -> Vec<i64> {
-        todo!()
-    }
+        let mut res = vec![];
+        to_insert.into_iter().for_each(|new_ortho| {
+            let inserted_anew = self
+                .orthos_by_hash
+                .insert(new_ortho.info_hash, new_ortho.information.clone());
+            if inserted_anew.is_none() {
+                res.push(new_ortho.info_hash);
+                new_ortho.hop.iter().for_each(|h| {
+                    self.orthos_by_hop
+                        .entry(*h)
+                        .or_default()
+                        .insert(new_ortho.clone());
+                });
 
-    fn get_orthos_with_origin(&mut self, to_insert: Word) -> Vec<Ortho> {
-        todo!()
-    }
+                new_ortho.contents.iter().for_each(|h| {
+                    self.orthos_by_contents
+                        .entry(*h)
+                        .or_default()
+                        .insert(new_ortho.clone());
+                });
 
-    fn get_base_orthos_with_origin(&mut self, to_insert: Word) -> Vec<Ortho> {
-        todo!()
-    }
+                self.orthos_by_origin
+                    .entry(new_ortho.origin)
+                    .or_default()
+                    .insert(new_ortho.information);
+            }
+        });
 
-    fn get_ortho_with_origin_in(&mut self, to_insert: HashSet<Word>) -> Vec<Ortho> {
-        todo!()
+        res
     }
 
     pub fn insert_book(&self, title: String, body: String) -> Book {
-        todo!()
+        Book {
+            id: string_to_signed_int(&title).try_into().unwrap(),
+            title,
+            body,
+        }
     }
 }
 
@@ -452,7 +611,7 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let info_hash = pair_todo_handler::data_vec_to_signed_int(&information);
     let base = ortho.is_base();
     NewOrthotope {
-        information,
+        information: ortho.clone(),
         origin,
         hop,
         contents,

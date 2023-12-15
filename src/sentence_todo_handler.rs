@@ -116,7 +116,7 @@ fn create_pairs(holder: &mut Holder, sentence: &str, vocab: &HashMap<String, Wor
 }
 
 fn get_sentence(holder: &mut Holder, pk: i32) -> String {
-    holder.get_sentence(pk).sentence
+    holder.get_sentence(pk.into()) // todo fix
 }
 
 #[cfg(test)]

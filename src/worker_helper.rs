@@ -6,6 +6,7 @@ use crate::{
 };
 
 pub fn handle_todo(todo: Todo, holder: &mut Holder) {
+    // todo change this to handle newTodo
     let res: () = match todo.domain.as_str() {
         "books" => book_todo_handler::handle_book_todo(todo, holder),
         "sentences" => sentence_todo_handler::handle_sentence_todo(todo, holder),

@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use crate::{vec_of_big_ints_to_big_int, vec_of_words_to_big_int, Word};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord, Hash)]
 pub struct Ortho {
     pub info: BTreeMap<Location, Word>,
 }
@@ -299,7 +299,7 @@ impl Ortho {
     }
 }
 
-#[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Debug, Clone, Hash)]
 pub struct Location {
     info: BTreeMap<Word, usize>,
 }
