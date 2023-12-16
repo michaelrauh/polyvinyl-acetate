@@ -19,7 +19,7 @@ pub mod worker_helper;
 use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
 
-use models::{Book, NewPair};
+use models::{Book, NewPair, NewTodo};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -28,7 +28,7 @@ use std::{
 
 type Word = i32;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Holder {
     books: HashMap<i64, Book>,
     vocabulary: HashMap<String, Word>,
@@ -47,10 +47,6 @@ pub struct Holder {
 }
 
 impl Holder {
-    pub fn new() -> Self {
-        todo!()
-    }
-
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
         firsts
             .iter()
@@ -362,7 +358,7 @@ impl Holder {
         new_sentences
     }
 
-    fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
+    pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
         let todos = self
             .todos
             .entry(domain.to_owned())
@@ -485,12 +481,55 @@ impl Holder {
         res
     }
 
-    pub fn insert_book(&self, title: String, body: String) -> Book {
-        Book {
+    pub fn insert_book(&mut self, title: String, body: String) -> Book {
+        let b = Book {
             id: string_to_signed_int(&title).try_into().unwrap(),
             title,
             body,
+        };
+        self.books.insert(b.id, b.clone());
+        b
+    }
+
+    pub fn get_next_todo(&mut self) -> Option<NewTodo> {
+        let domains = vec![
+            "books",
+            "sentences",
+            "pairs",
+            "pair_up",
+            "ex_nihilo_ffbb",
+            "ex_nihilo_fbbf",
+            "up_by_origin",
+            "up_by_hop",
+            "up_by_contents",
+            "phrases",
+            "phrase_by_origin",
+            "phrase_by_hop",
+            "phrase_by_contents",
+            "orthotopes",
+            "ortho_up",
+            "ortho_up_forward",
+            "ortho_up_back",
+            "ortho_over",
+            "ortho_over_forward",
+            "ortho_over_back",
+        ];
+
+        for domain in domains {
+            if self.todos.get_mut(domain).is_some() {
+                let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
+                if res_set.iter().next().is_some() {
+                    let idx = res_set.iter().next().unwrap().clone();
+                    res_set.remove(&idx);
+
+                    return Some(NewTodo {
+                        domain: domain.to_owned(),
+                        other: idx,
+                    });
+                }
+            }
         }
+        None
     }
 }
 
