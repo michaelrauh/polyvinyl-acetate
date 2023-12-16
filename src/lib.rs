@@ -267,7 +267,7 @@ impl Holder {
         // d <- c
         // c <- a
 
-        self.get_second_words_of_pairs_with_first_word(b)
+        let ans: Vec<Ortho> = self.get_second_words_of_pairs_with_first_word(b)
             .into_iter()
             .flat_map(|d| {
                 self.get_first_words_of_pairs_with_second_word(d)
@@ -282,7 +282,9 @@ impl Holder {
                     })
             })
             .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
-            .collect()
+            .collect();
+
+        ans
     }
 
     fn fbbf(&self, b: Word, d: Word) -> Vec<Ortho> {
@@ -293,23 +295,23 @@ impl Holder {
         // d <- c
         // c <- a
         // a -> b
-
-        self.get_first_words_of_pairs_with_second_word(d)
+        let ans: Vec<Ortho> = self.get_first_words_of_pairs_with_second_word(d)
             .into_iter()
             .flat_map(|c| {
                 self.get_first_words_of_pairs_with_second_word(c)
                     .into_iter()
-                    .filter(|c| b != *c)
                     .flat_map(move |a| {
                         self.get_second_words_of_pairs_with_first_word(a)
                             .into_iter()
                             .filter(|b_prime| b_prime == &b)
-                            .map(|_| (a, b, c, d))
+                            .map(|_| { (a, b, c, d)})
                             .collect_vec()
                     })
             })
-            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
-            .collect()
+            .filter(|(_a, b, c, _d)| b != c)
+            .map(|(a, b, c, d)| {Ortho::new(a, b, c, d)}  )
+            .collect();
+        ans
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {

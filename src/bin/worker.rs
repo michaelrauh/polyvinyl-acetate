@@ -20,3 +20,34 @@ fn main() {
 
     get_relevant_vocabulary_reverse(&holder, HashSet::default());
 }
+
+// pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {
+//     let results = get_orthos_by_size(&establish_connection_safe()?, dims)?;
+
+//     let phrases: Vec<_> = results
+//         .iter()
+//         .map(|o| o.all_full_length_phrases())
+//         .collect();
+
+//     let all_words: HashSet<Word> = phrases.iter().flatten().flatten().cloned().collect();
+//     let mapping = get_relevant_vocabulary_reverse(&establish_connection_safe()?, all_words)?;
+
+//     let res = phrases
+//         .iter()
+//         .map(|o| {
+//             o.iter()
+//                 .map(|s| {
+//                     s.iter()
+//                         .map(|w| mapping.get(w).expect("do not look up new words"))
+//                         .cloned()
+//                         .collect::<Vec<_>>()
+//                         .join(" ")
+//                 })
+//                 .collect::<Vec<_>>()
+//                 .join("\n")
+//         })
+//         .collect::<Vec<_>>()
+//         .join("\n\n");
+
+//     Ok(res)
+// }
