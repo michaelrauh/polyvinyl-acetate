@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use crate::models::{NewSentence, NewWords, Todo};
+use crate::models::{NewSentence, NewTodo, NewWords};
 use crate::{string_to_signed_int, Book, Holder};
 
 use itertools::Itertools;
 
-pub fn handle_book_todo(todo: Todo, holder: &mut Holder) {
+pub fn handle_book_todo(todo: NewTodo, holder: &mut Holder) {
     let book = holder.get_book(todo.other);
     let new_vocabulary = split_book_to_words(&book);
     insert_vocabulary(holder, &new_vocabulary);

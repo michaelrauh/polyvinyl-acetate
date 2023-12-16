@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::models::{NewPair, NewPhrase, Todo};
+use crate::models::{NewPair, NewPhrase, NewTodo};
 use crate::{get_relevant_vocabulary, ints_to_big_int, vec_of_words_to_big_int, Holder, Word};
 
-pub fn handle_sentence_todo(todo: Todo, holder: &mut Holder) {
+pub fn handle_sentence_todo(todo: NewTodo, holder: &mut Holder) {
     let sentence = get_sentence(holder, todo.other);
     let words = split_sentence(&sentence);
     let vocab = get_relevant_vocabulary(holder, words.into_iter().collect());
@@ -115,8 +115,8 @@ fn create_pairs(holder: &mut Holder, sentence: &str, vocab: &HashMap<String, Wor
     holder.insert_todos("pairs", pairs);
 }
 
-fn get_sentence(holder: &mut Holder, pk: i32) -> String {
-    holder.get_sentence(pk.into()) // todo fix
+fn get_sentence(holder: &mut Holder, pk: i64) -> String {
+    holder.get_sentence(pk)
 }
 
 #[cfg(test)]

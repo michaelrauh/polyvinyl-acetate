@@ -30,7 +30,7 @@ type Word = i32;
 
 #[derive(Debug)]
 pub struct Holder {
-    books: HashMap<i32, Book>,
+    books: HashMap<i64, Book>,
     vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
@@ -258,7 +258,7 @@ impl Holder {
             .collect()
     }
 
-    fn get_book(&self, pk: i32) -> Book {
+    fn get_book(&self, pk: i64) -> Book {
         self.books[&pk].clone()
     }
 
@@ -376,7 +376,6 @@ impl Holder {
         self.sentences[&pk].clone()
     }
 
-    // todo remove casts for ids
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
         let mut res = vec![];
         to_insert.iter().for_each(|new_pair| {

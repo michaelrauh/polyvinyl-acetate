@@ -1,12 +1,11 @@
-use crate::models::Todo;
+use crate::models::NewTodo;
 
 use crate::{
     book_todo_handler, ortho_todo_handler, pair_todo_handler, phrase_todo_handler,
     sentence_todo_handler, Holder,
 };
 
-pub fn handle_todo(todo: Todo, holder: &mut Holder) {
-    // todo change this to handle newTodo
+pub fn handle_todo(todo: NewTodo, holder: &mut Holder) {
     let res: () = match todo.domain.as_str() {
         "books" => book_todo_handler::handle_book_todo(todo, holder),
         "sentences" => sentence_todo_handler::handle_sentence_todo(todo, holder),

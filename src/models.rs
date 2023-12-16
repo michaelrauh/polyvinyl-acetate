@@ -11,7 +11,7 @@ pub struct NewBook {
 
 #[derive(Debug, Clone)]
 pub struct Book {
-    pub id: i32,
+    pub id: i64,
     pub title: String,
     pub body: String,
 }
