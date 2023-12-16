@@ -51,7 +51,6 @@ impl Holder {
         todo!()
     }
 
-    // todo go back over vector usage and use iterators
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
         firsts
             .iter()
@@ -290,7 +289,6 @@ impl Holder {
             .collect()
     }
 
-    // todo make sure all optimizations from silkworm are in place
     fn fbbf(&self, b: Word, d: Word) -> Vec<Ortho> {
         // a b
         // c d
@@ -319,9 +317,15 @@ impl Holder {
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
-        to_insert.iter().for_each(|x| {
-            self.vocabulary
-                .insert(x.word.clone(), x.word_hash.try_into().unwrap()); // todo come back here and just use the word hash. Convert word to i64
+        // todo make sure indices are right. Back to back inserts should count on
+        let current: HashSet<String> = self.vocabulary.keys().cloned().collect::<HashSet<_>>();
+        let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
+        let new = words_to_insert.difference(&current).collect_vec();
+        let current_index = self.vocabulary.len();
+        let new_indices = current_index..(current_index + new.len());
+
+        words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
+            self.vocabulary.insert(k.clone(), v.try_into().unwrap());
         });
     }
 
@@ -501,7 +505,6 @@ pub fn get_hashes_of_pairs_with_words_in(
     let seconds: HashSet<i64> =
         holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(second_words));
 
-    // todo consider moving into holder
     firsts.intersection(&seconds).cloned().collect()
 }
 
@@ -515,7 +518,6 @@ pub fn get_hashes_and_words_of_pairs_with_words_in(
     let seconds: HashSet<(Word, Word, i64)> =
         holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
 
-    // todo consider moving into holder
     let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
     let mut firsts = hashset! {};
     let mut seconds = hashset! {};

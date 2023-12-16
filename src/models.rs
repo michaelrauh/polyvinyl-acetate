@@ -19,7 +19,7 @@ pub struct Book {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewTodo {
     pub domain: String,
-    pub other: i32,
+    pub other: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
