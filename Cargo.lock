@@ -114,7 +114,7 @@ dependencies = [
  "clap",
  "criterion-plot",
  "csv",
- "itertools",
+ "itertools 0.10.3",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -136,7 +136,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2673cc8207403546f45f5fd319a974b1e6983ad1a3ee7e6041650013be041876"
 dependencies = [
  "cast",
- "itertools",
+ "itertools 0.10.3",
 ]
 
 [[package]]
@@ -276,6 +276,15 @@ name = "itertools"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
 dependencies = [
  "either",
 ]
@@ -466,12 +475,13 @@ dependencies = [
  "anyhow",
  "bincode",
  "criterion",
- "itertools",
+ "itertools 0.12.0",
  "maplit",
  "native-tls",
  "openssl",
  "openssl-sys",
  "rand",
+ "redb",
  "serde",
 ]
 
@@ -551,6 +561,15 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
  "num_cpus",
+]
+
+[[package]]
+name = "redb"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08837f9a129bde83c51953b8c96cbb3422b940166b730caa954836106eb1dfd2"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

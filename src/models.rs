@@ -9,7 +9,7 @@ pub struct NewBook {
     pub body: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Book {
     pub id: i64,
     pub title: String,

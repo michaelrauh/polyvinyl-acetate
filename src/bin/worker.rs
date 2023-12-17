@@ -10,7 +10,7 @@ use polyvinyl_acetate::{get_relevant_vocabulary_reverse, worker_helper, Holder};
 // todo disk backed KV?
 
 fn main() {
-    let mut holder = Holder::default();
+    let mut holder = Holder::new();
     let f = fs::read_to_string("input.txt").unwrap();
 
     let book = holder.insert_book("example".to_owned(), f);

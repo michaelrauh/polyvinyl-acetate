@@ -2,6 +2,7 @@ pub mod models;
 
 use itertools::Itertools;
 use maplit::hashset;
+use redb::{Database, ReadableTable, Table, TableDefinition};
 
 mod book_todo_handler;
 pub mod ortho;
@@ -27,11 +28,11 @@ use std::{
 };
 
 type Word = i32;
+const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
+const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    books: HashMap<i64, Book>,
-    vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
@@ -47,6 +48,10 @@ pub struct Holder {
 }
 
 impl Holder {
+    pub fn new() -> Self {
+        Holder::default()
+    }
+
     pub fn get_stats(&self) {
         dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
         dbg!(&self.orthos_by_hash.len());
@@ -66,11 +71,18 @@ impl Holder {
             .collect()
     }
 
-    fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
-        self.vocabulary
-            .iter()
-            .filter(|(_k, v)| firsts.contains(v))
-            .map(|(k, v)| (v.clone(), k.clone()))
+    fn get_vocabulary_slice_with_words(&self, desired: HashSet<Word>) -> HashMap<Word, String> {
+        let db: Database = Database::create("pvac.redb").unwrap();
+            let foo = &db.begin_read()
+                .unwrap()
+                .open_table(VOCABULARY)
+                .unwrap()
+                .iter()
+                .unwrap();
+
+            foo.into_iter()
+            .filter(|x| desired.contains(&x.unwrap().1.value()))
+            .map(|x| (x.unwrap().1.value(), x.unwrap().0.value().to_owned()))
             .collect()
     }
 
@@ -260,7 +272,19 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> Book {
-        self.books[&pk].clone()
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let book: Book = bincode::deserialize(
+            &db.begin_write()
+                .unwrap()
+                .open_table(BOOKS)
+                .unwrap()
+                .get(&pk)
+                .unwrap()
+                .unwrap()
+                .value(),
+        )
+        .unwrap();
+        book
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -272,7 +296,8 @@ impl Holder {
         // d <- c
         // c <- a
 
-        let ans: Vec<Ortho> = self.get_second_words_of_pairs_with_first_word(b)
+        let ans: Vec<Ortho> = self
+            .get_second_words_of_pairs_with_first_word(b)
             .into_iter()
             .flat_map(|d| {
                 self.get_first_words_of_pairs_with_second_word(d)
@@ -300,7 +325,8 @@ impl Holder {
         // d <- c
         // c <- a
         // a -> b
-        let ans: Vec<Ortho> = self.get_first_words_of_pairs_with_second_word(d)
+        let ans: Vec<Ortho> = self
+            .get_first_words_of_pairs_with_second_word(d)
             .into_iter()
             .flat_map(|c| {
                 self.get_first_words_of_pairs_with_second_word(c)
@@ -309,12 +335,12 @@ impl Holder {
                         self.get_second_words_of_pairs_with_first_word(a)
                             .into_iter()
                             .filter(|b_prime| b_prime == &b)
-                            .map(|_| { (a, b, c, d)})
+                            .map(|_| (a, b, c, d))
                             .collect_vec()
                     })
             })
             .filter(|(_a, b, c, _d)| b != c)
-            .map(|(a, b, c, d)| {Ortho::new(a, b, c, d)}  )
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
             .collect();
         ans
     }
@@ -494,7 +520,14 @@ impl Holder {
             title,
             body,
         };
-        self.books.insert(b.id, b.clone());
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let write_txn = db.begin_write().unwrap();
+        {
+            let mut table = write_txn.open_table(BOOKS).unwrap();
+            table.insert(b.id, bincode::serialize(&b).unwrap()).unwrap();
+        }
+
+        write_txn.commit().unwrap();
         b
     }
 
@@ -522,28 +555,28 @@ impl Holder {
             "ortho_over_back",
         ];
 
-        let bfs = vec![
-            "books",
-            "sentences",
-            "pairs",
-            "phrases",
-            "ex_nihilo_ffbb",
-            "ex_nihilo_fbbf",
-            "pair_up",
-            "up_by_origin",
-            "up_by_hop",
-            "up_by_contents",
-            "phrase_by_origin",
-            "phrase_by_hop",
-            "phrase_by_contents",
-            "orthotopes",
-            "ortho_up",
-            "ortho_up_forward",
-            "ortho_up_back",
-            "ortho_over",
-            "ortho_over_forward",
-            "ortho_over_back",
-        ];
+        // let bfs = vec![
+        //     "books",
+        //     "sentences",
+        //     "pairs",
+        //     "phrases",
+        //     "ex_nihilo_ffbb",
+        //     "ex_nihilo_fbbf",
+        //     "pair_up",
+        //     "up_by_origin",
+        //     "up_by_hop",
+        //     "up_by_contents",
+        //     "phrase_by_origin",
+        //     "phrase_by_hop",
+        //     "phrase_by_contents",
+        //     "orthotopes",
+        //     "ortho_up",
+        //     "ortho_up_forward",
+        //     "ortho_up_back",
+        //     "ortho_over",
+        //     "ortho_over_forward",
+        //     "ortho_over_back",
+        // ];
 
         for domain in dfs {
             if self.todos.get_mut(domain).is_some() {
