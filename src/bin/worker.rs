@@ -1,14 +1,28 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fs};
 
 use polyvinyl_acetate::{get_relevant_vocabulary_reverse, worker_helper, Holder};
 
+// todo holder statistics
+// todo flamegraph
+// todo fix unit tests
+// todo fix system tests
+// todo harness
+// todo disk backed KV?
+
 fn main() {
     let mut holder = Holder::default();
+    let f = fs::read_to_string("input.txt").unwrap();
 
-    let book = holder.insert_book("example".to_owned(), "a b. c d. a c. b d.".to_owned());
+    let book = holder.insert_book("example".to_owned(), f);
     holder.insert_todos("books", vec![book.id]);
-
+    let mut i = 0;
     loop {
+        i += 1;
+        if i % 1000 == 0 {
+            dbg!();
+            dbg!(i);
+            holder.get_stats();
+        }
         let next_todo = holder.get_next_todo();
 
         if next_todo.is_none() {

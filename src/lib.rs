@@ -47,6 +47,11 @@ pub struct Holder {
 }
 
 impl Holder {
+    pub fn get_stats(&self) {
+        dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
+        dbg!(&self.orthos_by_hash.len());
+    }
+
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
         firsts
             .iter()
@@ -494,7 +499,7 @@ impl Holder {
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
-        let domains = vec![
+        let dfs = vec![
             "books",
             "sentences",
             "pairs",
@@ -517,7 +522,30 @@ impl Holder {
             "ortho_over_back",
         ];
 
-        for domain in domains {
+        let bfs = vec![
+            "books",
+            "sentences",
+            "pairs",
+            "phrases",
+            "ex_nihilo_ffbb",
+            "ex_nihilo_fbbf",
+            "pair_up",
+            "up_by_origin",
+            "up_by_hop",
+            "up_by_contents",
+            "phrase_by_origin",
+            "phrase_by_hop",
+            "phrase_by_contents",
+            "orthotopes",
+            "ortho_up",
+            "ortho_up_forward",
+            "ortho_up_back",
+            "ortho_over",
+            "ortho_over_forward",
+            "ortho_over_back",
+        ];
+
+        for domain in dfs {
             if self.todos.get_mut(domain).is_some() {
                 let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
                 if res_set.iter().next().is_some() {
