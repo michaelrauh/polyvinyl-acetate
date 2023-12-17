@@ -30,7 +30,6 @@ type Word = i32;
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    books: HashMap<i64, Book>,
     vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
@@ -260,7 +259,9 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> Book {
-        self.books[&pk].clone()
+        let tree = sled::open("pvac.sled").unwrap();
+        let foo = tree.get(bincode::serialize(&pk).unwrap()).unwrap().unwrap();
+        bincode::deserialize(&foo).unwrap()
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -494,7 +495,8 @@ impl Holder {
             title,
             body,
         };
-        self.books.insert(b.id, b.clone());
+        let db: sled::Db = sled::open("pvac.sled").unwrap();
+        db.insert(bincode::serialize(&b.id).unwrap(), bincode::serialize(&b.clone()).unwrap()).unwrap();
         b
     }
 
@@ -522,7 +524,7 @@ impl Holder {
             "ortho_over_back",
         ];
 
-        let bfs = vec![
+        let _bfs = vec![
             "books",
             "sentences",
             "pairs",
