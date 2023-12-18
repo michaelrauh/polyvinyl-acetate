@@ -33,7 +33,7 @@ pub struct Holder {
     books: sled::Db,
     vocabulary: sled::Db,
     sentences: sled::Db,
-    todos: HashMap<String, HashSet<i64>>,
+    todos: sled::Db,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
     pairs_by_hash: HashMap<i64, NewPair>,
@@ -52,7 +52,7 @@ impl Holder {
             books: sled::open("db/books.sled").unwrap(),
             vocabulary: sled::open("db/vocab.sled").unwrap(),
             sentences: sled::open("db/sentences.sled").unwrap(),
-            todos: HashMap::default(),
+            todos: sled::open("db/todos.sled").unwrap(),
             pairs_by_first: HashMap::default(),
             pairs_by_second: HashMap::default(),
             pairs_by_hash: HashMap::default(),
@@ -67,7 +67,11 @@ impl Holder {
     }
 
     pub fn get_stats(&self) {
-        dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
+        // dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
+        dbg!(self.todos.iter().map(|x| {
+            let res: HashSet<i64> = bincode::deserialize(&x.unwrap().1).unwrap();
+            res.len()
+        }).sum::<usize>());
         dbg!(&self.orthos_by_hash.len());
     }
 
@@ -432,13 +436,19 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-        let todos = self
-            .todos
-            .entry(domain.to_owned())
-            .or_insert(HashSet::default());
+        let option_s = self.todos.get(bincode::serialize(&domain).unwrap()).unwrap();
+
+        let mut s: HashSet<i64>;
+        if option_s.is_none() {
+            s = HashSet::default()
+        } else {
+            s = bincode::deserialize(&option_s.unwrap()).unwrap();
+        }
+
         hashes.iter().for_each(|h| {
-            todos.insert(*h);
+            s.insert(*h);
         });
+        self.todos.insert(bincode::serialize(domain).unwrap(), bincode::serialize(&s).unwrap()).unwrap();
     }
 
     fn get_sentence(&self, pk: i64) -> String {
@@ -628,12 +638,13 @@ impl Holder {
         ];
 
         for domain in dfs {
-            if self.todos.get_mut(domain).is_some() {
-                let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
+            let todos_in_domain = self.todos.get(bincode::serialize(&domain).unwrap()).unwrap();
+            if todos_in_domain.is_some() {
+                let res_set: &mut HashSet<i64> = &mut bincode::deserialize(&todos_in_domain.unwrap()).unwrap();
                 if res_set.iter().next().is_some() {
                     let idx = res_set.iter().next().unwrap().clone();
                     res_set.remove(&idx);
-
+                    self.todos.insert(bincode::serialize(&domain).unwrap(), bincode::serialize(res_set).unwrap()).unwrap();
                     return Some(NewTodo {
                         domain: domain.to_owned(),
                         other: idx,
