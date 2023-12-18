@@ -28,9 +28,10 @@ use std::{
 
 type Word = i32;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Holder {
-    vocabulary: HashMap<String, Word>,
+    books: sled::Db,
+    vocabulary: sled::Db,
     sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
@@ -39,13 +40,32 @@ pub struct Holder {
     phrases_by_head: HashMap<i64, HashSet<i64>>,
     phrases_by_tail: HashMap<i64, HashSet<i64>>,
     phrases_by_hash: HashMap<i64, Vec<Word>>,
-    orthos_by_hash: HashMap<i64, Ortho>,
+    orthos_by_hash: sled::Db,
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
 }
 
 impl Holder {
+    pub fn new() -> Self {
+        Holder {
+            books: sled::open("db/books.sled").unwrap(),
+            vocabulary: sled::open("db/vocab.sled").unwrap(),
+            sentences: HashMap::default(),
+            todos: HashMap::default(),
+            pairs_by_first: HashMap::default(),
+            pairs_by_second: HashMap::default(),
+            pairs_by_hash: HashMap::default(),
+            phrases_by_head: HashMap::default(),
+            phrases_by_tail: HashMap::default(),
+            phrases_by_hash: HashMap::default(),
+            orthos_by_hash: sled::open("db/obh.sled").unwrap(),
+            orthos_by_hop: HashMap::default(),
+            orthos_by_contents: HashMap::default(),
+            orthos_by_origin: HashMap::default(),
+        }
+    }
+
     pub fn get_stats(&self) {
         dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
         dbg!(&self.orthos_by_hash.len());
@@ -67,9 +87,16 @@ impl Holder {
 
     fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
         self.vocabulary
-            .iter()
-            .filter(|(_k, v)| firsts.contains(v))
-            .map(|(k, v)| (v.clone(), k.clone()))
+            .into_iter()
+            .filter(|x| {
+                let word: Word = bincode::deserialize(&x.clone().unwrap().0).unwrap();
+                firsts.contains(&word)
+            })
+            .map(|x| {
+                let word: Word = bincode::deserialize(&x.clone().unwrap().0).unwrap();
+                let val: String = bincode::deserialize(&x.unwrap().1).unwrap();
+                (word, val)
+            })
             .collect()
     }
 
@@ -259,9 +286,12 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> Book {
-        let tree = sled::open("pvac.sled").unwrap();
-        let foo = tree.get(bincode::serialize(&pk).unwrap()).unwrap().unwrap();
-        bincode::deserialize(&foo).unwrap()
+        let book = self
+            .books
+            .get(bincode::serialize(&pk).unwrap())
+            .unwrap()
+            .unwrap();
+        bincode::deserialize(&book).unwrap()
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -273,7 +303,8 @@ impl Holder {
         // d <- c
         // c <- a
 
-        let ans: Vec<Ortho> = self.get_second_words_of_pairs_with_first_word(b)
+        let ans: Vec<Ortho> = self
+            .get_second_words_of_pairs_with_first_word(b)
             .into_iter()
             .flat_map(|d| {
                 self.get_first_words_of_pairs_with_second_word(d)
@@ -301,7 +332,8 @@ impl Holder {
         // d <- c
         // c <- a
         // a -> b
-        let ans: Vec<Ortho> = self.get_first_words_of_pairs_with_second_word(d)
+        let ans: Vec<Ortho> = self
+            .get_first_words_of_pairs_with_second_word(d)
             .into_iter()
             .flat_map(|c| {
                 self.get_first_words_of_pairs_with_second_word(c)
@@ -310,34 +342,55 @@ impl Holder {
                         self.get_second_words_of_pairs_with_first_word(a)
                             .into_iter()
                             .filter(|b_prime| b_prime == &b)
-                            .map(|_| { (a, b, c, d)})
+                            .map(|_| (a, b, c, d))
                             .collect_vec()
                     })
             })
             .filter(|(_a, b, c, _d)| b != c)
-            .map(|(a, b, c, d)| {Ortho::new(a, b, c, d)}  )
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
             .collect();
         ans
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
         // todo make sure indices are right. Back to back inserts should count on
-        let current: HashSet<String> = self.vocabulary.keys().cloned().collect::<HashSet<_>>();
+        let current: HashSet<String> = self
+            .vocabulary
+            .into_iter()
+            .keys()
+            .map(|x| {
+                let foo = x.unwrap();
+                bincode::deserialize(&foo).unwrap()
+            })
+            .collect::<HashSet<_>>();
         let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
         let new = words_to_insert.difference(&current).collect_vec();
         let current_index = self.vocabulary.len();
         let new_indices = current_index..(current_index + new.len());
 
         words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
-            self.vocabulary.insert(k.clone(), v.try_into().unwrap());
+            let to_insert: Word = v.try_into().unwrap();
+            self.vocabulary
+                .insert(
+                    bincode::serialize(k).unwrap(),
+                    bincode::serialize(&to_insert).unwrap(),
+                )
+                .unwrap();
         });
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
         self.vocabulary
             .iter()
-            .filter(|(k, _v)| words.contains(*k))
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .filter(|x| {
+                let word: String = bincode::deserialize(&x.clone().unwrap().0).unwrap();
+                words.contains(&word)
+            })
+            .map(|x| {
+                let word: String = bincode::deserialize(&x.clone().unwrap().0).unwrap();
+                let val: Word = bincode::deserialize(&x.unwrap().1).unwrap();
+                (word, val)
+            })
             .collect()
     }
 
@@ -350,7 +403,12 @@ impl Holder {
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
-        self.orthos_by_hash[&key].to_owned()
+        let ortho = self
+            .orthos_by_hash
+            .get(bincode::serialize(&key).unwrap())
+            .unwrap()
+            .unwrap();
+        bincode::deserialize(&ortho).unwrap()
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
@@ -462,7 +520,11 @@ impl Holder {
         to_insert.into_iter().for_each(|new_ortho| {
             let inserted_anew = self
                 .orthos_by_hash
-                .insert(new_ortho.info_hash, new_ortho.information.clone());
+                .insert(
+                    bincode::serialize(&new_ortho.info_hash).unwrap(),
+                    bincode::serialize(&new_ortho.information.clone()).unwrap(),
+                )
+                .unwrap();
             if inserted_anew.is_none() {
                 res.push(new_ortho.info_hash);
                 new_ortho.hop.iter().for_each(|h| {
@@ -495,8 +557,12 @@ impl Holder {
             title,
             body,
         };
-        let db: sled::Db = sled::open("pvac.sled").unwrap();
-        db.insert(bincode::serialize(&b.id).unwrap(), bincode::serialize(&b.clone()).unwrap()).unwrap();
+        self.books
+            .insert(
+                bincode::serialize(&b.id).unwrap(),
+                bincode::serialize(&b.clone()).unwrap(),
+            )
+            .unwrap();
         b
     }
 

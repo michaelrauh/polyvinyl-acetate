@@ -149,7 +149,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = up_forward(
             &mut holder,
             left_ortho.clone(),
@@ -175,7 +175,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = up_back(
             &mut holder,
             right_ortho.clone(),
@@ -201,7 +201,7 @@ mod tests {
         let l_one = Ortho::new(1, 2, 4, 5);
         let l_two = Ortho::new(2, 3, 5, 11);
         let l = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = up_forward(
             &mut holder,
             l,
