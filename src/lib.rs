@@ -32,7 +32,7 @@ type Word = i32;
 pub struct Holder {
     books: sled::Db,
     vocabulary: sled::Db,
-    sentences: HashMap<i64, String>,
+    sentences: sled::Db,
     todos: HashMap<String, HashSet<i64>>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
@@ -51,7 +51,7 @@ impl Holder {
         Holder {
             books: sled::open("db/books.sled").unwrap(),
             vocabulary: sled::open("db/vocab.sled").unwrap(),
-            sentences: HashMap::default(),
+            sentences: sled::open("db/sentences.sled").unwrap(),
             todos: HashMap::default(),
             pairs_by_first: HashMap::default(),
             pairs_by_second: HashMap::default(),
@@ -415,7 +415,14 @@ impl Holder {
         let mut new_sentences = Vec::default();
         sentences.iter().for_each(|x| {
             let k = x.sentence_hash;
-            let inserted_anew = self.sentences.insert(k, x.sentence.clone()).is_none();
+            let inserted_anew = self
+                .sentences
+                .insert(
+                    bincode::serialize(&k).unwrap(),
+                    bincode::serialize(&x.sentence.clone()).unwrap(),
+                )
+                .unwrap()
+                .is_none();
 
             if inserted_anew {
                 new_sentences.push(k);
@@ -435,7 +442,14 @@ impl Holder {
     }
 
     fn get_sentence(&self, pk: i64) -> String {
-        self.sentences[&pk].clone()
+        bincode::deserialize(
+            &self
+                .sentences
+                .get(bincode::serialize(&pk).unwrap())
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap()
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
