@@ -29,7 +29,8 @@ fn main() {
             break;
         }
 
-        worker_helper::handle_todo(next_todo.unwrap(), &mut holder)
+        worker_helper::handle_todo(next_todo.unwrap(), &mut holder);
+        holder.ack_todo();
     }
 
     get_relevant_vocabulary_reverse(&holder, HashSet::default());

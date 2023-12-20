@@ -16,7 +16,7 @@ pub struct Book {
     pub body: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NewTodo {
     pub domain: String,
     pub other: i64,
