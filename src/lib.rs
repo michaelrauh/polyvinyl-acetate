@@ -84,7 +84,7 @@ impl Holder {
     }
 
     fn get_vocabulary_slice_with_words(&self, desired: HashSet<Word>) -> HashMap<Word, String> {
-        Database::open("pvac.redb")
+        Database::create("pvac.redb")
             .unwrap()
             .begin_read()
             .unwrap()
@@ -289,7 +289,7 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> NewBook {
-        Database::open("pvac.redb")
+        Database::create("pvac.redb")
             .unwrap()
             .begin_read()
             .unwrap()
@@ -363,7 +363,7 @@ impl Holder {
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
         // todo make sure indices are right. Back to back inserts should count on
 
-        let binding = Database::open("pvac.redb").unwrap();
+        let binding = Database::create("pvac.redb").unwrap();
         let db = binding.begin_write().unwrap(); {
             let mut table = db.open_table(VOCABULARY).unwrap();
 
@@ -390,8 +390,8 @@ impl Holder {
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
-        let binding = Database::open("pvac.redb").unwrap();
-        let db = binding.begin_write().unwrap();
+        let binding = Database::create("pvac.redb").unwrap();
+        let db = binding.begin_read().unwrap();
 
         let table = db.open_table(VOCABULARY).unwrap();
 
