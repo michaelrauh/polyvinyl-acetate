@@ -30,6 +30,7 @@ use std::{
 type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
+const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -45,7 +46,6 @@ impl From<NewBook> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    sentences: HashMap<i64, String>,
     todos: HashMap<String, HashSet<i64>>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
@@ -423,15 +423,20 @@ impl Holder {
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
+        let db: Database = Database::create("pvac.redb").unwrap();
         let mut new_sentences = Vec::default();
-        sentences.iter().for_each(|x| {
-            let k = x.sentence_hash;
-            let inserted_anew = self.sentences.insert(k, x.sentence.clone()).is_none();
+        let write_txn = db.begin_write().unwrap();
+        {
+            let mut table = write_txn.open_table(SENTENCES).unwrap();
+            sentences.iter().for_each(|x| {
+                let inserted_anew = table.insert(x.sentence_hash, x.sentence.as_str()).unwrap().is_none();
+                if inserted_anew {
+                            new_sentences.push(x.sentence_hash);
+                        }
+            });
+        }
 
-            if inserted_anew {
-                new_sentences.push(k);
-            }
-        });
+        write_txn.commit().unwrap();
         new_sentences
     }
 
@@ -446,7 +451,17 @@ impl Holder {
     }
 
     fn get_sentence(&self, pk: i64) -> String {
-        self.sentences[&pk].clone()
+        Database::create("pvac.redb")
+        .unwrap()
+        .begin_read()
+        .unwrap()
+        .open_table(SENTENCES)
+        .unwrap()
+        .get(&pk)
+        .unwrap()
+        .unwrap()
+        .value()
+        .into()
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
