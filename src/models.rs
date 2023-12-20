@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::ortho::Ortho;
 use crate::Word;
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewBook {
     pub title: String,
     pub body: String,

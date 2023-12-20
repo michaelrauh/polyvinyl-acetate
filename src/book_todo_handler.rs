@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crate::models::{NewSentence, NewTodo, NewWords};
-use crate::{string_to_signed_int, Book, Holder};
+use crate::models::{NewBook, NewSentence, NewTodo, NewWords};
+use crate::{string_to_signed_int, Holder};
 
 use itertools::Itertools;
 
@@ -26,7 +26,7 @@ fn insert_vocabulary(holder: &mut Holder, vocabulary: &HashSet<String>) {
     holder.insert_vocabulary(to_insert);
 }
 
-fn split_book_to_words(book: &Book) -> HashSet<String> {
+fn split_book_to_words(book: &NewBook) -> HashSet<String> {
     book.body
         .split_terminator(&['.', '!', '?', ';'])
         .filter(|x| !x.is_empty())
@@ -49,7 +49,7 @@ fn insert_sentences(holder: &mut Holder, sentences: &[NewSentence]) -> Vec<i64> 
     holder.insert_sentences(sentences)
 }
 
-pub fn split_book_to_sentences(book: &Book) -> Vec<NewSentence> {
+pub fn split_book_to_sentences(book: &NewBook) -> Vec<NewSentence> {
     book.body
         .split_terminator(&['.', '!', '?', ';'])
         .filter(|x| !x.is_empty())
@@ -75,15 +75,14 @@ pub fn split_book_to_sentences(book: &Book) -> Vec<NewSentence> {
 #[cfg(test)]
 mod tests {
     use crate::book_todo_handler::split_book_to_sentences;
-    use crate::models::Book;
+    use crate::models::NewBook;
     use crate::string_to_signed_int;
 
     #[test]
     fn it_splits_books_to_sentences() {
-        let book = Book {
+        let book = NewBook {
             title: "title".to_owned(),
             body: "Multiple words.. \n\tTwo sentences! Now,:- three; Four.".to_owned(),
-            id: 5,
         };
         let actual = split_book_to_sentences(&book);
         let actual_sentences: Vec<String> = actual.iter().map(|s| s.sentence.clone()).collect();

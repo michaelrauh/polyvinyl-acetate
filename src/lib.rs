@@ -2,7 +2,7 @@ pub mod models;
 
 use itertools::Itertools;
 use maplit::hashset;
-use redb::{Database, ReadableTable, Table, TableDefinition};
+use redb::{Database, ReadableTable, TableDefinition};
 
 mod book_todo_handler;
 pub mod ortho;
@@ -20,7 +20,7 @@ pub mod worker_helper;
 use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
 
-use models::{Book, NewPair, NewTodo};
+use models::{NewBook, NewPair, NewTodo};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -30,6 +30,18 @@ use std::{
 type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
+
+impl From<Vec<u8>> for NewBook {
+    fn from(value: Vec<u8>) -> Self {
+        bincode::deserialize(&value).unwrap()
+    }
+}
+
+impl From<NewBook> for Vec<u8> {
+    fn from(value: NewBook) -> Self {
+        bincode::serialize(&value).unwrap()
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct Holder {
@@ -72,17 +84,22 @@ impl Holder {
     }
 
     fn get_vocabulary_slice_with_words(&self, desired: HashSet<Word>) -> HashMap<Word, String> {
-        let db: Database = Database::create("pvac.redb").unwrap();
-            let foo = &db.begin_read()
-                .unwrap()
-                .open_table(VOCABULARY)
-                .unwrap()
-                .iter()
-                .unwrap();
-
-            foo.into_iter()
-            .filter(|x| desired.contains(&x.unwrap().1.value()))
-            .map(|x| (x.unwrap().1.value(), x.unwrap().0.value().to_owned()))
+        Database::open("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(VOCABULARY)
+            .unwrap()
+            .iter()
+            .unwrap()
+            .into_iter()
+            .filter(|x| desired.contains(&x.as_ref().unwrap().1.value()))
+            .map(|mut x| {
+                (
+                    x.as_mut().unwrap().1.value().clone(),
+                    x.unwrap().0.value().to_owned().clone(),
+                )
+            })
             .collect()
     }
 
@@ -271,20 +288,18 @@ impl Holder {
             .collect()
     }
 
-    fn get_book(&self, pk: i64) -> Book {
-        let db: Database = Database::create("pvac.redb").unwrap();
-        let book: Book = bincode::deserialize(
-            &db.begin_write()
-                .unwrap()
-                .open_table(BOOKS)
-                .unwrap()
-                .get(&pk)
-                .unwrap()
-                .unwrap()
-                .value(),
-        )
-        .unwrap();
-        book
+    fn get_book(&self, pk: i64) -> NewBook {
+        Database::open("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(BOOKS)
+            .unwrap()
+            .get(&pk)
+            .unwrap()
+            .unwrap()
+            .value()
+            .into()
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -347,23 +362,52 @@ impl Holder {
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
         // todo make sure indices are right. Back to back inserts should count on
-        let current: HashSet<String> = self.vocabulary.keys().cloned().collect::<HashSet<_>>();
-        let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
-        let new = words_to_insert.difference(&current).collect_vec();
-        let current_index = self.vocabulary.len();
-        let new_indices = current_index..(current_index + new.len());
 
-        words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
-            self.vocabulary.insert(k.clone(), v.try_into().unwrap());
-        });
+        let binding = Database::open("pvac.redb").unwrap();
+        let db = binding.begin_write().unwrap(); {
+            let mut table = db.open_table(VOCABULARY).unwrap();
+
+            let current: HashSet<String> = table
+                .iter()
+                .unwrap()
+                .map(|x| x.unwrap().0.value().to_string())
+                .collect();
+    
+            let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
+            let new = words_to_insert.difference(&current).collect_vec();
+    
+            let current_index: usize = table.len().unwrap().try_into().unwrap();
+            let f: usize = new.len();
+            let new_indices = current_index..(current_index + f);
+    
+            words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
+                let v_32: i32 = v.try_into().unwrap();
+                table.insert(k.as_str(), v_32).unwrap();
+            });
+        }
+        
+        db.commit().unwrap();
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
-        self.vocabulary
+        let binding = Database::open("pvac.redb").unwrap();
+        let db = binding.begin_write().unwrap();
+
+        let table = db.open_table(VOCABULARY).unwrap();
+
+        let ans = table
             .iter()
-            .filter(|(k, _v)| words.contains(*k))
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
+            .unwrap()
+            .map(|mut x| {
+                (
+                    x.as_mut().unwrap().1.value().clone(),
+                    x.unwrap().0.value().to_owned().clone(),
+                )
+            })
+            .filter(|(_k, v)| words.contains(v))
+            .map(|(k, v)| (v, k))
+            .collect();
+        ans
     }
 
     fn get_pair(&self, key: i64) -> NewPair {
@@ -514,21 +558,22 @@ impl Holder {
         res
     }
 
-    pub fn insert_book(&mut self, title: String, body: String) -> Book {
-        let b = Book {
-            id: string_to_signed_int(&title).try_into().unwrap(),
-            title,
+    pub fn insert_book(&mut self, title: String, body: String) -> i64 {
+        let b = NewBook {
+            title: title.clone(),
             body,
         };
+        let b_bytes: Vec<u8> = b.clone().into();
+        let id: i64 = string_to_signed_int(&title).try_into().unwrap();
         let db: Database = Database::create("pvac.redb").unwrap();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_table(BOOKS).unwrap();
-            table.insert(b.id, bincode::serialize(&b).unwrap()).unwrap();
+            table.insert(id, b_bytes).unwrap();
         }
 
         write_txn.commit().unwrap();
-        b
+        id
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
@@ -554,29 +599,6 @@ impl Holder {
             "ortho_over_forward",
             "ortho_over_back",
         ];
-
-        // let bfs = vec![
-        //     "books",
-        //     "sentences",
-        //     "pairs",
-        //     "phrases",
-        //     "ex_nihilo_ffbb",
-        //     "ex_nihilo_fbbf",
-        //     "pair_up",
-        //     "up_by_origin",
-        //     "up_by_hop",
-        //     "up_by_contents",
-        //     "phrase_by_origin",
-        //     "phrase_by_hop",
-        //     "phrase_by_contents",
-        //     "orthotopes",
-        //     "ortho_up",
-        //     "ortho_up_forward",
-        //     "ortho_up_back",
-        //     "ortho_over",
-        //     "ortho_over_forward",
-        //     "ortho_over_back",
-        // ];
 
         for domain in dfs {
             if self.todos.get_mut(domain).is_some() {

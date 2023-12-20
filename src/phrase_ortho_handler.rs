@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{collections::{BTreeMap, HashSet}, iter::zip};
 
-use itertools::{zip, Itertools};
+use itertools::Itertools;
 
 use crate::{
     get_ortho_by_contents, get_ortho_by_hop, get_ortho_by_origin, ortho::Ortho,

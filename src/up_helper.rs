@@ -1,8 +1,8 @@
 use crate::{ints_to_big_int, ortho::Ortho, Word};
 
-use itertools::{zip, Itertools};
+use itertools::Itertools;
 
-use std::collections::{BTreeMap, HashSet};
+use std::{collections::{BTreeMap, HashSet}, iter::zip};
 
 pub fn attempt_up(all_pairs: &HashSet<i64>, lo: &Ortho, ro: &Ortho) -> Vec<Ortho> {
     let lo_hop = lo.get_hop();
