@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, HashSet}, iter::zip};
+use std::{
+    collections::{BTreeMap, HashSet},
+    iter::zip,
+};
 
 use itertools::Itertools;
 

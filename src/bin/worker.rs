@@ -18,7 +18,7 @@ fn main() {
     let mut i = 0;
     loop {
         i += 1;
-        if i % 1000 == 0 {
+        if i % 10 == 0 {
             dbg!();
             dbg!(i);
             holder.get_stats();

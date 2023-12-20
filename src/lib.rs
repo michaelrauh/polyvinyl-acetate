@@ -2,7 +2,9 @@ pub mod models;
 
 use itertools::Itertools;
 use maplit::hashset;
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{
+    Database, MultimapTableDefinition, ReadableMultimapTable, ReadableTable, TableDefinition,
+};
 
 mod book_todo_handler;
 pub mod ortho;
@@ -31,6 +33,7 @@ type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
+const TODOS: MultimapTableDefinition<&str, i64> = MultimapTableDefinition::new("todos");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -46,7 +49,6 @@ impl From<NewBook> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    todos: HashMap<String, HashSet<i64>>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
     pairs_by_hash: HashMap<i64, NewPair>,
@@ -65,7 +67,15 @@ impl Holder {
     }
 
     pub fn get_stats(&self) {
-        dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
+        let todo_length = Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_multimap_table(TODOS)
+            .unwrap()
+            .len();
+
+        dbg!(todo_length.unwrap());
         dbg!(&self.orthos_by_hash.len());
     }
 
@@ -364,7 +374,8 @@ impl Holder {
         // todo make sure indices are right. Back to back inserts should count on
 
         let binding = Database::create("pvac.redb").unwrap();
-        let db = binding.begin_write().unwrap(); {
+        let db = binding.begin_write().unwrap();
+        {
             let mut table = db.open_table(VOCABULARY).unwrap();
 
             let current: HashSet<String> = table
@@ -372,20 +383,21 @@ impl Holder {
                 .unwrap()
                 .map(|x| x.unwrap().0.value().to_string())
                 .collect();
-    
-            let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
+
+            let words_to_insert: HashSet<String> =
+                to_insert.iter().map(|w| w.word.clone()).collect();
             let new = words_to_insert.difference(&current).collect_vec();
-    
+
             let current_index: usize = table.len().unwrap().try_into().unwrap();
             let f: usize = new.len();
             let new_indices = current_index..(current_index + f);
-    
+
             words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
                 let v_32: i32 = v.try_into().unwrap();
                 table.insert(k.as_str(), v_32).unwrap();
             });
         }
-        
+
         db.commit().unwrap();
     }
 
@@ -429,10 +441,13 @@ impl Holder {
         {
             let mut table = write_txn.open_table(SENTENCES).unwrap();
             sentences.iter().for_each(|x| {
-                let inserted_anew = table.insert(x.sentence_hash, x.sentence.as_str()).unwrap().is_none();
+                let inserted_anew = table
+                    .insert(x.sentence_hash, x.sentence.as_str())
+                    .unwrap()
+                    .is_none();
                 if inserted_anew {
-                            new_sentences.push(x.sentence_hash);
-                        }
+                    new_sentences.push(x.sentence_hash);
+                }
             });
         }
 
@@ -441,27 +456,31 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-        let todos = self
-            .todos
-            .entry(domain.to_owned())
-            .or_insert(HashSet::default());
-        hashes.iter().for_each(|h| {
-            todos.insert(*h);
-        });
+        // dbg!(domain, hashes.len());
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let write_txn = db.begin_write().unwrap();
+        {
+            let mut table = write_txn.open_multimap_table(TODOS).unwrap();
+            hashes.iter().for_each(|h| {
+                table.insert(domain, h).unwrap();
+            });
+        }
+
+        write_txn.commit().unwrap();
     }
 
     fn get_sentence(&self, pk: i64) -> String {
         Database::create("pvac.redb")
-        .unwrap()
-        .begin_read()
-        .unwrap()
-        .open_table(SENTENCES)
-        .unwrap()
-        .get(&pk)
-        .unwrap()
-        .unwrap()
-        .value()
-        .into()
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(SENTENCES)
+            .unwrap()
+            .get(&pk)
+            .unwrap()
+            .unwrap()
+            .value()
+            .into()
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
@@ -591,7 +610,7 @@ impl Holder {
         id
     }
 
-    pub fn get_next_todo(&mut self) -> Option<NewTodo> {
+    fn find_next_todo(&mut self) -> Option<NewTodo> {
         let dfs = vec![
             "books",
             "sentences",
@@ -615,12 +634,16 @@ impl Holder {
             "ortho_over_back",
         ];
 
-        for domain in dfs {
-            if self.todos.get_mut(domain).is_some() {
-                let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
-                if res_set.iter().next().is_some() {
-                    let idx = res_set.iter().next().unwrap().clone();
-                    res_set.remove(&idx);
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let read_txn = db.begin_read().unwrap();
+        {
+            let table = read_txn.open_multimap_table(TODOS).unwrap();
+
+            for domain in dfs {
+                let mut res_set = table.get(domain).unwrap();
+                let val = res_set.next();
+                if val.is_some() {
+                    let idx = val.unwrap().unwrap().value();
 
                     return Some(NewTodo {
                         domain: domain.to_owned(),
@@ -628,8 +651,29 @@ impl Holder {
                     });
                 }
             }
-        }
+        };
         None
+    }
+
+    pub fn get_next_todo(&mut self) -> Option<NewTodo> {
+        let next_todo = self.find_next_todo();
+
+        if next_todo.is_some() {
+            let current_todo = next_todo.clone().unwrap();
+            let db: Database = Database::create("pvac.redb").unwrap();
+            let mut write_txn = db.begin_write().unwrap();
+            {
+                write_txn.set_durability(redb::Durability::None);
+                let mut table = write_txn.open_multimap_table(TODOS).unwrap();
+                table
+                    .remove(current_todo.domain.as_str(), current_todo.other)
+                    .unwrap();
+            }
+            write_txn.commit().unwrap();
+            next_todo
+        } else {
+            None
+        }
     }
 }
 
