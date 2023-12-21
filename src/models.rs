@@ -42,7 +42,7 @@ pub struct Sentence {
     pub sentence_hash: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NewPair {
     pub first_word: Word,
     pub second_word: Word,

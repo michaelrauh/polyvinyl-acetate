@@ -2,7 +2,9 @@ pub mod models;
 
 use itertools::Itertools;
 use maplit::hashset;
-use redb::{Database, ReadableTable, TableDefinition, MultimapTableDefinition};
+use redb::{
+    Database, MultimapTableDefinition, ReadableMultimapTable, ReadableTable, TableDefinition,
+};
 
 mod book_todo_handler;
 pub mod ortho;
@@ -29,9 +31,11 @@ use std::{
 
 type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
-const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
+const VOCABULARY: TableDefinition<&str, Word> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
 const TODOS: MultimapTableDefinition<&str, i64> = MultimapTableDefinition::new("todos");
+const PAIRS_BY_FIRST: MultimapTableDefinition<Word, &[u8]> =
+    MultimapTableDefinition::new("pairs_by_first");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -45,9 +49,20 @@ impl From<NewBook> for Vec<u8> {
     }
 }
 
+impl From<Vec<u8>> for NewPair {
+    fn from(value: Vec<u8>) -> Self {
+        bincode::deserialize(&value).unwrap()
+    }
+}
+
+impl From<NewPair> for Vec<u8> {
+    fn from(value: NewPair) -> Self {
+        bincode::serialize(&value).unwrap()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Holder {
-    pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
     pairs_by_hash: HashMap<i64, NewPair>,
     phrases_by_head: HashMap<i64, HashSet<i64>>,
@@ -77,12 +92,16 @@ impl Holder {
         firsts
             .iter()
             .flat_map(|f| {
-                self.pairs_by_first
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_FIRST)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|x| x.pair_hash)
-                    .collect::<HashSet<_>>()
+                    .unwrap()
+                    .map(|x| Into::<NewPair>::into(x.unwrap().value().to_vec()).pair_hash)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -179,12 +198,19 @@ impl Holder {
     fn get_words_of_pairs_with_first_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
         from.iter()
             .flat_map(|f| {
-                self.pairs_by_first
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_FIRST)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word))
-                    .collect_vec()
+                    .unwrap()
+                    .map(|x| {
+                        let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                        (p.first_word, p.second_word)
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -195,12 +221,19 @@ impl Holder {
     ) -> HashSet<(Word, Word, i64)> {
         from.iter()
             .flat_map(|f| {
-                self.pairs_by_first
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_FIRST)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
-                    .collect_vec()
+                    .unwrap()
+                    .map(|x| {
+                        let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                        (p.first_word, p.second_word, p.pair_hash)
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -275,11 +308,18 @@ impl Holder {
     }
 
     fn get_second_words_of_pairs_with_first_word(&self, first: Word) -> HashSet<Word> {
-        self.pairs_by_first
-            .get(&first)
-            .unwrap_or(&HashSet::default())
-            .iter()
-            .map(|p| p.second_word)
+        Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_multimap_table(PAIRS_BY_FIRST)
+            .unwrap()
+            .get(first)
+            .unwrap()
+            .map(|x| {
+                let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                p.second_word
+            })
             .collect()
     }
 
@@ -483,24 +523,28 @@ impl Holder {
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
-        to_insert.iter().for_each(|new_pair| {
-            let inserted = self
-                .pairs_by_first
-                .entry(new_pair.first_word)
-                .or_default()
-                .insert(new_pair.clone());
-            if inserted {
-                res.push(new_pair.pair_hash);
-                self.pairs_by_hash
-                    .insert(new_pair.pair_hash, new_pair.clone());
-                self.pairs_by_second
-                    .entry(new_pair.second_word)
-                    .or_default()
-                    .insert(new_pair.clone());
-            }
-        });
+        {
+            let mut table = write_txn.open_multimap_table(PAIRS_BY_FIRST).unwrap();
 
+            to_insert.iter().for_each(|new_pair| {
+                let rhs: &[u8] = &Into::<Vec<u8>>::into(new_pair.clone());
+                let inserted = !table.insert(new_pair.first_word, rhs).unwrap();
+                if inserted {
+                    res.push(new_pair.pair_hash);
+                    self.pairs_by_hash
+                        .insert(new_pair.pair_hash, new_pair.clone());
+                    self.pairs_by_second
+                        .entry(new_pair.second_word)
+                        .or_default()
+                        .insert(new_pair.clone());
+                }
+            });
+        }
+
+        write_txn.commit().unwrap();
         res
     }
 
@@ -622,7 +666,6 @@ impl Holder {
                 hs.iter().for_each(|h| {
                     table.insert(domain.as_str(), h).unwrap();
                 })
-                
             });
         }
 
