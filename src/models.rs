@@ -57,7 +57,7 @@ pub struct Pair {
     pub pair_hash: i64,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct NewOrthotope {
     pub information: Ortho,
     pub origin: Word,

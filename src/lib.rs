@@ -44,6 +44,7 @@ const PHRASES_BY_HEAD: MultimapTableDefinition<i64, i64> =
 const PHRASES_BY_TAIL: MultimapTableDefinition<i64, i64> =
     MultimapTableDefinition::new("phrases_by_tail");
 const PHRASES_BY_HASH: TableDefinition<i64, Vec<Word>> = TableDefinition::new("phrases_by_hash");
+const ORTHOS_BY_HASH: TableDefinition<i64, Vec<u8>> = TableDefinition::new("orthos_by_hash");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -69,9 +70,32 @@ impl From<NewPair> for Vec<u8> {
     }
 }
 
+impl From<Vec<u8>> for Ortho {
+    fn from(value: Vec<u8>) -> Self {
+        bincode::deserialize(&value).unwrap()
+    }
+}
+
+impl From<Ortho> for Vec<u8> {
+    fn from(value: Ortho) -> Self {
+        bincode::serialize(&value).unwrap()
+    }
+}
+
+impl From<Vec<u8>> for NewOrthotope {
+    fn from(value: Vec<u8>) -> Self {
+        bincode::deserialize(&value).unwrap()
+    }
+}
+
+impl From<NewOrthotope> for Vec<u8> {
+    fn from(value: NewOrthotope) -> Self {
+        bincode::serialize(&value).unwrap()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Holder {
-    orthos_by_hash: HashMap<i64, Ortho>,
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
@@ -79,6 +103,9 @@ pub struct Holder {
     todos: HashMap<String, HashSet<i64>>,
 }
 
+
+// todo consider putting todos back in DB
+// todo consider taking phrase by hash out of DB
 impl Holder {
     pub fn new() -> Self {
         Holder::default()
@@ -88,7 +115,15 @@ impl Holder {
         let todo_length = self.active_todos.len();
 
         dbg!(todo_length);
-        dbg!(&self.orthos_by_hash.len());
+
+        dbg!(Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(ORTHOS_BY_HASH)
+            .unwrap()
+            .len())
+        .unwrap();
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
@@ -306,14 +341,9 @@ impl Holder {
     }
 
     fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
-        let binding = Database::create("pvac.redb")
-                    .unwrap();
-        let binding = binding
-                    .begin_read()
-                    .unwrap();
-        let read_only_table = binding
-                    .open_table(PHRASES_BY_HASH)
-                    .unwrap();
+        let binding = Database::create("pvac.redb").unwrap();
+        let binding = binding.begin_read().unwrap();
+        let read_only_table = binding.open_table(PHRASES_BY_HASH).unwrap();
         phrases
             .iter()
             .flat_map(|f| {
@@ -532,7 +562,17 @@ impl Holder {
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
-        self.orthos_by_hash[&key].to_owned()
+        Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(ORTHOS_BY_HASH)
+            .unwrap()
+            .get(key)
+            .unwrap()
+            .unwrap()
+            .value()
+            .into()
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
@@ -615,6 +655,8 @@ impl Holder {
         res
     }
 
+    // todo implement resume logic in the event of crash. Currently duplicate books will be ignored
+
     fn insert_phrases(&mut self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
         let db: Database = Database::create("pvac.redb").unwrap();
         let write_txn = db.begin_write().unwrap();
@@ -680,33 +722,48 @@ impl Holder {
     }
 
     fn insert_orthos(&mut self, to_insert: HashSet<NewOrthotope>) -> Vec<i64> {
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
-        to_insert.into_iter().for_each(|new_ortho| {
-            let inserted_anew = self
-                .orthos_by_hash
-                .insert(new_ortho.info_hash, new_ortho.information.clone());
-            if inserted_anew.is_none() {
-                res.push(new_ortho.info_hash);
-                new_ortho.hop.iter().for_each(|h| {
-                    self.orthos_by_hop
-                        .entry(*h)
-                        .or_default()
-                        .insert(new_ortho.clone());
-                });
 
-                new_ortho.contents.iter().for_each(|h| {
-                    self.orthos_by_contents
-                        .entry(*h)
-                        .or_default()
-                        .insert(new_ortho.clone());
-                });
+        {
+            let mut hash_table = write_txn.open_table(ORTHOS_BY_HASH).unwrap();
+            // let mut second_table = write_txn.open_multimap_table(PHRASES_BY_TAIL).unwrap();
+            // let mut hash_table = write_txn.open_table(PHRASES_BY_HASH).unwrap();
 
-                self.orthos_by_origin
-                    .entry(new_ortho.origin)
-                    .or_default()
-                    .insert(new_ortho.information);
-            }
-        });
+            to_insert.iter().for_each(|new_ortho| {
+                let inserted = hash_table
+                    .insert(
+                        new_ortho.info_hash,
+                        Into::<Vec<u8>>::into(new_ortho.information.clone()),
+                    )
+                    .unwrap()
+                    .is_none();
+                if inserted {
+                    res.push(new_ortho.info_hash);
+                    new_ortho.hop.iter().for_each(|h| {
+                        self.orthos_by_hop
+                            .entry(*h)
+                            .or_default()
+                            .insert(new_ortho.clone());
+                    });
+
+                    new_ortho.contents.iter().for_each(|h| {
+                        self.orthos_by_contents
+                            .entry(*h)
+                            .or_default()
+                            .insert(new_ortho.clone());
+                    });
+
+                    self.orthos_by_origin
+                        .entry(new_ortho.origin)
+                        .or_default()
+                        .insert(new_ortho.information.clone());
+                }
+            });
+        }
+
+        write_txn.commit().unwrap();
 
         res
     }
