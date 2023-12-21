@@ -32,6 +32,7 @@ fn main() {
         worker_helper::handle_todo(next_todo.unwrap(), &mut holder);
     }
 
+    // todo add a completed field to todos, and load on startup snapshotting every thousand. If it is not done, load in to active todos
     holder.save_todos();
     get_relevant_vocabulary_reverse(&holder, HashSet::default());
 }
