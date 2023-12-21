@@ -36,6 +36,8 @@ const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
 const TODOS: MultimapTableDefinition<&str, i64> = MultimapTableDefinition::new("todos");
 const PAIRS_BY_FIRST: MultimapTableDefinition<Word, &[u8]> =
     MultimapTableDefinition::new("pairs_by_first");
+const PAIRS_BY_SECOND: MultimapTableDefinition<Word, &[u8]> =
+    MultimapTableDefinition::new("pairs_by_second");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -63,7 +65,6 @@ impl From<NewPair> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    pairs_by_second: HashMap<Word, HashSet<NewPair>>,
     pairs_by_hash: HashMap<i64, NewPair>,
     phrases_by_head: HashMap<i64, HashSet<i64>>,
     phrases_by_tail: HashMap<i64, HashSet<i64>>,
@@ -185,12 +186,19 @@ impl Holder {
     fn get_words_of_pairs_with_second_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
         from.iter()
             .flat_map(|f| {
-                self.pairs_by_second
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word))
-                    .collect_vec()
+                    .unwrap()
+                    .map(|x| {
+                        let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                        (p.first_word, p.second_word)
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -244,12 +252,19 @@ impl Holder {
     ) -> HashSet<(Word, Word, i64)> {
         from.iter()
             .flat_map(|f| {
-                self.pairs_by_second
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
-                    .collect_vec()
+                    .unwrap()
+                    .map(|x| {
+                        let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                        (p.first_word, p.second_word, p.pair_hash)
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -294,15 +309,21 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
-        seconds
-            .iter()
-            .flat_map(|s| {
-                self.pairs_by_second
-                    .get(s)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| p.pair_hash)
-                    .collect_vec()
+        seconds.iter()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| {
+                        let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+                        p.pair_hash
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -324,12 +345,19 @@ impl Holder {
     }
 
     fn get_first_words_of_pairs_with_second_word(&self, second: Word) -> HashSet<Word> {
-        self.pairs_by_second
-            .get(&second)
-            .unwrap_or(&HashSet::default())
-            .iter()
-            .map(|p| p.first_word)
-            .collect()
+        Database::create("pvac.redb")
+        .unwrap()
+        .begin_read()
+        .unwrap()
+        .open_multimap_table(PAIRS_BY_SECOND)
+        .unwrap()
+        .get(second)
+        .unwrap()
+        .map(|x| {
+            let p = Into::<NewPair>::into(x.unwrap().value().to_vec());
+            p.first_word
+        })
+        .collect()
     }
 
     fn get_book(&self, pk: i64) -> NewBook {
@@ -527,19 +555,17 @@ impl Holder {
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
         {
-            let mut table = write_txn.open_multimap_table(PAIRS_BY_FIRST).unwrap();
+            let mut first_table = write_txn.open_multimap_table(PAIRS_BY_FIRST).unwrap();
+            let mut second_table = write_txn.open_multimap_table(PAIRS_BY_SECOND).unwrap();
 
             to_insert.iter().for_each(|new_pair| {
                 let rhs: &[u8] = &Into::<Vec<u8>>::into(new_pair.clone());
-                let inserted = !table.insert(new_pair.first_word, rhs).unwrap();
+                let inserted = !first_table.insert(new_pair.first_word, rhs).unwrap();
                 if inserted {
                     res.push(new_pair.pair_hash);
                     self.pairs_by_hash
                         .insert(new_pair.pair_hash, new_pair.clone());
-                    self.pairs_by_second
-                        .entry(new_pair.second_word)
-                        .or_default()
-                        .insert(new_pair.clone());
+                    second_table.insert(new_pair.second_word, rhs).unwrap();
                 }
             });
         }
