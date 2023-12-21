@@ -33,8 +33,6 @@ type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
-const TODOS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("todos");
-const BOOKMARKS: TableDefinition<&str, i64> = TableDefinition::new("bookmarks");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -44,18 +42,6 @@ impl From<Vec<u8>> for NewBook {
 
 impl From<NewBook> for Vec<u8> {
     fn from(value: NewBook) -> Self {
-        bincode::serialize(&value).unwrap()
-    }
-}
-
-impl From<Vec<u8>> for NewTodo {
-    fn from(value: Vec<u8>) -> Self {
-        bincode::deserialize(&value).unwrap()
-    }
-}
-
-impl From<NewTodo> for Vec<u8> {
-    fn from(value: NewTodo) -> Self {
         bincode::serialize(&value).unwrap()
     }
 }
@@ -72,29 +58,16 @@ pub struct Holder {
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
+    active_todos: Vec<NewTodo>,
 }
 
 impl Holder {
     pub fn new() -> Self {
-        let db: Database = Database::create("pvac.redb").unwrap();
-        let write_txn = db.begin_write().unwrap();
-        {
-            let mut table = write_txn.open_table(BOOKMARKS).unwrap();
-            table.insert("total", 0).unwrap();
-            table.insert("current", 0).unwrap();
-        }
-        write_txn.commit().unwrap();
         Holder::default()
     }
 
     pub fn get_stats(&self) {
-        let todo_length = Database::create("pvac.redb")
-            .unwrap()
-            .begin_read()
-            .unwrap()
-            .open_table(BOOKMARKS)
-            .unwrap()
-            .get("total").unwrap().unwrap().value();
+        let todo_length = self.active_todos.len();
 
         dbg!(todo_length);
         dbg!(&self.orthos_by_hash.len());
@@ -477,27 +450,10 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-        let db: Database = Database::create("pvac.redb").unwrap();
-        let mut count;
-
-        let write_txn = db.begin_write().unwrap();
-        {
-            let table = write_txn.open_table(BOOKMARKS).unwrap();
-            count = table.get("total").unwrap().unwrap().value();
-        }
-        {
-            let mut table = write_txn.open_table(TODOS).unwrap();
             hashes.iter().for_each(|h| {
-                let to_insert: Vec<u8> = NewTodo{ domain: domain.to_string(), other: *h }.into();
-                table.insert(count, to_insert).unwrap();
-                count += 1;
-            });
-        }
-        {
-            let mut table = write_txn.open_table(BOOKMARKS).unwrap();
-            table.insert("total", count).unwrap();
-        }
-        write_txn.commit().unwrap();
+                let new_todo = NewTodo{ domain: domain.to_string(), other: *h };
+                self.active_todos.push(new_todo);
+        })
     }
 
     // todo look in to lower persistence expectations. Lower durability to eventual and consider in-memory
@@ -643,39 +599,7 @@ impl Holder {
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
-        let db: Database = Database::create("pvac.redb").unwrap();
-        let read_txn = db.begin_read().unwrap();
-        let current;
-        {
-            let table = read_txn.open_table(BOOKMARKS).unwrap();
-            let total = table.get("total").unwrap().unwrap().value();
-            current = table.get("current").unwrap().unwrap().value();
-
-            if current > total {
-                return None
-            }
-        }
-
-        let todo: NewTodo;
-        let read_txn = db.begin_read().unwrap();
-        {
-            let table = read_txn.open_table(TODOS).unwrap();
-            todo = table.get(current).unwrap().unwrap().value().into();
-            
-        }
-
-        Some(todo)
-    }
-
-    pub fn ack_todo(&self) {
-        let db: Database = Database::create("pvac.redb").unwrap();
-        let write_txn = db.begin_write().unwrap();
-        {
-            let mut table = write_txn.open_table(BOOKMARKS).unwrap();
-            let current = table.get("current").unwrap().unwrap().value();
-            table.insert("current", current + 1).unwrap().unwrap().value();
-        }
-        write_txn.commit().unwrap();
+        self.active_todos.pop()
     }
 }
 
