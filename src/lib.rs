@@ -2,9 +2,7 @@ pub mod models;
 
 use itertools::Itertools;
 use maplit::hashset;
-use redb::{
-    Database, ReadableTable, TableDefinition,
-};
+use redb::{Database, ReadableTable, TableDefinition, MultimapTableDefinition};
 
 mod book_todo_handler;
 pub mod ortho;
@@ -33,6 +31,7 @@ type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, i32> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
+const TODOS: MultimapTableDefinition<&str, i64> = MultimapTableDefinition::new("todos");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -59,6 +58,7 @@ pub struct Holder {
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
     active_todos: Vec<NewTodo>,
+    todos: HashMap<String, HashSet<i64>>,
 }
 
 impl Holder {
@@ -450,9 +450,20 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-            hashes.iter().for_each(|h| {
-                let new_todo = NewTodo{ domain: domain.to_string(), other: *h };
-                self.active_todos.push(new_todo);
+        let todos = self
+            .todos
+            .entry(domain.to_owned())
+            .or_insert(HashSet::default());
+        hashes.iter().for_each(|h| {
+            todos.insert(*h);
+        });
+
+        hashes.iter().for_each(|h| {
+            let new_todo = NewTodo {
+                domain: domain.to_string(),
+                other: *h,
+            };
+            self.active_todos.push(new_todo);
         })
     }
 
@@ -600,6 +611,22 @@ impl Holder {
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
         self.active_todos.pop()
+    }
+
+    pub fn save_todos(&self) {
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let write_txn = db.begin_write().unwrap();
+        {
+            let mut table = write_txn.open_multimap_table(TODOS).unwrap();
+            self.todos.iter().for_each(|(domain, hs)| {
+                hs.iter().for_each(|h| {
+                    table.insert(domain.as_str(), h).unwrap();
+                })
+                
+            });
+        }
+
+        write_txn.commit().unwrap();
     }
 }
 

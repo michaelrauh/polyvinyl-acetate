@@ -32,6 +32,7 @@ fn main() {
         worker_helper::handle_todo(next_todo.unwrap(), &mut holder);
     }
 
+    holder.save_todos();
     get_relevant_vocabulary_reverse(&holder, HashSet::default());
 }
 
