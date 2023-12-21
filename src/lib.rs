@@ -39,8 +39,11 @@ const PAIRS_BY_FIRST: MultimapTableDefinition<Word, &[u8]> =
 const PAIRS_BY_SECOND: MultimapTableDefinition<Word, &[u8]> =
     MultimapTableDefinition::new("pairs_by_second");
 const PAIRS_BY_HASH: TableDefinition<i64, Vec<u8>> = TableDefinition::new("pairs_by_hash");
-const PHRASES_BY_HEAD: MultimapTableDefinition<i64, i64> = MultimapTableDefinition::new("phrases_by_head");
-const PHRASES_BY_TAIL: MultimapTableDefinition<i64, i64> = MultimapTableDefinition::new("phrases_by_tail");
+const PHRASES_BY_HEAD: MultimapTableDefinition<i64, i64> =
+    MultimapTableDefinition::new("phrases_by_head");
+const PHRASES_BY_TAIL: MultimapTableDefinition<i64, i64> =
+    MultimapTableDefinition::new("phrases_by_tail");
+const PHRASES_BY_HASH: TableDefinition<i64, Vec<Word>> = TableDefinition::new("phrases_by_hash");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -68,7 +71,6 @@ impl From<NewPair> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    phrases_by_hash: HashMap<i64, Vec<Word>>,
     orthos_by_hash: HashMap<i64, Ortho>,
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
@@ -280,9 +282,7 @@ impl Holder {
                     .unwrap()
                     .get(f)
                     .unwrap()
-                    .map(|x| {
-                        x.unwrap().value()
-                    })
+                    .map(|x| x.unwrap().value())
                     .collect::<Vec<_>>()
             })
             .collect()
@@ -299,22 +299,29 @@ impl Holder {
                     .unwrap()
                     .get(f)
                     .unwrap()
-                    .map(|x| {
-                        x.unwrap().value()
-                    })
+                    .map(|x| x.unwrap().value())
                     .collect::<Vec<_>>()
             })
             .collect()
     }
 
     fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
+        let binding = Database::create("pvac.redb")
+                    .unwrap();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_table = binding
+                    .open_table(PHRASES_BY_HASH)
+                    .unwrap();
         phrases
             .iter()
             .flat_map(|f| {
-                self.phrases_by_hash
+                read_only_table
                     .get(f)
+                    .unwrap()
                     .iter()
-                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .map(|x| vec_of_words_to_big_int(x.value()))
                     .collect_vec()
             })
             .collect()
@@ -512,7 +519,16 @@ impl Holder {
     }
 
     fn get_phrase(&self, key: i64) -> Vec<Word> {
-        self.phrases_by_hash[&key].to_owned()
+        Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_table(PHRASES_BY_HASH)
+            .unwrap()
+            .get(key)
+            .unwrap()
+            .unwrap()
+            .value()
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
@@ -607,15 +623,20 @@ impl Holder {
         {
             let mut first_table = write_txn.open_multimap_table(PHRASES_BY_HEAD).unwrap();
             let mut second_table = write_txn.open_multimap_table(PHRASES_BY_TAIL).unwrap();
-            // let mut hash_table = write_txn.open_table(PAIRS_BY_HASH).unwrap();
+            let mut hash_table = write_txn.open_table(PHRASES_BY_HASH).unwrap();
 
             to_insert.iter().for_each(|new_phrase| {
-                let inserted = !first_table.insert(new_phrase.phrase_head, new_phrase.words_hash).unwrap();
+                let inserted = !first_table
+                    .insert(new_phrase.phrase_head, new_phrase.words_hash)
+                    .unwrap();
                 if inserted {
                     res.push(new_phrase.words_hash);
-                    second_table.insert(new_phrase.phrase_tail, new_phrase.words_hash).unwrap();
-                    self.phrases_by_hash
-                        .insert(new_phrase.words_hash, new_phrase.words.clone());
+                    second_table
+                        .insert(new_phrase.phrase_tail, new_phrase.words_hash)
+                        .unwrap();
+                    hash_table
+                        .insert(new_phrase.words_hash, new_phrase.words.clone())
+                        .unwrap();
                 }
             });
         }
