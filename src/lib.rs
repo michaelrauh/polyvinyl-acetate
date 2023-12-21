@@ -40,6 +40,7 @@ const PAIRS_BY_SECOND: MultimapTableDefinition<Word, &[u8]> =
     MultimapTableDefinition::new("pairs_by_second");
 const PAIRS_BY_HASH: TableDefinition<i64, Vec<u8>> = TableDefinition::new("pairs_by_hash");
 const PHRASES_BY_HEAD: MultimapTableDefinition<i64, i64> = MultimapTableDefinition::new("phrases_by_head");
+const PHRASES_BY_TAIL: MultimapTableDefinition<i64, i64> = MultimapTableDefinition::new("phrases_by_tail");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -67,7 +68,6 @@ impl From<NewPair> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    phrases_by_tail: HashMap<i64, HashSet<i64>>,
     phrases_by_hash: HashMap<i64, Vec<Word>>,
     orthos_by_hash: HashMap<i64, Ortho>,
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
@@ -291,12 +291,18 @@ impl Holder {
     fn get_phrase_hash_with_phrase_tail_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
         left.iter()
             .flat_map(|f| {
-                self.phrases_by_tail
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(PHRASES_BY_TAIL)
+                    .unwrap()
                     .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .copied()
-                    .collect_vec()
+                    .unwrap()
+                    .map(|x| {
+                        x.unwrap().value()
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -600,17 +606,14 @@ impl Holder {
 
         {
             let mut first_table = write_txn.open_multimap_table(PHRASES_BY_HEAD).unwrap();
-            // let mut second_table = write_txn.open_multimap_table(PAIRS_BY_SECOND).unwrap();
+            let mut second_table = write_txn.open_multimap_table(PHRASES_BY_TAIL).unwrap();
             // let mut hash_table = write_txn.open_table(PAIRS_BY_HASH).unwrap();
 
             to_insert.iter().for_each(|new_phrase| {
                 let inserted = !first_table.insert(new_phrase.phrase_head, new_phrase.words_hash).unwrap();
                 if inserted {
                     res.push(new_phrase.words_hash);
-                    self.phrases_by_tail
-                        .entry(new_phrase.phrase_tail)
-                        .or_default()
-                        .insert(new_phrase.words_hash);
+                    second_table.insert(new_phrase.phrase_tail, new_phrase.words_hash).unwrap();
                     self.phrases_by_hash
                         .insert(new_phrase.words_hash, new_phrase.words.clone());
                 }
