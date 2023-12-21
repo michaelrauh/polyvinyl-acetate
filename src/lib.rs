@@ -45,6 +45,12 @@ const PHRASES_BY_TAIL: MultimapTableDefinition<i64, i64> =
     MultimapTableDefinition::new("phrases_by_tail");
 const PHRASES_BY_HASH: TableDefinition<i64, Vec<Word>> = TableDefinition::new("phrases_by_hash");
 const ORTHOS_BY_HASH: TableDefinition<i64, Vec<u8>> = TableDefinition::new("orthos_by_hash");
+const ORTHOS_BY_HOP: MultimapTableDefinition<Word, &[u8]> =
+    MultimapTableDefinition::new("orthos_by_hop");
+const ORTHOS_BY_CONTENTS: MultimapTableDefinition<Word, &[u8]> =
+    MultimapTableDefinition::new("orthos_by_contents");
+const ORTHOS_BY_ORIGIN: MultimapTableDefinition<Word, &[u8]> =
+    MultimapTableDefinition::new("orthos_by_origin");
 
 impl From<Vec<u8>> for NewBook {
     fn from(value: Vec<u8>) -> Self {
@@ -96,13 +102,9 @@ impl From<NewOrthotope> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
-    orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
-    orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
     active_todos: Vec<NewTodo>,
     todos: HashMap<String, HashSet<i64>>,
 }
-
 
 // todo consider putting todos back in DB
 // todo consider taking phrase by hash out of DB
@@ -166,27 +168,36 @@ impl Holder {
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
         hop.iter()
-            .flat_map(|h| {
-                self.orthos_by_hop
-                    .get(h)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|o| o.information.clone())
-                    .collect_vec()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(ORTHOS_BY_HOP)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()).information)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
 
     fn get_base_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
         hop.iter()
-            .flat_map(|h| {
-                self.orthos_by_hop
-                    .get(h)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(ORTHOS_BY_HOP)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
                     .filter(|o| o.base)
-                    .map(|o| o.information.clone())
-                    .collect_vec()
+                    .map(|o| o.information)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -194,13 +205,17 @@ impl Holder {
     fn get_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
         other_contents
             .iter()
-            .flat_map(|c| {
-                self.orthos_by_contents
-                    .get(c)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|o| o.information.clone())
-                    .collect_vec()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_write()
+                    .unwrap()
+                    .open_multimap_table(ORTHOS_BY_CONTENTS)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()).information)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -208,14 +223,19 @@ impl Holder {
     fn get_base_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
         other_contents
             .iter()
-            .flat_map(|c| {
-                self.orthos_by_contents
-                    .get(c)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(ORTHOS_BY_CONTENTS)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
                     .filter(|o| o.base)
-                    .map(|o| o.information.clone())
-                    .collect_vec()
+                    .map(|o| o.information)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -689,34 +709,50 @@ impl Holder {
     }
 
     fn get_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        self.orthos_by_origin
-            .get(&origin)
-            .unwrap_or(&HashSet::default())
-            .into_iter()
-            .cloned()
-            .collect_vec()
+        Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_multimap_table(ORTHOS_BY_ORIGIN)
+            .unwrap()
+            .get(origin)
+            .unwrap()
+            .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
+            .map(|o| o.information)
+            .collect::<Vec<_>>()
     }
 
     fn get_base_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        self.orthos_by_origin
-            .get(&origin)
-            .unwrap_or(&HashSet::default())
-            .into_iter()
-            .filter(|o| o.is_base())
-            .cloned()
-            .collect_vec()
+        Database::create("pvac.redb")
+            .unwrap()
+            .begin_read()
+            .unwrap()
+            .open_multimap_table(ORTHOS_BY_ORIGIN)
+            .unwrap()
+            .get(origin)
+            .unwrap()
+            .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
+            .filter(|o| o.base)
+            .map(|o| o.information)
+            .collect::<Vec<_>>()
     }
 
     fn get_ortho_with_origin_in(&self, origins: HashSet<Word>) -> Vec<Ortho> {
         origins
             .iter()
-            .flat_map(|o| {
-                self.orthos_by_origin
-                    .get(o)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .cloned()
-                    .collect_vec()
+            .flat_map(|f| {
+                Database::create("pvac.redb")
+                    .unwrap()
+                    .begin_read()
+                    .unwrap()
+                    .open_multimap_table(ORTHOS_BY_ORIGIN)
+                    .unwrap()
+                    .get(f)
+                    .unwrap()
+                    .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
+                    .filter(|o| o.base)
+                    .map(|o| o.information)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -728,8 +764,9 @@ impl Holder {
 
         {
             let mut hash_table = write_txn.open_table(ORTHOS_BY_HASH).unwrap();
-            // let mut second_table = write_txn.open_multimap_table(PHRASES_BY_TAIL).unwrap();
-            // let mut hash_table = write_txn.open_table(PHRASES_BY_HASH).unwrap();
+            let mut hop_table = write_txn.open_multimap_table(ORTHOS_BY_HOP).unwrap();
+            let mut contents_table = write_txn.open_multimap_table(ORTHOS_BY_CONTENTS).unwrap();
+            let mut origin_table = write_txn.open_multimap_table(ORTHOS_BY_ORIGIN).unwrap();
 
             to_insert.iter().for_each(|new_ortho| {
                 let inserted = hash_table
@@ -742,23 +779,17 @@ impl Holder {
                 if inserted {
                     res.push(new_ortho.info_hash);
                     new_ortho.hop.iter().for_each(|h| {
-                        self.orthos_by_hop
-                            .entry(*h)
-                            .or_default()
-                            .insert(new_ortho.clone());
+                        let rhs: &[u8] = &Into::<Vec<u8>>::into(new_ortho.clone());
+                        hop_table.insert(h, rhs).unwrap();
                     });
 
                     new_ortho.contents.iter().for_each(|h| {
-                        self.orthos_by_contents
-                            .entry(*h)
-                            .or_default()
-                            .insert(new_ortho.clone());
+                        let rhs: &[u8] = &Into::<Vec<u8>>::into(new_ortho.clone());
+                        contents_table.insert(h, rhs).unwrap();
                     });
 
-                    self.orthos_by_origin
-                        .entry(new_ortho.origin)
-                        .or_default()
-                        .insert(new_ortho.information.clone());
+                    let rhs: &[u8] = &Into::<Vec<u8>>::into(new_ortho.clone());
+                    origin_table.insert(new_ortho.origin, rhs).unwrap();
                 }
             });
         }
