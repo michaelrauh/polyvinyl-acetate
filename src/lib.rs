@@ -106,8 +106,6 @@ pub struct Holder {
     todos: HashMap<String, HashSet<i64>>,
 }
 
-// todo consider putting todos back in DB
-// todo consider taking phrase by hash out of DB
 impl Holder {
     pub fn new() -> Self {
         Holder::default()
@@ -634,7 +632,6 @@ impl Holder {
         })
     }
 
-    // todo look in to lower persistence expectations. Lower durability to eventual and consider in-memory
     fn get_sentence(&self, pk: i64) -> String {
         Database::create("pvac.redb")
             .unwrap()
