@@ -19,6 +19,7 @@ fn main() {
             dbg!();
             dbg!(i);
             holder.get_stats();
+            holder.save_todos();
         }
         let next_todo = holder.get_next_todo();
 
@@ -29,7 +30,6 @@ fn main() {
         worker_helper::handle_todo(next_todo.unwrap(), &mut holder);
     }
 
-    holder.save_todos();
     get_relevant_vocabulary_reverse(&holder, HashSet::default());
 }
 

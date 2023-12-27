@@ -33,7 +33,7 @@ type Word = i32;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, Word> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
-const TODOS: MultimapTableDefinition<&str, i64> = MultimapTableDefinition::new("todos");
+const TODOS: MultimapTableDefinition<&str, &[u8]> = MultimapTableDefinition::new("todos");
 const PAIRS_BY_FIRST: MultimapTableDefinition<Word, &[u8]> =
     MultimapTableDefinition::new("pairs_by_first");
 const PAIRS_BY_SECOND: MultimapTableDefinition<Word, &[u8]> =
@@ -60,6 +60,18 @@ impl From<Vec<u8>> for NewBook {
 
 impl From<NewBook> for Vec<u8> {
     fn from(value: NewBook) -> Self {
+        bincode::serialize(&value).unwrap()
+    }
+}
+
+impl From<Vec<u8>> for NewTodo {
+    fn from(value: Vec<u8>) -> Self {
+        bincode::deserialize(&value).unwrap()
+    }
+}
+
+impl From<NewTodo> for Vec<u8> {
+    fn from(value: NewTodo) -> Self {
         bincode::serialize(&value).unwrap()
     }
 }
@@ -104,6 +116,7 @@ impl From<NewOrthotope> for Vec<u8> {
 pub struct Holder {
     active_todos: Vec<NewTodo>,
     todos: HashMap<String, HashSet<i64>>,
+    done_todos: Vec<NewTodo>,
 }
 
 impl Holder {
@@ -627,6 +640,7 @@ impl Holder {
             let new_todo = NewTodo {
                 domain: domain.to_string(),
                 other: *h,
+                done: false,
             };
             self.active_todos.push(new_todo);
         })
@@ -815,18 +829,32 @@ impl Holder {
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
-        self.active_todos.pop()
+        let current = self.active_todos.pop();
+
+        if current.is_some() {
+            self.done_todos.push(current.clone().unwrap());
+        }
+        
+        current
     }
 
-    pub fn save_todos(&self) {
+    pub fn save_todos(&mut self) {
         let db: Database = Database::create("pvac.redb").unwrap();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_multimap_table(TODOS).unwrap();
             self.todos.iter().for_each(|(domain, hs)| {
                 hs.iter().for_each(|h| {
-                    table.insert(domain.as_str(), h).unwrap();
+                    let to_insert: Vec<u8> = NewTodo { domain: domain.to_string(), other: *h, done: false }.into();
+                    let to_insert_ref: &[u8] = &to_insert;
+                    table.insert(domain.as_str(), to_insert_ref).unwrap();
                 })
+            });
+
+            self.done_todos.drain(..).for_each(|ct| {
+                    let to_insert: Vec<u8> = NewTodo { domain: ct.domain.clone(), other: ct.other, done: true }.into();
+                    let to_insert_ref: &[u8] = &to_insert;
+                    table.insert(ct.domain.as_str(), to_insert_ref).unwrap();
             });
         }
 
