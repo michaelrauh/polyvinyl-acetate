@@ -22,7 +22,7 @@ pub mod worker_helper;
 use crate::models::NewOrthotope;
 use crate::ortho::Ortho;
 
-use models::{NewBook, NewPair, NewTodo};
+use models::{DBNewTodo, NewBook, NewPair, NewTodo};
 use std::collections::{HashMap, HashSet};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -64,14 +64,14 @@ impl From<NewBook> for Vec<u8> {
     }
 }
 
-impl From<Vec<u8>> for NewTodo {
+impl From<Vec<u8>> for DBNewTodo {
     fn from(value: Vec<u8>) -> Self {
         bincode::deserialize(&value).unwrap()
     }
 }
 
-impl From<NewTodo> for Vec<u8> {
-    fn from(value: NewTodo) -> Self {
+impl From<DBNewTodo> for Vec<u8> {
+    fn from(value: DBNewTodo) -> Self {
         bincode::serialize(&value).unwrap()
     }
 }
@@ -114,8 +114,7 @@ impl From<NewOrthotope> for Vec<u8> {
 
 #[derive(Debug, Default)]
 pub struct Holder {
-    active_todos: Vec<NewTodo>,
-    todos: HashMap<String, HashSet<i64>>,
+    undone_todos: Vec<NewTodo>,
     done_todos: Vec<NewTodo>,
 }
 
@@ -125,10 +124,11 @@ impl Holder {
     }
 
     pub fn get_stats(&self) {
-        let todo_length = self.active_todos.len();
+        let todo_length = self.undone_todos.len() + self.done_todos.len();
 
         dbg!(todo_length);
 
+        // todo extract DB name and open tables, unwraps, etc.
         dbg!(Database::create("pvac.redb")
             .unwrap()
             .begin_read()
@@ -628,22 +628,14 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-        let todos = self
-            .todos
-            .entry(domain.to_owned())
-            .or_insert(HashSet::default());
-        hashes.iter().for_each(|h| {
-            todos.insert(*h);
-        });
-
         hashes.iter().for_each(|h| {
             let new_todo = NewTodo {
                 domain: domain.to_string(),
                 other: *h,
-                done: false,
             };
-            self.active_todos.push(new_todo);
-        })
+
+            self.undone_todos.push(new_todo);
+        });
     }
 
     fn get_sentence(&self, pk: i64) -> String {
@@ -829,13 +821,7 @@ impl Holder {
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
-        let current = self.active_todos.pop();
-
-        if current.is_some() {
-            self.done_todos.push(current.clone().unwrap());
-        }
-        
-        current
+        self.undone_todos.pop()
     }
 
     pub fn save_todos(&mut self) {
@@ -843,22 +829,58 @@ impl Holder {
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_multimap_table(TODOS).unwrap();
-            self.todos.iter().for_each(|(domain, hs)| {
-                hs.iter().for_each(|h| {
-                    let to_insert: Vec<u8> = NewTodo { domain: domain.to_string(), other: *h, done: false }.into();
-                    let to_insert_ref: &[u8] = &to_insert;
-                    table.insert(domain.as_str(), to_insert_ref).unwrap();
-                })
+
+            self.undone_todos.iter().for_each(|ct| {
+                let to_insert: Vec<u8> = DBNewTodo {
+                    domain: ct.domain.clone(),
+                    other: ct.other,
+                    done: false,
+                }
+                .into();
+                let to_insert_ref: &[u8] = &to_insert;
+                table.insert("todos", to_insert_ref).unwrap();
             });
 
             self.done_todos.drain(..).for_each(|ct| {
-                    let to_insert: Vec<u8> = NewTodo { domain: ct.domain.clone(), other: ct.other, done: true }.into();
-                    let to_insert_ref: &[u8] = &to_insert;
-                    table.insert(ct.domain.as_str(), to_insert_ref).unwrap();
+                let to_insert: Vec<u8> = DBNewTodo {
+                    domain: ct.domain.clone(),
+                    other: ct.other,
+                    done: true,
+                }
+                .into();
+                let to_insert_ref: &[u8] = &to_insert;
+                table.insert("todos", to_insert_ref).unwrap();
             });
         }
 
         write_txn.commit().unwrap();
+    }
+
+    pub fn unprocessed_todos_exist(&mut self) -> bool {
+        self.rehydrate_todos();
+
+        !self.undone_todos.is_empty()
+    }
+
+    pub fn rehydrate_todos(&mut self) {
+        let db: Database = Database::create("pvac.redb").unwrap();
+        let read_txn = db.begin_write().unwrap();
+        let table = read_txn.open_multimap_table(TODOS).unwrap();
+        table.iter().unwrap().for_each(|td| {
+            td.unwrap().1.for_each(|t| {
+                let todo: DBNewTodo = t.unwrap().value().to_vec().into();
+                if !todo.done {
+                    self.undone_todos.push(NewTodo {
+                        domain: todo.domain,
+                        other: todo.other,
+                    })
+                }
+            });
+        });
+    }
+
+    pub fn complete_todo(&mut self, current: NewTodo) {
+            self.done_todos.push(current);
     }
 }
 

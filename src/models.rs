@@ -20,6 +20,12 @@ pub struct Book {
 pub struct NewTodo {
     pub domain: String,
     pub other: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct DBNewTodo {
+    pub domain: String,
+    pub other: i64,
     pub done: bool,
 }
 
