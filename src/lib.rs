@@ -129,8 +129,7 @@ impl Holder {
         dbg!(todo_length);
 
         // todo extract DB name and open tables, unwraps, etc.
-        dbg!(Database::create("pvac.redb")
-            .unwrap()
+        dbg!(get_db()
             .begin_read()
             .unwrap()
             .open_table(ORTHOS_BY_HASH)
@@ -140,15 +139,19 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
+        let binding = get_db();
+        let binding = binding
+        .begin_read()
+        .unwrap();
+        let read_only_multimap_table = &binding
+        .open_multimap_table(PAIRS_BY_FIRST)
+        .unwrap();
+
+
         firsts
             .iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_FIRST)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewPair>::into(x.unwrap().value().to_vec()).pair_hash)
@@ -158,8 +161,7 @@ impl Holder {
     }
 
     fn get_vocabulary_slice_with_words(&self, desired: HashSet<Word>) -> HashMap<Word, String> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_write()
             .unwrap()
             .open_table(VOCABULARY)
@@ -178,14 +180,16 @@ impl Holder {
     }
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(ORTHOS_BY_HOP)
+                    .unwrap();
         hop.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(ORTHOS_BY_HOP)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()).information)
@@ -195,14 +199,16 @@ impl Holder {
     }
 
     fn get_base_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(ORTHOS_BY_HOP)
+                    .unwrap();
         hop.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(ORTHOS_BY_HOP)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
@@ -214,15 +220,17 @@ impl Holder {
     }
 
     fn get_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_write()
+                    .unwrap();
+        let multimap_table = &binding
+                    .open_multimap_table(ORTHOS_BY_CONTENTS)
+                    .unwrap();
         other_contents
             .iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_write()
-                    .unwrap()
-                    .open_multimap_table(ORTHOS_BY_CONTENTS)
-                    .unwrap()
+                multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()).information)
@@ -232,15 +240,17 @@ impl Holder {
     }
 
     fn get_base_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(ORTHOS_BY_CONTENTS)
+                    .unwrap();
         other_contents
             .iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(ORTHOS_BY_CONTENTS)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
@@ -252,14 +262,17 @@ impl Holder {
     }
 
     fn get_words_of_pairs_with_second_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap();
         from.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_SECOND)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| {
@@ -272,14 +285,16 @@ impl Holder {
     }
 
     fn get_words_of_pairs_with_first_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PAIRS_BY_FIRST)
+                    .unwrap();
         from.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_FIRST)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| {
@@ -295,14 +310,16 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PAIRS_BY_FIRST)
+                    .unwrap();
         from.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_FIRST)
-                    .unwrap()
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| {
@@ -318,14 +335,17 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap();
         from.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_SECOND)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| {
@@ -338,14 +358,17 @@ impl Holder {
     }
 
     fn get_phrase_hash_with_phrase_head_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PHRASES_BY_HEAD)
+                    .unwrap();
         left.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PHRASES_BY_HEAD)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| x.unwrap().value())
@@ -355,14 +378,17 @@ impl Holder {
     }
 
     fn get_phrase_hash_with_phrase_tail_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PHRASES_BY_TAIL)
+                    .unwrap();
         left.iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PHRASES_BY_TAIL)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| x.unwrap().value())
@@ -372,7 +398,7 @@ impl Holder {
     }
 
     fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
-        let binding = Database::create("pvac.redb").unwrap();
+        let binding = get_db();
         let binding = binding.begin_read().unwrap();
         let read_only_table = binding.open_table(PHRASES_BY_HASH).unwrap();
         phrases
@@ -389,15 +415,18 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(PAIRS_BY_SECOND)
+                    .unwrap();
         seconds
             .iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(PAIRS_BY_SECOND)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| {
@@ -410,8 +439,7 @@ impl Holder {
     }
 
     fn get_second_words_of_pairs_with_first_word(&self, first: Word) -> HashSet<Word> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(PAIRS_BY_FIRST)
@@ -426,8 +454,7 @@ impl Holder {
     }
 
     fn get_first_words_of_pairs_with_second_word(&self, second: Word) -> HashSet<Word> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(PAIRS_BY_SECOND)
@@ -442,8 +469,7 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> NewBook {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_table(BOOKS)
@@ -516,7 +542,7 @@ impl Holder {
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
         // todo make sure indices are right. Back to back inserts should count on
 
-        let binding = Database::create("pvac.redb").unwrap();
+        let binding = get_db();
         let db = binding.begin_write().unwrap();
         {
             let mut table = db.open_table(VOCABULARY).unwrap();
@@ -545,7 +571,7 @@ impl Holder {
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
-        let binding = Database::create("pvac.redb").unwrap();
+        let binding = get_db();
         let db = binding.begin_read().unwrap();
 
         let table = db.open_table(VOCABULARY).unwrap();
@@ -566,8 +592,7 @@ impl Holder {
     }
 
     fn get_pair(&self, key: i64) -> NewPair {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_table(PAIRS_BY_HASH)
@@ -580,8 +605,7 @@ impl Holder {
     }
 
     fn get_phrase(&self, key: i64) -> Vec<Word> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_table(PHRASES_BY_HASH)
@@ -593,8 +617,7 @@ impl Holder {
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_table(ORTHOS_BY_HASH)
@@ -607,7 +630,7 @@ impl Holder {
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let mut new_sentences = Vec::default();
         let write_txn = db.begin_write().unwrap();
         {
@@ -639,8 +662,7 @@ impl Holder {
     }
 
     fn get_sentence(&self, pk: i64) -> String {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_table(SENTENCES)
@@ -653,7 +675,7 @@ impl Holder {
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
         {
@@ -681,7 +703,7 @@ impl Holder {
     // todo implement resume logic in the event of crash. Currently duplicate books will be ignored
 
     fn insert_phrases(&mut self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
 
@@ -712,8 +734,7 @@ impl Holder {
     }
 
     fn get_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(ORTHOS_BY_ORIGIN)
@@ -726,8 +747,7 @@ impl Holder {
     }
 
     fn get_base_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        Database::create("pvac.redb")
-            .unwrap()
+        get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(ORTHOS_BY_ORIGIN)
@@ -741,15 +761,18 @@ impl Holder {
     }
 
     fn get_ortho_with_origin_in(&self, origins: HashSet<Word>) -> Vec<Ortho> {
+        let binding = get_db();
+        let binding = binding
+                    .begin_read()
+                    .unwrap();
+        let read_only_multimap_table = &binding
+                    .open_multimap_table(ORTHOS_BY_ORIGIN)
+                    .unwrap();
         origins
             .iter()
             .flat_map(|f| {
-                Database::create("pvac.redb")
-                    .unwrap()
-                    .begin_read()
-                    .unwrap()
-                    .open_multimap_table(ORTHOS_BY_ORIGIN)
-                    .unwrap()
+                
+                read_only_multimap_table
                     .get(f)
                     .unwrap()
                     .map(|x| Into::<NewOrthotope>::into(x.unwrap().value().to_vec()))
@@ -761,7 +784,7 @@ impl Holder {
     }
 
     fn insert_orthos(&mut self, to_insert: HashSet<NewOrthotope>) -> Vec<i64> {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
 
@@ -809,7 +832,7 @@ impl Holder {
         };
         let b_bytes: Vec<u8> = b.clone().into();
         let id: i64 = string_to_signed_int(&title).try_into().unwrap();
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_table(BOOKS).unwrap();
@@ -825,7 +848,7 @@ impl Holder {
     }
 
     pub fn save_todos(&mut self) {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_multimap_table(TODOS).unwrap();
@@ -863,7 +886,7 @@ impl Holder {
     }
 
     pub fn rehydrate_todos(&mut self) {
-        let db: Database = Database::create("pvac.redb").unwrap();
+        let db: Database = get_db();
         let read_txn = db.begin_write().unwrap();
         let table = read_txn.open_multimap_table(TODOS).unwrap();
         table.iter().unwrap().for_each(|td| {
@@ -882,6 +905,11 @@ impl Holder {
     pub fn complete_todo(&mut self, current: NewTodo) {
             self.done_todos.push(current);
     }
+}
+
+fn get_db() -> Database {
+    Database::create("pvac.redb")
+        .unwrap()
 }
 
 pub fn get_hashes_of_pairs_with_words_in(
