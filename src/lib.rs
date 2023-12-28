@@ -29,7 +29,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-type Word = i32;
+type Word = i64;
 const BOOKS: TableDefinition<i64, Vec<u8>> = TableDefinition::new("books");
 const VOCABULARY: TableDefinition<&str, Word> = TableDefinition::new("vocabulary");
 const SENTENCES: TableDefinition<i64, &str> = TableDefinition::new("sentences");
@@ -547,23 +547,8 @@ impl Holder {
         {
             let mut table = db.open_table(VOCABULARY).unwrap();
 
-            let current: HashSet<String> = table
-                .iter()
-                .unwrap()
-                .map(|x| x.unwrap().0.value().to_string())
-                .collect();
-
-            let words_to_insert: HashSet<String> =
-                to_insert.iter().map(|w| w.word.clone()).collect();
-            let new = words_to_insert.difference(&current).collect_vec();
-
-            let current_index: usize = table.len().unwrap().try_into().unwrap();
-            let f: usize = new.len();
-            let new_indices = current_index..(current_index + f);
-
-            words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
-                let v_32: i32 = v.try_into().unwrap();
-                table.insert(k.as_str(), v_32).unwrap();
+            to_insert.iter().for_each(|x| {
+                table.insert(x.word.as_str(), x.word_hash).unwrap();
             });
         }
 

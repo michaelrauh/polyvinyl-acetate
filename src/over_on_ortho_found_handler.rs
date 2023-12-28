@@ -75,7 +75,7 @@ pub(crate) fn over_forward(
     let mut ans: Vec<Ortho> = vec![];
 
     let mut phrase_to_ortho: std::collections::HashMap<
-        &Vec<i32>,
+        &Vec<Word>,
         std::collections::BTreeSet<&Ortho>,
     > = hashmap! {};
 
@@ -204,7 +204,7 @@ pub(crate) fn over_back(
     let speculative_potential_phrases = phrase_exists_db_filter_tail(holder, all_phrase_tails);
 
     let mut phrase_to_ortho: std::collections::HashMap<
-        &Vec<i32>,
+        &Vec<Word>,
         std::collections::BTreeSet<&Ortho>,
     > = hashmap! {};
 

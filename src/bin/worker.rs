@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs::{self, read_dir}};
+use std::{collections::HashSet, fs::{self}};
 
 use polyvinyl_acetate::{get_relevant_vocabulary_reverse, worker_helper, Holder};
 

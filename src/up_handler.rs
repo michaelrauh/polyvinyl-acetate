@@ -12,8 +12,8 @@ pub fn up_by_origin(
     get_base_ortho_by_origin: fn(&mut Holder, Word) -> Vec<Ortho>,
     get_hashes_and_words_of_pairs_with_words_in: fn(
         &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
+        HashSet<Word>,
+        HashSet<Word>,
     )
         -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
@@ -45,8 +45,8 @@ pub fn up_by_hop(
     get_base_ortho_by_hop: fn(&Holder, Vec<Word>) -> Vec<Ortho>,
     get_hashes_and_words_of_pairs_with_words_in: fn(
         &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
+        HashSet<Word>,
+        HashSet<Word>,
     )
         -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
@@ -72,8 +72,8 @@ pub fn up_by_contents(
     get_base_ortho_by_contents: fn(&Holder, Vec<Word>) -> Vec<Ortho>,
     get_hashes_and_words_of_pairs_with_words_in: fn(
         &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
+        HashSet<Word>,
+        HashSet<Word>,
     )
         -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
@@ -116,8 +116,8 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
 fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     get_hashes_and_words_of_pairs_with_words_in: fn(
         &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
+        HashSet<Word>,
+        HashSet<Word>,
     )
         -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
     holder: &mut Holder,
@@ -169,7 +169,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
 
 fn group_orthos_of_right_vocabulary_by_dimensionality(
     orthos: Vec<Ortho>,
-    vocabulary: HashSet<i32>,
+    vocabulary: HashSet<Word>,
 ) -> std::collections::HashMap<usize, Vec<Ortho>> {
     Itertools::into_group_map_by(
         orthos
@@ -179,7 +179,7 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
     )
 }
 
-fn total_vocabulary(orthos: &[Ortho]) -> HashSet<i32> {
+fn total_vocabulary(orthos: &[Ortho]) -> HashSet<Word> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }
 

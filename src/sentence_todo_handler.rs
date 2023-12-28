@@ -36,7 +36,7 @@ fn create_pair_entry(holder: &mut Holder, to_insert: Vec<NewPair>) -> Vec<i64> {
     holder.insert_pairs(to_insert)
 }
 
-fn create_phrases(holder: &mut Holder, sentence: String, vocab: &HashMap<String, i32>) {
+fn create_phrases(holder: &mut Holder, sentence: String, vocab: &HashMap<String, i64>) {
     let ps: Vec<Vec<String>> = split_sentence_to_phrases(sentence);
     let pi32s: Vec<Vec<Word>> = ps
         .iter()
