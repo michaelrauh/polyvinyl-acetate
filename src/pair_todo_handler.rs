@@ -3,44 +3,58 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::models::NewTodo;
+use crate::{models::NewTodo, ortho::Ortho};
 use crate::{
-    get_hashes_and_words_of_pairs_with_words_in, models::NewOrthotope, up_handler, Holder, Word,
+    models::NewOrthotope, up_handler, Holder, Word,
 };
-use crate::{insert_orthotopes, ortho::Ortho};
 
 pub fn handle_pair_todo_up_by_origin(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_origin(holder, pair);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub fn handle_pair_todo_up_by_contents(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_contents(holder, pair);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub fn handle_pair_todo_up_by_hop(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_up_by_hop(holder, pair);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub fn handle_pair_todo_ffbb(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_ffbb(holder, pair);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub fn handle_pair_todo_fbbf(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
     let new_orthos = new_orthotopes_fbbf(holder, pair);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
@@ -69,8 +83,6 @@ fn new_orthotopes_up_by_origin(holder: &mut Holder, pair: (Word, Word)) -> Vec<N
         holder,
         pair.0,
         pair.1,
-        crate::get_base_ortho_by_origin,
-        get_hashes_and_words_of_pairs_with_words_in,
     );
     let up_iter = up_orthos.iter();
 
@@ -83,8 +95,6 @@ fn new_orthotopes_up_by_hop(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewO
         holder,
         pair.0,
         pair.1,
-        crate::get_base_ortho_by_hop,
-        get_hashes_and_words_of_pairs_with_words_in,
     );
     let up_iter = up_orthos.iter();
 
@@ -97,8 +107,6 @@ fn new_orthotopes_up_by_contents(holder: &mut Holder, pair: (Word, Word)) -> Vec
         holder,
         pair.0,
         pair.1,
-        crate::get_base_ortho_by_contents,
-        get_hashes_and_words_of_pairs_with_words_in,
     );
     let up_iter = up_orthos.iter();
 

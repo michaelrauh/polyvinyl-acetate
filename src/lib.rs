@@ -1,7 +1,7 @@
 pub mod models;
 
 use itertools::Itertools;
-use maplit::hashset;
+
 
 mod book_todo_handler;
 pub mod ortho;
@@ -66,7 +66,7 @@ impl Holder {
             .collect()
     }
 
-    fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
+    pub fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
         self.vocabulary
             .iter()
             .filter(|(_k, v)| firsts.contains(v))
@@ -522,29 +522,6 @@ impl Holder {
             "ortho_over_back",
         ];
 
-        let bfs = vec![
-            "books",
-            "sentences",
-            "pairs",
-            "phrases",
-            "ex_nihilo_ffbb",
-            "ex_nihilo_fbbf",
-            "pair_up",
-            "up_by_origin",
-            "up_by_hop",
-            "up_by_contents",
-            "phrase_by_origin",
-            "phrase_by_hop",
-            "phrase_by_contents",
-            "orthotopes",
-            "ortho_up",
-            "ortho_up_forward",
-            "ortho_up_back",
-            "ortho_over",
-            "ortho_over_forward",
-            "ortho_over_back",
-        ];
-
         for domain in dfs {
             if self.todos.get_mut(domain).is_some() {
                 let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
@@ -563,59 +540,9 @@ impl Holder {
     }
 }
 
-pub fn get_hashes_of_pairs_with_words_in(
-    holder: &mut Holder,
-    first_words: HashSet<Word>,
-    second_words: HashSet<Word>,
-) -> HashSet<i64> {
-    let firsts: HashSet<i64> =
-        holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(first_words));
-    let seconds: HashSet<i64> =
-        holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(second_words));
 
-    firsts.intersection(&seconds).cloned().collect()
-}
 
-pub fn get_hashes_and_words_of_pairs_with_words_in(
-    holder: &Holder,
-    first_words: HashSet<Word>,
-    second_words: HashSet<Word>,
-) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>) {
-    let firsts: HashSet<(Word, Word, i64)> =
-        holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
-    let seconds: HashSet<(Word, Word, i64)> =
-        holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
 
-    let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
-    let mut firsts = hashset! {};
-    let mut seconds = hashset! {};
-    let mut hashes = hashset! {};
-    domain.into_iter().for_each(|(f, s, h)| {
-        firsts.insert(f);
-        seconds.insert(s);
-        hashes.insert(h);
-    });
-    (firsts, seconds, hashes)
-}
-
-pub fn get_phrases_with_matching_hashes(
-    holder: &Holder,
-    all_phrases: HashSet<i64>,
-) -> HashSet<i64> {
-    holder
-        .get_phrases_matching(all_phrases)
-        .iter()
-        .cloned()
-        .collect()
-}
-
-fn project_forward_batch(holder: &Holder, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-    holder.get_words_of_pairs_with_first_word_in(from)
-}
-
-fn project_backward_batch(holder: &Holder, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-    holder.get_words_of_pairs_with_second_word_in(from)
-}
 
 pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
@@ -649,29 +576,6 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-fn project_forward(holder: &Holder, from: Word) -> HashSet<Word> {
-    holder.get_second_words_of_pairs_with_first_word(from)
-}
-
-fn project_backward(holder: &Holder, from: Word) -> HashSet<Word> {
-    holder.get_first_words_of_pairs_with_second_word(from)
-}
-
-pub fn insert_orthotopes(holder: &mut Holder, new_orthos: HashSet<NewOrthotope>) -> Vec<i64> {
-    holder.insert_orthos(new_orthos)
-}
-
-pub fn get_ortho_by_origin(holder: &mut Holder, o: Word) -> Vec<Ortho> {
-    holder.get_orthos_with_origin(o)
-}
-
-pub fn get_base_ortho_by_origin(holder: &mut Holder, o: Word) -> Vec<Ortho> {
-    holder.get_base_orthos_with_origin(o)
-}
-
-pub fn get_ortho_by_origin_batch(holder: &mut Holder, o: HashSet<Word>) -> Vec<Ortho> {
-    holder.get_ortho_with_origin_in(o)
-}
 
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
@@ -690,48 +594,4 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     }
 }
 
-fn get_ortho_by_hop(holder: &Holder, other_hop: Vec<Word>) -> Vec<Ortho> {
-    holder.get_orthos_with_hops_overlapping(other_hop)
-}
 
-fn get_base_ortho_by_hop(holder: &Holder, other_hop: Vec<Word>) -> Vec<Ortho> {
-    holder.get_base_orthos_with_hops_overlapping(other_hop)
-}
-
-fn get_ortho_by_contents(holder: &Holder, other_contents: Vec<Word>) -> Vec<Ortho> {
-    holder.get_orthos_with_contents_overlapping(other_contents)
-}
-
-fn get_base_ortho_by_contents(holder: &Holder, other_contents: Vec<Word>) -> Vec<Ortho> {
-    holder.get_base_orthos_with_contents_overlapping(other_contents)
-}
-
-pub(crate) fn phrase_exists_db_filter(
-    holder: &Holder,
-    left: HashSet<i64>,
-    right: HashSet<i64>,
-) -> HashSet<i64> {
-    let firsts = holder.get_phrase_hash_with_phrase_head_matching(left);
-    let seconds = holder.get_phrase_hash_with_phrase_tail_matching(right);
-
-    firsts.intersection(&seconds).cloned().collect()
-}
-
-pub(crate) fn phrase_exists_db_filter_head(holder: &Holder, left: HashSet<i64>) -> HashSet<i64> {
-    holder.get_phrase_hash_with_phrase_head_matching(left)
-}
-
-pub(crate) fn phrase_exists_db_filter_tail(holder: &Holder, right: HashSet<i64>) -> HashSet<i64> {
-    holder.get_phrase_hash_with_phrase_tail_matching(right)
-}
-
-fn get_relevant_vocabulary(holder: &Holder, words: HashSet<String>) -> HashMap<String, Word> {
-    holder.get_vocabulary(words)
-}
-
-pub fn get_relevant_vocabulary_reverse(
-    holder: &Holder,
-    words: HashSet<Word>,
-) -> HashMap<Word, String> {
-    holder.get_vocabulary_slice_with_words(words)
-}

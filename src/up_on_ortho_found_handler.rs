@@ -5,21 +5,14 @@ use std::collections::HashSet;
 pub(crate) fn up_forward(
     holder: &mut Holder,
     old_ortho: Ortho,
-    get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
-    forward: fn(&Holder, Word) -> HashSet<Word>,
-    get_pair_hashes_relevant_to_vocabularies: fn(
-        holder: &mut Holder,
-        first_words: HashSet<Word>,
-        second_words: HashSet<Word>,
-    ) -> HashSet<i64>,
 ) -> Vec<Ortho> {
     if !old_ortho.is_base() {
         return vec![];
     }
     let mut ans = vec![];
 
-    let projected_forward = forward(holder, old_ortho.get_origin());
-    let orthos_to_right: Vec<Ortho> = get_ortho_by_origin_batch(holder, projected_forward)
+    let projected_forward = holder.get_second_words_of_pairs_with_first_word(old_ortho.get_origin());
+    let orthos_to_right: Vec<Ortho> = holder.get_ortho_with_origin_in(projected_forward)
         .iter()
         .filter(|o| old_ortho.get_dims() == o.get_dims())
         .cloned()
@@ -38,7 +31,14 @@ pub(crate) fn up_forward(
         .collect();
 
     let forward_hashes =
-        get_pair_hashes_relevant_to_vocabularies(holder, forward_left_vocab, forward_right_vocab);
+        {
+            let firsts: HashSet<i64> =
+                holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(forward_left_vocab));
+            let seconds: HashSet<i64> =
+                holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(forward_right_vocab));
+
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     for ro in orthos_to_right {
         for answer in up_helper::attempt_up(&forward_hashes, &old_ortho, &ro) {
@@ -52,13 +52,6 @@ pub(crate) fn up_forward(
 pub(crate) fn up_back(
     holder: &mut Holder,
     old_ortho: Ortho,
-    get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
-    backward: fn(&Holder, Word) -> HashSet<Word>,
-    get_pair_hashes_relevant_to_vocabularies: fn(
-        holder: &mut Holder,
-        first_words: HashSet<Word>,
-        second_words: HashSet<Word>,
-    ) -> HashSet<i64>,
 ) -> Vec<Ortho> {
     if !old_ortho.is_base() {
         return vec![];
@@ -66,9 +59,12 @@ pub(crate) fn up_back(
 
     let mut ans = vec![];
 
-    let projected_backward = backward(holder, old_ortho.get_origin());
+    let projected_backward = {
+        let from = old_ortho.get_origin();
+        holder.get_first_words_of_pairs_with_second_word(from)
+    };
 
-    let orthos_to_left: Vec<Ortho> = get_ortho_by_origin_batch(holder, projected_backward)
+    let orthos_to_left: Vec<Ortho> = holder.get_ortho_with_origin_in(projected_backward)
         .into_iter()
         .filter(|o| old_ortho.get_dims() == o.get_dims())
         .collect();
@@ -77,15 +73,22 @@ pub(crate) fn up_back(
         return vec![];
     }
 
-    let backward_left_vocab = orthos_to_left
+    let backward_left_vocab: Vec<_> = orthos_to_left
         .iter()
         .flat_map(|o| o.to_vec())
         .map(|(_l, r)| r)
         .collect();
 
-    let backward_right_vocab = old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
+    let backward_right_vocab: Vec<_> = old_ortho.to_vec().into_iter().map(|(_l, r)| r).collect();
     let backward_hashes =
-        get_pair_hashes_relevant_to_vocabularies(holder, backward_left_vocab, backward_right_vocab);
+        {
+            let firsts: HashSet<i64> =
+                holder.get_hashes_of_pairs_with_first_word(Vec::from_iter(backward_left_vocab));
+            let seconds: HashSet<i64> =
+                holder.get_hashes_of_pairs_with_second_word(Vec::from_iter(backward_right_vocab));
+
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     for lo in orthos_to_left {
         for answer in up_helper::attempt_up(&backward_hashes, &lo, &old_ortho) {
@@ -99,50 +102,11 @@ pub(crate) fn up_back(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ints_to_big_int, ortho::Ortho, up_on_ortho_found_handler::up_back,
-        up_on_ortho_found_handler::up_forward, Holder, Word,
+        ortho::Ortho, up_on_ortho_found_handler::up_back,
+        up_on_ortho_found_handler::up_forward, Holder,
     };
-    use maplit::{btreemap, hashset};
-    use std::collections::HashSet;
-
-    fn fake_forward(_holder: &Holder, from: Word) -> HashSet<Word> {
-        let mut pairs = btreemap! { 1 => hashset! {12, 2, 3, 5}, 2 => hashset! {4, 11}, 3 => hashset! {4, 5}, 4 => hashset! {11}, 5 => hashset! {11, 12}, 6 => hashset! {13}, 7 => hashset! {13}};
-        pairs.entry(from).or_default().to_owned()
-    }
-
-    fn fake_backward(_holder: &Holder, from: Word) -> HashSet<Word> {
-        let mut pairs = btreemap! { 2 => hashset! {1}, 3 => hashset! {1}, 4 => hashset! {2, 3}, 5 => hashset! {1}, 6 => hashset! {5, 4}, 7 => hashset! {5, 3}, 8 => hashset! {11, 12, 4}};
-        pairs.entry(from).or_default().to_owned()
-    }
-
-    fn fake_ortho_by_origin_batch(_holder: &mut Holder, _o: HashSet<Word>) -> Vec<Ortho> {
-        let os = vec![Ortho::new(1, 2, 3, 4), Ortho::new(5, 6, 7, 8)];
-
-        os
-    }
-
-    fn fake_pair_hash_db_filter(
-        _holder: &mut Holder,
-        _first_words: HashSet<Word>,
-        _second_words: HashSet<Word>,
-    ) -> HashSet<i64> {
-        let pairs = vec![
-            (1, 2),
-            (3, 4),
-            (1, 3),
-            (2, 4),
-            (5, 6),
-            (7, 8),
-            (5, 7),
-            (6, 8),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-            (4, 8),
-        ];
-        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
-        res
-    }
+    use maplit::btreemap;
+    
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin_from_left() {
@@ -153,9 +117,6 @@ mod tests {
         let actual = up_forward(
             &mut holder,
             left_ortho.clone(),
-            fake_ortho_by_origin_batch,
-            fake_forward,
-            fake_pair_hash_db_filter,
         );
         let expected = Ortho::zip_up(
             &left_ortho,
@@ -179,9 +140,6 @@ mod tests {
         let actual = up_back(
             &mut holder,
             right_ortho.clone(),
-            fake_ortho_by_origin_batch,
-            fake_backward,
-            fake_pair_hash_db_filter,
         );
         let expected = Ortho::zip_up(
             &left_ortho,
@@ -205,9 +163,6 @@ mod tests {
         let actual = up_forward(
             &mut holder,
             l,
-            fake_ortho_by_origin_batch,
-            fake_forward,
-            fake_pair_hash_db_filter,
         );
 
         assert_eq!(actual, vec![]);

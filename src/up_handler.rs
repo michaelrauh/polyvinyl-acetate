@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use maplit::hashset;
 use std::collections::HashSet;
 
 use crate::ortho::Ortho;
@@ -9,26 +10,32 @@ pub fn up_by_origin(
     holder: &mut Holder,
     first_w: Word,
     second_w: Word,
-    get_base_ortho_by_origin: fn(&mut Holder, Word) -> Vec<Ortho>,
-    get_hashes_and_words_of_pairs_with_words_in: fn(
-        &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
-    )
-        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
-    let left_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(holder, first_w);
-    let right_orthos_by_origin: Vec<Ortho> = get_base_ortho_by_origin(holder, second_w);
+    let left_orthos_by_origin: Vec<Ortho> = holder.get_base_orthos_with_origin(first_w);
+    let right_orthos_by_origin: Vec<Ortho> = holder.get_base_orthos_with_origin(second_w);
 
     if left_orthos_by_origin.is_empty() || right_orthos_by_origin.is_empty() {
         return vec![];
     }
 
-    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
-        holder,
-        total_vocabulary(&left_orthos_by_origin),
-        total_vocabulary(&right_orthos_by_origin),
-    );
+    let (all_firsts, all_seconds, all_pairs) = {
+        let first_words = total_vocabulary(&left_orthos_by_origin);let second_words = total_vocabulary(&right_orthos_by_origin);
+        let firsts: HashSet<(Word, Word, i64)> =
+            holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
+        let seconds: HashSet<(Word, Word, i64)> =
+            holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
+
+        let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
+        let mut firsts = hashset! {};
+        let mut seconds = hashset! {};
+        let mut hashes = hashset! {};
+        domain.into_iter().for_each(|(f, s, h)| {
+            firsts.insert(f);
+            seconds.insert(s);
+            hashes.insert(h);
+        });
+        (firsts, seconds, hashes)
+    };
 
     let left_map =
         group_orthos_of_right_vocabulary_by_dimensionality(left_orthos_by_origin, all_firsts);
@@ -42,23 +49,21 @@ pub fn up_by_hop(
     holder: &mut Holder,
     first_w: Word,
     second_w: Word,
-    get_base_ortho_by_hop: fn(&Holder, Vec<Word>) -> Vec<Ortho>,
-    get_hashes_and_words_of_pairs_with_words_in: fn(
-        &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
-    )
-        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
-    let hop_left_orthos: Vec<Ortho> = get_base_ortho_by_hop(holder, vec![first_w]);
-    let hop_right_orthos: Vec<Ortho> = get_base_ortho_by_hop(holder, vec![second_w]);
+    let hop_left_orthos: Vec<Ortho> = {
+        let other_hop = vec![first_w];
+        holder.get_base_orthos_with_hops_overlapping(other_hop)
+    };
+    let hop_right_orthos: Vec<Ortho> = {
+        let other_hop = vec![second_w];
+        holder.get_base_orthos_with_hops_overlapping(other_hop)
+    };
 
     if hop_left_orthos.is_empty() || hop_right_orthos.is_empty() {
         return vec![];
     }
 
     find_corresponding_non_origin_checked_orthos_and_attempt_up(
-        get_hashes_and_words_of_pairs_with_words_in,
         holder,
         hop_left_orthos,
         hop_right_orthos,
@@ -69,23 +74,21 @@ pub fn up_by_contents(
     holder: &mut Holder,
     first_w: Word,
     second_w: Word,
-    get_base_ortho_by_contents: fn(&Holder, Vec<Word>) -> Vec<Ortho>,
-    get_hashes_and_words_of_pairs_with_words_in: fn(
-        &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
-    )
-        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
 ) -> Vec<Ortho> {
-    let contents_left_orthos: Vec<Ortho> = get_base_ortho_by_contents(holder, vec![first_w]);
-    let contents_right_orthos: Vec<Ortho> = get_base_ortho_by_contents(holder, vec![second_w]);
+    let contents_left_orthos: Vec<Ortho> = {
+        let other_contents = vec![first_w];
+        holder.get_base_orthos_with_contents_overlapping(other_contents)
+    };
+    let contents_right_orthos: Vec<Ortho> = {
+        let other_contents = vec![second_w];
+        holder.get_base_orthos_with_contents_overlapping(other_contents)
+    };
 
     if contents_left_orthos.is_empty() || contents_right_orthos.is_empty() {
         return vec![];
     }
 
     find_corresponding_non_origin_checked_orthos_and_attempt_up(
-        get_hashes_and_words_of_pairs_with_words_in,
         holder,
         contents_left_orthos,
         contents_right_orthos,
@@ -114,21 +117,28 @@ fn attempt_up_for_pairs_of_matching_dimensionality(
 }
 
 fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
-    get_hashes_and_words_of_pairs_with_words_in: fn(
-        &Holder,
-        HashSet<i32>,
-        HashSet<i32>,
-    )
-        -> (HashSet<Word>, HashSet<Word>, HashSet<i64>),
     holder: &mut Holder,
     hop_left_orthos: Vec<Ortho>,
     hop_right_orthos: Vec<Ortho>,
 ) -> Vec<Ortho> {
-    let (all_firsts, all_seconds, all_pairs) = get_hashes_and_words_of_pairs_with_words_in(
-        holder,
-        total_vocabulary(&hop_left_orthos),
-        total_vocabulary(&hop_right_orthos),
-    );
+    let (all_firsts, all_seconds, all_pairs) = {
+        let first_words = total_vocabulary(&hop_left_orthos);let second_words = total_vocabulary(&hop_right_orthos);
+        let firsts: HashSet<(Word, Word, i64)> =
+            holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
+        let seconds: HashSet<(Word, Word, i64)> =
+            holder.get_hashes_and_words_of_pairs_with_second_word(second_words);
+
+        let domain: HashSet<(Word, Word, i64)> = firsts.intersection(&seconds).cloned().collect();
+        let mut firsts = hashset! {};
+        let mut seconds = hashset! {};
+        let mut hashes = hashset! {};
+        domain.into_iter().for_each(|(f, s, h)| {
+            firsts.insert(f);
+            seconds.insert(s);
+            hashes.insert(h);
+        });
+        (firsts, seconds, hashes)
+    };
     let left_map = group_orthos_of_right_vocabulary_by_dimensionality(hop_left_orthos, all_firsts);
     let right_map =
         group_orthos_of_right_vocabulary_by_dimensionality(hop_right_orthos, all_seconds);
@@ -185,148 +195,12 @@ fn total_vocabulary(orthos: &[Ortho]) -> HashSet<i32> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    
 
     use crate::ortho::Ortho;
     use crate::up_handler::{up_by_contents, up_by_hop, up_by_origin};
-    use crate::{ints_to_big_int, Holder, Word};
-    use maplit::{btreemap, hashset};
-
-    fn fake_ortho_by_origin_two(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
-        let mut pairs = btreemap! { 1 => vec![Ortho::new(
-            1,
-            2,
-            3,
-            3,
-        )], 5 => vec![Ortho::new(
-            5,
-            6,
-            3,
-            8,
-        )]};
-        pairs.entry(o).or_default().to_owned()
-    }
-
-    fn fake_ortho_by_origin_four(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
-        let single = Ortho::new(1, 2, 3, 4);
-        let l_one = Ortho::new(5, 6, 7, 8);
-
-        let r_one = Ortho::new(9, 10, 11, 12);
-
-        let combined = Ortho::zip_up(&l_one, &r_one, &btreemap! { 10 => 6, 11 => 7 });
-
-        let mut pairs = btreemap! { 1 => vec![single], 5 => vec![combined]};
-
-        pairs.entry(o).or_default().to_owned()
-    }
-
-    fn fake_ortho_by_origin_three(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
-        let l_one = Ortho::new(1, 2, 4, 5);
-        let l_two = Ortho::new(2, 3, 5, 6);
-        let left_ortho = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
-        let r_one = Ortho::new(7, 8, 10, 11);
-        let r_two = Ortho::new(8, 9, 11, 12);
-        let r = Ortho::zip_over(&r_one, &r_two, &btreemap! { 9 => 8, 12 => 10 }, 9);
-        let mut pairs = btreemap! { 1 => vec![left_ortho], 7 => vec![r]};
-
-        pairs.entry(o).or_default().to_owned()
-    }
-
-    fn fake_ortho_by_origin(_holder: &mut Holder, o: Word) -> Vec<Ortho> {
-        let mut pairs = btreemap! { 1 => vec![Ortho::new(
-            1,
-            2,
-            3,
-            4,
-        )], 5 => vec![Ortho::new(
-            5,
-            6,
-            7,
-            8,
-        )]};
-        pairs.entry(o).or_default().to_owned()
-    }
-
-    fn fake_ortho_by_hop(_holder: &Holder, o: Vec<Word>) -> Vec<Ortho> {
-        let mut ans = vec![];
-
-        if o.contains(&2) {
-            ans.push(Ortho::new(1, 2, 3, 4))
-        }
-
-        if o.contains(&6) {
-            ans.push(Ortho::new(5, 6, 7, 8))
-        }
-
-        ans
-    }
-
-    fn fake_ortho_by_contents(_holder: &Holder, o: Vec<Word>) -> Vec<Ortho> {
-        let mut ans = vec![];
-
-        if o.contains(&4) {
-            ans.push(Ortho::new(1, 2, 3, 4))
-        }
-
-        if o.contains(&8) {
-            ans.push(Ortho::new(5, 6, 7, 8))
-        }
-
-        ans
-    }
-
-    fn fake_get_hashes_and_words_of_pairs_with_words_in(
-        _holder: &Holder,
-        _first_words: HashSet<Word>,
-        _second_words: HashSet<Word>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>) {
-        let pairs = vec![
-            (1, 2),
-            (3, 4),
-            (1, 3),
-            (2, 4),
-            (5, 6),
-            (7, 8),
-            (5, 7),
-            (6, 8),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-            (4, 8),
-        ];
-        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
-        (
-            hashset! {1, 3, 2, 5, 7, 6, 4},
-            hashset! {2, 4, 3, 6, 8, 7, 5},
-            res,
-        )
-    }
-
-    fn fake_get_hashes_and_words_of_pairs_with_words_in_two(
-        _holder: &Holder,
-        _first_words: HashSet<Word>,
-        _second_words: HashSet<Word>,
-    ) -> (HashSet<Word>, HashSet<Word>, HashSet<i64>) {
-        let pairs = vec![
-            (1, 2),
-            (3, 4),
-            (1, 3),
-            (2, 4),
-            (5, 6),
-            (7, 8),
-            (5, 7),
-            (6, 8),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-        ];
-        let res = pairs.iter().map(|(l, r)| ints_to_big_int(*l, *r)).collect();
-        (
-            hashset! {1, 3, 2, 5, 7, 6},
-            hashset! {2, 4, 3, 6, 8, 7, 5},
-            res,
-        )
-    }
+    use crate::Holder;
+    use maplit::btreemap;
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
@@ -335,8 +209,6 @@ mod tests {
             &mut holder,
             1,
             5,
-            fake_ortho_by_origin,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         let expected = Ortho::zip_up(
@@ -359,8 +231,6 @@ mod tests {
             &mut holder,
             1,
             5,
-            fake_ortho_by_origin,
-            fake_get_hashes_and_words_of_pairs_with_words_in_two,
         );
 
         assert_eq!(actual, vec![]);
@@ -373,8 +243,6 @@ mod tests {
             &mut holder,
             1,
             5,
-            fake_ortho_by_origin_two,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         assert_eq!(actual, vec![]);
@@ -387,8 +255,6 @@ mod tests {
             &mut holder,
             1,
             7,
-            fake_ortho_by_origin_three,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         assert_eq!(actual, vec![]);
@@ -401,8 +267,6 @@ mod tests {
             &mut holder,
             1,
             5,
-            fake_ortho_by_origin_four,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         assert_eq!(actual, vec![]);
@@ -416,8 +280,6 @@ mod tests {
             &mut holder,
             2, // a b c d + e f g h
             6,
-            fake_ortho_by_hop,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         let expected = Ortho::zip_up(
@@ -441,8 +303,6 @@ mod tests {
             &mut holder,
             4, // a b c d + e f g h
             8,
-            fake_ortho_by_contents,
-            fake_get_hashes_and_words_of_pairs_with_words_in,
         );
 
         let expected = Ortho::zip_up(

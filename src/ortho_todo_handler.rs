@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use crate::{
-    get_hashes_of_pairs_with_words_in, insert_orthotopes,
     models::{NewOrthotope, NewTodo},
     ortho::Ortho,
     over_on_ortho_found_handler, up_on_ortho_found_handler, Holder,
@@ -15,28 +14,40 @@ pub(crate) fn handle_ortho_todo_up(todo: crate::models::NewTodo, holder: &mut Ho
 pub(crate) fn handle_ortho_todo_up_forward(todo: crate::models::NewTodo, holder: &mut Holder) {
     let old_orthotope = get_orthotope(holder, todo.other);
     let new_orthos = new_orthotopes_up_forward(holder, old_orthotope);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub(crate) fn handle_ortho_todo_up_back(todo: crate::models::NewTodo, holder: &mut Holder) {
     let old_orthotope = get_orthotope(holder, todo.other);
     let new_orthos = new_orthotopes_up_back(holder, old_orthotope);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub(crate) fn handle_ortho_todo_over_forward(todo: crate::models::NewTodo, holder: &mut Holder) {
     let old_orthotope = get_orthotope(holder, todo.other);
     let new_orthos = new_orthotopes_over_forward(holder, old_orthotope);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
 pub(crate) fn handle_ortho_todo_over_back(todo: crate::models::NewTodo, holder: &mut Holder) {
     let old_orthotope = get_orthotope(holder, todo.other);
     let new_orthos = new_orthotopes_over_back(holder, old_orthotope);
-    let inserted_orthos = insert_orthotopes(holder, HashSet::from_iter(new_orthos));
+    let inserted_orthos = {
+        let new_orthos = HashSet::from_iter(new_orthos);
+        holder.insert_orthos(new_orthos)
+    };
     holder.insert_todos("orthotopes", inserted_orthos);
 }
 
@@ -53,9 +64,6 @@ fn new_orthotopes_up_forward(holder: &mut Holder, old_orthotope: Ortho) -> Vec<N
     let up_orthos = up_on_ortho_found_handler::up_forward(
         holder,
         old_orthotope,
-        crate::get_ortho_by_origin_batch,
-        crate::project_forward,
-        get_hashes_of_pairs_with_words_in,
     );
 
     let orthos = up_orthos.iter();
@@ -68,9 +76,6 @@ fn new_orthotopes_up_back(holder: &mut Holder, old_orthotope: Ortho) -> Vec<NewO
     let up_orthos = up_on_ortho_found_handler::up_back(
         holder,
         old_orthotope,
-        crate::get_ortho_by_origin_batch,
-        crate::project_backward,
-        get_hashes_of_pairs_with_words_in,
     );
 
     let orthos = up_orthos.iter();

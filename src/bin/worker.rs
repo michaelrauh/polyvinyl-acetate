@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fs};
 
-use polyvinyl_acetate::{get_relevant_vocabulary_reverse, worker_helper, Holder};
+use polyvinyl_acetate::{worker_helper, Holder};
 
 // todo holder statistics
 // todo flamegraph
@@ -32,7 +32,10 @@ fn main() {
         worker_helper::handle_todo(next_todo.unwrap(), &mut holder)
     }
 
-    get_relevant_vocabulary_reverse(&holder, HashSet::default());
+    {
+        let holder = &holder;let words = HashSet::default();
+        holder.get_vocabulary_slice_with_words(words)
+    };
 }
 
 // pub fn splat_orthos(dims: BTreeMap<usize, usize>) -> Result<String, anyhow::Error> {

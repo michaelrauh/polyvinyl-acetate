@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashSet};
 use itertools::{zip, Itertools};
 
 use crate::{
-    get_ortho_by_contents, get_ortho_by_hop, get_ortho_by_origin, ortho::Ortho,
-    phrase_exists_db_filter, vec_of_words_to_big_int, Holder, Word,
+    ortho::Ortho,
+    vec_of_words_to_big_int, Holder, Word,
 };
 
 pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> {
@@ -14,11 +14,11 @@ pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Orth
     let shift_left = phrase[1];
     let shift_right = phrase[2];
 
-    let orthos_by_origin_left = get_ortho_by_origin(holder, head);
+    let orthos_by_origin_left = holder.get_orthos_with_origin(head);
     let lhs_by_origin = orthos_by_origin_left
         .into_iter()
         .filter(|o| o.origin_has_full_length_phrase(lhs_phrase_head));
-    let orthos_by_origin_right = get_ortho_by_origin(holder, shift_left);
+    let orthos_by_origin_right = holder.get_orthos_with_origin(shift_left);
 
     let rhs_by_origin = orthos_by_origin_right
         .into_iter()
@@ -51,7 +51,12 @@ pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Orth
         .collect();
 
     let all_phrases =
-        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     let left_map = Itertools::into_group_map_by(lhs_by_origin.clone(), |o| o.get_dims());
     let right_map = Itertools::into_group_map_by(rhs_by_origin.clone(), |o| o.get_dims());
@@ -88,12 +93,18 @@ pub(crate) fn over_by_hop(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> 
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
 
-    let orthos_by_hop_left = get_ortho_by_hop(holder, vec![phrase[0]]);
+    let orthos_by_hop_left = {
+        let other_hop = vec![phrase[0]];
+        holder.get_orthos_with_hops_overlapping(other_hop)
+    };
     let lhs_by_hop = orthos_by_hop_left
         .iter()
         .filter(|o| o.hop_has_full_length_phrase(lhs_phrase_head));
 
-    let orthos_by_hop_right = get_ortho_by_hop(holder, vec![phrase[1]]);
+    let orthos_by_hop_right = {
+        let other_hop = vec![phrase[1]];
+        holder.get_orthos_with_hops_overlapping(other_hop)
+    };
     let rhs_by_hop = orthos_by_hop_right
         .iter()
         .filter(|o| o.hop_has_full_length_phrase(rhs_phrase_head));
@@ -133,7 +144,12 @@ pub(crate) fn over_by_hop(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> 
     let dims_right = HashSet::from_iter(right_map.keys());
 
     let all_phrases =
-        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     dims_left
         .intersection(&dims_right)
@@ -170,12 +186,18 @@ pub(crate) fn over_by_contents(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Or
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
     let rhs_phrase_head = &phrase[1..];
 
-    let orthos_by_contents_left = get_ortho_by_contents(holder, vec![phrase[0]]);
+    let orthos_by_contents_left = {
+        let other_contents = vec![phrase[0]];
+        holder.get_orthos_with_contents_overlapping(other_contents)
+    };
     let lhs_by_contents = orthos_by_contents_left
         .iter()
         .filter(|o| o.contents_has_full_length_phrase(lhs_phrase_head));
 
-    let orthos_by_contents_right = get_ortho_by_contents(holder, vec![phrase[1]]);
+    let orthos_by_contents_right = {
+        let other_contents = vec![phrase[1]];
+        holder.get_orthos_with_contents_overlapping(other_contents)
+    };
     let rhs_by_contents = orthos_by_contents_right
         .iter()
         .filter(|o| o.contents_has_full_length_phrase(rhs_phrase_head));
@@ -223,7 +245,12 @@ pub(crate) fn over_by_contents(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Or
     let dims_right = HashSet::from_iter(right_map.keys());
 
     let all_phrases =
-        phrase_exists_db_filter(holder, all_phrase_heads_left, all_phrase_heads_right);
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     dims_left
         .intersection(&dims_right)

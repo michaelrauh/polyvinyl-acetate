@@ -4,10 +4,7 @@ use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
-    get_ortho_by_origin_batch, get_phrases_with_matching_hashes, ortho::Ortho,
-    phrase_exists_db_filter_head, phrase_exists_db_filter_tail,
-    phrase_ortho_handler::attempt_combine_over_with_phrases, project_backward_batch,
-    project_forward_batch, vec_of_words_to_big_int, Holder, Word,
+    phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int, Holder, Word, ortho::Ortho,
 };
 
 pub(crate) fn over_forward(
@@ -16,7 +13,7 @@ pub(crate) fn over_forward(
 ) -> Vec<crate::ortho::Ortho> {
     let all_phrases = old_orthotope.origin_phrases();
     let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(holder, all_second_words);
+    let all_potential_orthos = holder.get_ortho_with_origin_in(all_second_words);
 
     if all_potential_orthos.is_empty() {
         return vec![];
@@ -27,7 +24,7 @@ pub(crate) fn over_forward(
         .map(|old_phrase| old_phrase.last().expect("orthos cannot have empty phrases"))
         .copied()
         .collect::<HashSet<_>>();
-    let forwards = project_forward_batch(holder, lasts);
+    let forwards = holder.get_words_of_pairs_with_first_word_in(lasts);
 
     let last_to_phrase = Itertools::into_group_map_by(all_phrases.iter(), |old_phrase| {
         old_phrase.last().expect("orthos cannot have empty phrases")
@@ -62,7 +59,11 @@ pub(crate) fn over_forward(
         })
         .collect::<HashSet<_>>();
 
-    let actual_phrases = get_phrases_with_matching_hashes(holder, desired_phrases);
+    let actual_phrases: Vec<_> = holder
+            .get_phrases_matching(desired_phrases)
+            .iter()
+            .cloned()
+            .collect();
 
     let all_phrase_heads: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
@@ -70,7 +71,7 @@ pub(crate) fn over_forward(
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases = phrase_exists_db_filter_head(holder, all_phrase_heads);
+    let speculative_potential_phrases = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads);
 
     let mut ans: Vec<Ortho> = vec![];
 
@@ -155,10 +156,10 @@ pub(crate) fn over_back(
         .iter()
         .map(|old_phrase| old_phrase[0])
         .collect::<HashSet<_>>();
-    let backwards = project_backward_batch(holder, firsts);
+    let backwards = holder.get_words_of_pairs_with_second_word_in(firsts);
 
     let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
-    let all_potential_orthos = get_ortho_by_origin_batch(holder, all_first_words);
+    let all_potential_orthos = holder.get_ortho_with_origin_in(all_first_words);
 
     if all_potential_orthos.is_empty() {
         return vec![];
@@ -194,14 +195,18 @@ pub(crate) fn over_back(
         })
         .collect::<HashSet<_>>();
 
-    let actual_phrases = get_phrases_with_matching_hashes(holder, desired_phrases);
+    let actual_phrases: Vec<_> = holder
+            .get_phrases_matching(desired_phrases)
+            .iter()
+            .cloned()
+            .collect();
     let all_phrase_tails: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
         .iter()
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases = phrase_exists_db_filter_tail(holder, all_phrase_tails);
+    let speculative_potential_phrases = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_tails);
 
     let mut phrase_to_ortho: std::collections::HashMap<
         &Vec<i32>,
