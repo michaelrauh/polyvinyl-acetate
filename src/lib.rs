@@ -1,7 +1,7 @@
 pub mod models;
 
 use itertools::Itertools;
-
+use maplit::hashset;
 
 mod book_todo_handler;
 pub mod ortho;
@@ -50,6 +50,99 @@ impl Holder {
     pub fn get_stats(&self) {
         dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
         dbg!(&self.orthos_by_hash.len());
+    }
+
+    // this removes short circuit and intersection operations. It returns all friends.
+    pub fn get_up_by_origin_friends(
+        &self,
+        first_w: i32,
+        second_w: i32,
+    ) -> (
+        Vec<Ortho>,
+        Vec<Ortho>,
+        HashSet<i32>,
+        HashSet<i32>,
+        HashSet<i64>,
+    ) {
+
+        let left_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(first_w); // a
+        let right_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(second_w); // b
+
+        let (all_firsts, all_seconds, all_pairs) = {
+            let first_words = {
+                let orthos: &[Ortho] = &left_orthos_by_origin;
+                orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
+            }; // c
+            let second_words = {
+                let orthos: &[Ortho] = &right_orthos_by_origin;
+                orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
+            }; // d
+            let firsts: HashSet<(Word, Word, i64)> =
+                self.get_hashes_and_words_of_pairs_with_first_word(first_words); // c
+            let seconds: HashSet<(Word, Word, i64)> =
+                self.get_hashes_and_words_of_pairs_with_second_word(second_words); // d
+
+            let domain: HashSet<(Word, Word, i64)> = firsts.union(&seconds).cloned().collect(); // c U d (or C ^ D)
+            let mut firsts = hashset! {}; // c U d
+            let mut seconds = hashset! {}; // c U d
+            let mut hashes = hashset! {}; // c U d
+            domain.into_iter().for_each(|(f, s, h)| {
+                firsts.insert(f);
+                seconds.insert(s);
+                hashes.insert(h);
+            });
+            (firsts, seconds, hashes) // c U d
+        };
+        (
+            left_orthos_by_origin,
+            right_orthos_by_origin,
+            all_firsts,
+            all_seconds,
+            all_pairs,
+        )
+
+        // c U d rows (orthos are redundant)
+        // TABLE::
+        // left_ortho    |  right ortho   |   first    |    second     |   pair
+
+        // 2 documents (one for each word in pair)
+        // then c U d documents (one for each word in vocabulary of each ortho)
+        // DOCUMENT::
+        // word: (first):
+        //       orthos by origin:
+        //          ortho1,
+        //          ortho2...
+        //       pairs:
+        //           by first word:
+        //               pair1
+        //               pair2
+
+        // chapter one takes 55 mb ram and 3.5 minutes
+
+        // cut to fit strategy (relational):
+        // words -> orthos by origin -> vocabulary of orthos -> pairs by first and second
+        // 
+        // insert complexity
+        // pair found - insert into pairs
+        // ortho found - insert into ortho
+        // space complexity - little waste
+
+        // 2 documents needed
+        // cut to fit (document)
+        // word: 
+        //     ortho by origin:
+        //        o1:
+        //           vocabulary:
+        //              pairs_left:   
+        //                 p1, p2...
+        //     ortho by hop and contents
+        //
+        //   insert complexity:
+        //      pair found - insert in at the word level, but also find all vocabularies and insert pair there.
+        //      ortho found - insert for each word
+        //   space complexity: fairly massive. Multiply ortho by size and then multiply pairs by that
+
+
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
@@ -272,7 +365,8 @@ impl Holder {
         // d <- c
         // c <- a
 
-        let ans: Vec<Ortho> = self.get_second_words_of_pairs_with_first_word(b)
+        let ans: Vec<Ortho> = self
+            .get_second_words_of_pairs_with_first_word(b)
             .into_iter()
             .flat_map(|d| {
                 self.get_first_words_of_pairs_with_second_word(d)
@@ -300,7 +394,8 @@ impl Holder {
         // d <- c
         // c <- a
         // a -> b
-        let ans: Vec<Ortho> = self.get_first_words_of_pairs_with_second_word(d)
+        let ans: Vec<Ortho> = self
+            .get_first_words_of_pairs_with_second_word(d)
             .into_iter()
             .flat_map(|c| {
                 self.get_first_words_of_pairs_with_second_word(c)
@@ -309,12 +404,12 @@ impl Holder {
                         self.get_second_words_of_pairs_with_first_word(a)
                             .into_iter()
                             .filter(|b_prime| b_prime == &b)
-                            .map(|_| { (a, b, c, d)})
+                            .map(|_| (a, b, c, d))
                             .collect_vec()
                     })
             })
             .filter(|(_a, b, c, _d)| b != c)
-            .map(|(a, b, c, d)| {Ortho::new(a, b, c, d)}  )
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
             .collect();
         ans
     }
@@ -540,10 +635,6 @@ impl Holder {
     }
 }
 
-
-
-
-
 pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
@@ -576,7 +667,6 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
     let origin = ortho.get_origin().to_owned();
@@ -593,5 +683,3 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
         base,
     }
 }
-
-
