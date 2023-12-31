@@ -179,7 +179,7 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
     )
 }
 
-fn total_vocabulary(orthos: &[Ortho]) -> HashSet<Word> {
+pub fn total_vocabulary(orthos: &[Ortho]) -> HashSet<Word> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }
 
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_origin(
             &mut holder,
             1,
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn it_does_not_create_up_when_a_forward_is_missing() {
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_origin(
             &mut holder,
             1,
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_origin(
             &mut holder,
             1,
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_origin(
             &mut holder,
             1,
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn it_only_attempts_to_combine_same_dim_orthos() {
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_origin(
             &mut holder,
             1,
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn it_attempts_to_combine_by_hop() {
         // same combine as before, but b -> f is the pair so it must index into hops
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_hop(
             &mut holder,
             2, // a b c d + e f g h
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn it_attempts_to_combine_by_contents() {
         // same combine as before, but d -> h is the pair so it must index into contents
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_by_contents(
             &mut holder,
             4, // a b c d + e f g h

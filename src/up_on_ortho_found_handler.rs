@@ -8,7 +8,7 @@ pub(crate) fn up_forward(
     get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
     forward: fn(&Holder, Word) -> HashSet<Word>,
     get_pair_hashes_relevant_to_vocabularies: fn(
-        holder: &mut Holder,
+        holder: &Holder,
         first_words: HashSet<Word>,
         second_words: HashSet<Word>,
     ) -> HashSet<i64>,
@@ -17,7 +17,7 @@ pub(crate) fn up_forward(
         return vec![];
     }
     let mut ans = vec![];
-
+    // todo it should be possible to speed this up by indexing by dims and baseness
     let projected_forward = forward(holder, old_ortho.get_origin());
     let orthos_to_right: Vec<Ortho> = get_ortho_by_origin_batch(holder, projected_forward)
         .iter()
@@ -55,7 +55,7 @@ pub(crate) fn up_back(
     get_ortho_by_origin_batch: fn(&mut Holder, HashSet<Word>) -> Vec<Ortho>,
     backward: fn(&Holder, Word) -> HashSet<Word>,
     get_pair_hashes_relevant_to_vocabularies: fn(
-        holder: &mut Holder,
+        holder: &Holder,
         first_words: HashSet<Word>,
         second_words: HashSet<Word>,
     ) -> HashSet<i64>,
@@ -122,7 +122,7 @@ mod tests {
     }
 
     fn fake_pair_hash_db_filter(
-        _holder: &mut Holder,
+        _holder: &Holder,
         _first_words: HashSet<Word>,
         _second_words: HashSet<Word>,
     ) -> HashSet<i64> {
@@ -149,7 +149,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_forward(
             &mut holder,
             left_ortho.clone(),
@@ -175,7 +175,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(5, 6, 7, 8);
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_back(
             &mut holder,
             right_ortho.clone(),
@@ -201,7 +201,7 @@ mod tests {
         let l_one = Ortho::new(1, 2, 4, 5);
         let l_two = Ortho::new(2, 3, 5, 11);
         let l = Ortho::zip_over(&l_one, &l_two, &btreemap! { 3 => 2, 5 => 4 }, 3);
-        let mut holder: Holder = Holder::new();
+        let mut holder: Holder = Holder::new("fixme".to_string());
         let actual = up_forward(
             &mut holder,
             l,

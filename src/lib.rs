@@ -5,6 +5,7 @@ use maplit::hashset;
 use redb::{
     Database, MultimapTableDefinition, ReadableMultimapTable, ReadableTable, TableDefinition,
 };
+use up_handler::total_vocabulary;
 
 mod book_todo_handler;
 pub mod ortho;
@@ -112,24 +113,23 @@ impl From<NewOrthotope> for Vec<u8> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Holder {
     undone_todos: Vec<NewTodo>,
     done_todos: Vec<NewTodo>,
+    db_name: String,
 }
 
 impl Holder {
-    pub fn new() -> Self {
-        Holder::default()
+    pub fn new(db_name: String) -> Self {
+        Holder{ undone_todos: vec![], done_todos: vec![], db_name }
     }
 
     pub fn get_stats(&self) {
         let todo_length = self.undone_todos.len() + self.done_todos.len();
 
         dbg!(todo_length);
-
-        // todo extract DB name and open tables, unwraps, etc.
-        dbg!(get_db()
+        dbg!(self.get_db()
             .begin_read()
             .unwrap()
             .open_table(ORTHOS_BY_HASH)
@@ -139,7 +139,7 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
         .begin_read()
         .unwrap();
@@ -161,7 +161,7 @@ impl Holder {
     }
 
     fn get_vocabulary_slice_with_words(&self, desired: HashSet<Word>) -> HashMap<Word, String> {
-        get_db()
+        self.get_db()
             .begin_write()
             .unwrap()
             .open_table(VOCABULARY)
@@ -180,7 +180,7 @@ impl Holder {
     }
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -199,7 +199,7 @@ impl Holder {
     }
 
     fn get_base_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -220,7 +220,7 @@ impl Holder {
     }
 
     fn get_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_write()
                     .unwrap();
@@ -240,7 +240,7 @@ impl Holder {
     }
 
     fn get_base_orthos_with_contents_overlapping(&self, other_contents: Vec<Word>) -> Vec<Ortho> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -262,7 +262,7 @@ impl Holder {
     }
 
     fn get_words_of_pairs_with_second_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -285,7 +285,7 @@ impl Holder {
     }
 
     fn get_words_of_pairs_with_first_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -310,7 +310,7 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -335,7 +335,7 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -358,7 +358,7 @@ impl Holder {
     }
 
     fn get_phrase_hash_with_phrase_head_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -378,7 +378,7 @@ impl Holder {
     }
 
     fn get_phrase_hash_with_phrase_tail_matching(&self, left: HashSet<i64>) -> HashSet<i64> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -398,7 +398,7 @@ impl Holder {
     }
 
     fn get_phrases_matching(&self, phrases: HashSet<i64>) -> HashSet<i64> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding.begin_read().unwrap();
         let read_only_table = binding.open_table(PHRASES_BY_HASH).unwrap();
         phrases
@@ -415,7 +415,7 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -439,7 +439,7 @@ impl Holder {
     }
 
     fn get_second_words_of_pairs_with_first_word(&self, first: Word) -> HashSet<Word> {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(PAIRS_BY_FIRST)
@@ -454,7 +454,7 @@ impl Holder {
     }
 
     fn get_first_words_of_pairs_with_second_word(&self, second: Word) -> HashSet<Word> {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(PAIRS_BY_SECOND)
@@ -469,7 +469,7 @@ impl Holder {
     }
 
     fn get_book(&self, pk: i64) -> NewBook {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_table(BOOKS)
@@ -542,7 +542,7 @@ impl Holder {
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
         // todo make sure indices are right. Back to back inserts should count on
 
-        let binding = get_db();
+        let binding = self.get_db();
         let db = binding.begin_write().unwrap();
         {
             let mut table = db.open_table(VOCABULARY).unwrap();
@@ -556,7 +556,7 @@ impl Holder {
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
-        let binding = get_db();
+        let binding = self.get_db();
         let db = binding.begin_read().unwrap();
 
         let table = db.open_table(VOCABULARY).unwrap();
@@ -577,7 +577,7 @@ impl Holder {
     }
 
     fn get_pair(&self, key: i64) -> NewPair {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_table(PAIRS_BY_HASH)
@@ -590,7 +590,7 @@ impl Holder {
     }
 
     fn get_phrase(&self, key: i64) -> Vec<Word> {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_table(PHRASES_BY_HASH)
@@ -602,7 +602,7 @@ impl Holder {
     }
 
     fn get_orthotope(&self, key: i64) -> Ortho {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_table(ORTHOS_BY_HASH)
@@ -615,7 +615,7 @@ impl Holder {
     }
 
     fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let mut new_sentences = Vec::default();
         let write_txn = db.begin_write().unwrap();
         {
@@ -647,7 +647,7 @@ impl Holder {
     }
 
     fn get_sentence(&self, pk: i64) -> String {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_table(SENTENCES)
@@ -660,7 +660,7 @@ impl Holder {
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
         {
@@ -688,7 +688,7 @@ impl Holder {
     // todo implement resume logic in the event of crash. Currently duplicate books will be ignored
 
     fn insert_phrases(&mut self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
 
@@ -719,7 +719,7 @@ impl Holder {
     }
 
     fn get_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(ORTHOS_BY_ORIGIN)
@@ -732,7 +732,7 @@ impl Holder {
     }
 
     fn get_base_orthos_with_origin(&self, origin: Word) -> Vec<Ortho> {
-        get_db()
+        self.get_db()
             .begin_read()
             .unwrap()
             .open_multimap_table(ORTHOS_BY_ORIGIN)
@@ -746,7 +746,7 @@ impl Holder {
     }
 
     fn get_ortho_with_origin_in(&self, origins: HashSet<Word>) -> Vec<Ortho> {
-        let binding = get_db();
+        let binding = self.get_db();
         let binding = binding
                     .begin_read()
                     .unwrap();
@@ -769,7 +769,7 @@ impl Holder {
     }
 
     fn insert_orthos(&mut self, to_insert: HashSet<NewOrthotope>) -> Vec<i64> {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let write_txn = db.begin_write().unwrap();
         let mut res = vec![];
 
@@ -817,7 +817,7 @@ impl Holder {
         };
         let b_bytes: Vec<u8> = b.clone().into();
         let id: i64 = string_to_signed_int(&title).try_into().unwrap();
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_table(BOOKS).unwrap();
@@ -833,7 +833,7 @@ impl Holder {
     }
 
     pub fn save_todos(&mut self) {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_multimap_table(TODOS).unwrap();
@@ -871,7 +871,7 @@ impl Holder {
     }
 
     pub fn rehydrate_todos(&mut self) {
-        let db: Database = get_db();
+        let db: Database = self.get_db();
         let read_txn = db.begin_write().unwrap();
         let table = read_txn.open_multimap_table(TODOS).unwrap();
         table.iter().unwrap().for_each(|td| {
@@ -890,15 +890,576 @@ impl Holder {
     pub fn complete_todo(&mut self, current: NewTodo) {
             self.done_todos.push(current);
     }
-}
 
-fn get_db() -> Database {
-    Database::create("pvac.redb")
-        .unwrap()
+    fn get_db(&self) -> Database {
+        Database::create(&self.db_name)
+            .unwrap()
+    }
+
+    pub fn get_merged_todos(&self, lhs: String, rhs: String) -> Vec<NewTodo> {
+        let lhs = Holder::new(lhs);
+        let rhs = Holder::new(rhs);
+
+        let mut replay_todos: Vec<NewTodo> = vec![];
+        let all_lhs_todos = lhs.get_all_todos();
+        let all_rhs_todos = rhs.get_all_todos();
+
+        for todo in all_lhs_todos.clone() {
+            if rhs.has_todo(&todo, &all_rhs_todos) {
+                continue;
+            }
+
+            let lhs_friends = lhs.get_friends(&todo);
+            let rhs_friends = rhs.get_friends(&todo);
+
+            if self.friends_in_both(&lhs_friends, &rhs_friends) {
+                continue;
+            }
+
+            if self.lhs_friends_share_provenance(&lhs_friends, &rhs_friends) {
+                continue;
+            }
+
+            replay_todos.push(todo);
+        }
+
+        // todo reuse functionality for finding friends in actual search
+        
+        for todo in all_rhs_todos.clone() {
+            if lhs.has_todo(&todo, &all_lhs_todos) {
+                continue;
+            }
+
+            let lhs_friends = lhs.get_friends(&todo);
+            let rhs_friends = rhs.get_friends(&todo);
+
+            if self.friends_in_both(&lhs_friends, &rhs_friends) {
+                continue;
+            }
+
+            if self.rhs_friends_share_provenance(&lhs_friends, &rhs_friends) {
+                continue;
+            }
+
+            replay_todos.push(todo);
+        }
+        replay_todos
+    }
+
+    // todo stop passing function pointers
+
+    fn get_all_todos(&self) -> Vec<NewTodo> {
+        let mut res = vec![];
+        let db: Database = self.get_db();
+        let read_txn = db.begin_write().unwrap();
+        let table = read_txn.open_multimap_table(TODOS).unwrap();
+        table.iter().unwrap().for_each(|td| {
+            td.unwrap().1.for_each(|t| {
+                let todo: DBNewTodo = t.unwrap().value().to_vec().into();
+                if !todo.done {
+                    res.push(NewTodo {
+                        domain: todo.domain,
+                        other: todo.other,
+                    })
+                }
+            });
+        });
+        res
+    }
+
+    fn has_todo(&self, todo: &NewTodo, others: &Vec<NewTodo>) -> bool {
+        others.contains(todo)
+    }
+
+    fn get_friends(&self, todo: &NewTodo) -> Vec<NewTodo> {
+        match todo.domain.as_str() {
+            "books" => vec![],
+            "sentences" => vec![],
+            "pairs" => vec![],
+            "ex_nihilo_ffbb" => self.get_friends_ffbb(todo.other.clone()),
+            "ex_nihilo_fbbf" => self.get_friends_fbbf(todo.other.clone()),
+            "pair_up" => vec![],
+            "up_by_origin" => self.get_friends_up_by_origin(todo.other.clone()),
+            "up_by_hop" => self.get_friends_up_by_hop(todo.other.clone()),
+            "up_by_contents" => self.get_friends_up_by_contents(todo.other.clone()),
+            "orthotopes" => vec![],
+            "ortho_up" => vec![],
+            "ortho_up_forward" => self.get_friends_up_forward(todo.other.clone()),
+            "ortho_up_back" => self.get_friends_up_back(todo.other.clone()),
+            "ortho_over" => vec![],
+            "ortho_over_forward" => self.get_friends_over_forward(todo.other.clone()),
+            "ortho_over_back" =>  self.get_friends_over_backward(todo.other.clone()),
+            "phrases" => vec![],
+            "phrase_by_origin" => self.get_friends_over_by_origin(todo.other.clone()),
+            "phrase_by_hop" => self.get_friends_over_by_hop(todo.other.clone()),
+            "phrase_by_contents" => self.get_friends_over_by_contents(todo.other.clone()),
+            _ => panic!(),
+        }
+    }
+
+    fn friends_in_both(&self, lhs_friends: &Vec<NewTodo>, rhs_friends: &Vec<NewTodo>) -> bool {
+        let lhs: HashSet<&NewTodo> = HashSet::from_iter(lhs_friends);
+        lhs.symmetric_difference(&HashSet::from_iter(rhs_friends)).next().is_none()
+    }
+
+    pub fn write_todos_back(&mut self, todos: Vec<NewTodo>) {
+        self.undone_todos = todos;
+    }
+
+    pub fn merge_dbs(&self, lhs: String, rhs: String) {
+        let db: Database = self.get_db();
+        let read_txn = db.begin_write().unwrap();
+        let table = read_txn.open_table(BOOKS).unwrap();
+        table.iter().unwrap().for_each(|x| {
+            let k = x.unwrap().0.value();
+            let v = x.unwrap().1.value();
+
+            
+        })
+
+//         BOOKS
+// VOCABULARY
+// SENTENCES
+// TODOS
+// PAIRS_BY_FIRST
+// PAIRS_BY_SECOND
+// PAIRS_BY_HASH
+// PHRASES_BY_HEAD
+// PHRASES_BY_TAIL
+// PHRASES_BY_HASH
+// ORTHOS_BY_HASH
+// ORTHOS_BY_HOP
+// ORTHOS_BY_CONTENTS
+// ORTHOS_BY_ORIGIN
+        
+    }
+
+    fn get_friends_ffbb(&self, other: i64) -> Vec<NewTodo> {
+        let p = self.get_pair(other);
+        self.ffbb(p.first_word, p.second_word).iter().map(|o| { 
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        }).collect_vec()
+    }
+
+    fn get_friends_fbbf(&self, other: i64) -> Vec<NewTodo> {
+        let p = self.get_pair(other);
+        self.fbbf(p.first_word, p.second_word).iter().map(|o| { 
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        }).collect_vec()
+    }
+
+    fn get_friends_up_by_origin(&self, other: i64) -> Vec<NewTodo> {
+        let p = self.get_pair(other);
+        let los = &self.get_base_orthos_with_origin(p.first_word);
+        let ros = &self.get_base_orthos_with_origin(p.second_word);
+        los.iter().map(|o| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        }).chain(ros.iter().map(|o|{
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        })).chain(get_hashes_of_pairs_with_words_in(self, total_vocabulary(los), total_vocabulary(ros)).iter().map(|h| {
+            NewTodo {
+                domain: "pairs".to_string(),
+                other: *h
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_up_by_hop(&self, other: i64) -> Vec<NewTodo> {
+        let p = self.get_pair(other);
+        let los = &self.get_base_orthos_with_hops_overlapping(vec![p.first_word]);
+        let ros = &self.get_base_orthos_with_hops_overlapping(vec![p.second_word]);
+        los.iter().map(|o| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        }).chain(ros.iter().map(|o|{
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        })).chain(get_hashes_of_pairs_with_words_in(self, total_vocabulary(los), total_vocabulary(ros)).iter().map(|h| {
+            NewTodo {
+                domain: "pairs".to_string(),
+                other: *h
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_up_by_contents(&self, other: i64) -> Vec<NewTodo> {
+        let p = self.get_pair(other);
+        let los = &&self.get_base_orthos_with_contents_overlapping(vec![p.first_word]);
+        let ros = &self.get_base_orthos_with_contents_overlapping(vec![p.second_word]);
+        los.iter().map(|o| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        }).chain(ros.iter().map(|o|{
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(o).info_hash
+            }
+        })).chain(get_hashes_of_pairs_with_words_in(self, total_vocabulary(los), total_vocabulary(ros)).iter().map(|h| {
+            NewTodo {
+                domain: "pairs".to_string(),
+                other: *h
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_up_forward(&self, other: i64) -> Vec<NewTodo> {
+        let o = self.get_orthotope(other);
+
+        if !o.is_base() {
+            return vec![]
+        }
+
+        let dims = o.get_dims();
+
+        let forwards = self.get_hashes_and_words_of_pairs_with_first_word(hashset! {o.get_origin()});
+        let forward_pairs = forwards.iter().map(|x| x.2).collect_vec();
+        let second_words: HashSet<Word> = forwards.iter().map(|x| x.1).collect();
+
+        self.get_ortho_with_origin_in(second_words.clone()).iter().filter(|other_ortho| {
+            other_ortho.get_dims() == dims
+        }).map(|x| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(x).info_hash
+            }
+        }).chain(forward_pairs.iter().map(|f| {
+            NewTodo {
+                domain: "pairs".to_string(),
+                other: *f
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_up_back(&self, other: i64) -> Vec<NewTodo> {
+        let o = self.get_orthotope(other);
+
+        if !o.is_base() {
+            return vec![]
+        }
+
+        let dims = o.get_dims();
+
+        let backwards = self.get_hashes_and_words_of_pairs_with_second_word(hashset! {o.get_origin()});
+        let backward_pairs = backwards.iter().map(|x| x.2).collect_vec();
+        let second_words: HashSet<Word> = backwards.iter().map(|x| x.1).collect();
+
+        self.get_ortho_with_origin_in(second_words.clone()).iter().filter(|other_ortho| {
+            other_ortho.get_dims() == dims
+        }).map(|x| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(x).info_hash
+            }
+        }).chain(backward_pairs.iter().map(|f| {
+            NewTodo {
+                domain: "pairs".to_string(),
+                other: *f
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_over_forward(&self, other: i64) -> Vec<NewTodo> {
+        let old_orthotope = self.get_orthotope(other);
+        let all_phrases = old_orthotope.origin_phrases();
+        let all_second_words = all_phrases.iter().map(|p| p[1]).collect();
+        let all_potential_orthos = self.get_ortho_with_origin_in(all_second_words);
+    
+        if all_potential_orthos.is_empty() {
+            return vec![];
+        }
+    
+        let all_phrase_heads: HashSet<i64> = old_orthotope
+            .all_full_length_phrases()
+            .iter()
+            .map(|p| vec_of_words_to_big_int(p.to_vec()))
+            .collect();
+    
+        let speculative_potential_phrases = self.get_phrase_hash_with_phrase_head_matching(all_phrase_heads);
+
+        all_potential_orthos.iter().map(|x| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(x).info_hash
+            }
+        }).chain(speculative_potential_phrases.iter().map(|f| {
+            NewTodo {
+                domain: "phrases".to_string(),
+                other: *f
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_over_backward(&self, other: i64) -> Vec<NewTodo> {
+        let old_orthotope = self.get_orthotope(other);
+
+        let all_phrases = old_orthotope.origin_phrases();
+
+        let firsts = all_phrases
+            .iter()
+            .map(|old_phrase| old_phrase[0])
+            .collect::<HashSet<_>>();
+        let backwards = self.get_words_of_pairs_with_second_word_in(firsts);
+    
+        let all_first_words = backwards.iter().map(|(f, _s)| f).copied().collect();
+        let all_potential_orthos = self.get_ortho_with_origin_in(all_first_words);
+    
+        if all_potential_orthos.is_empty() {
+            return vec![];
+        }
+    
+        let all_phrase_tails: HashSet<i64> = old_orthotope
+            .all_full_length_phrases()
+            .iter()
+            .map(|p| vec_of_words_to_big_int(p.to_vec()))
+            .collect();
+    
+        let speculative_potential_phrases = self.get_phrase_hash_with_phrase_tail_matching(all_phrase_tails);
+
+        all_potential_orthos.iter().map(|x| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(x).info_hash
+            }
+        }).chain(speculative_potential_phrases.iter().map(|f| {
+            NewTodo {
+                domain: "phrases".to_string(),
+                other: *f
+            }
+        })).collect_vec()
+    }
+
+    fn get_friends_over_by_origin(&self, other: i64) -> Vec<NewTodo> {
+        let phrase = self.get_phrase(other);
+        let lhs_phrase_head = &phrase[..phrase.len() - 1];
+        let rhs_phrase_head = &phrase[1..];
+        let head = phrase[0];
+        let shift_left = phrase[1];
+        let shift_right = phrase[2];
+    
+        let orthos_by_origin_left = self.get_orthos_with_origin(head);
+        let lhs_by_origin = orthos_by_origin_left
+            .into_iter()
+            .filter(|o| o.origin_has_full_length_phrase(lhs_phrase_head));
+        let orthos_by_origin_right = self.get_orthos_with_origin(shift_left);
+    
+        let rhs_by_origin = orthos_by_origin_right
+            .into_iter()
+            .filter(|o| o.origin_has_full_length_phrase(rhs_phrase_head));
+    
+        if lhs_by_origin.clone().next().is_none() || rhs_by_origin.clone().next().is_none() {
+            return vec![];
+        }
+    
+        let all_phrase_heads_left: HashSet<i64> = lhs_by_origin
+            .clone()
+            .flat_map(|o| {
+                let phrases = o.phrases(shift_left);
+                phrases
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect::<Vec<i64>>()
+            })
+            .collect();
+    
+        let all_phrase_heads_right: HashSet<i64> = rhs_by_origin
+            .clone()
+            .flat_map(|o| {
+                let phrases = o.phrases(shift_right);
+                phrases
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect::<Vec<i64>>()
+            })
+            .collect();
+    
+        let all_phrases =
+            phrase_exists_db_filter(self, all_phrase_heads_left, all_phrase_heads_right);
+
+            lhs_by_origin.map(|x| {
+                NewTodo {
+                    domain: "orthotopes".to_string(),
+                    other: ortho_to_orthotope(&x).info_hash
+                }
+            }).chain(rhs_by_origin.map(|f| {
+                NewTodo {
+                    domain: "orthotopes".to_string(),
+                    other: ortho_to_orthotope(&f).info_hash
+                }
+            })).chain(all_phrases.iter().map(|f| {
+                NewTodo {
+                    domain: "phrases".to_string(),
+                    other: *f
+                }
+            })).collect_vec()
+    }
+
+    fn get_friends_over_by_hop(&self, other: i64) -> Vec<NewTodo> {
+        let phrase = self.get_phrase(other);
+        let lhs_phrase_head = &phrase[..phrase.len() - 1];
+        let rhs_phrase_head = &phrase[1..];
+    
+        let orthos_by_hop_left = self.get_orthos_with_hops_overlapping(vec![phrase[0]]);
+        let lhs_by_hop = orthos_by_hop_left
+            .iter()
+            .filter(|o| o.hop_has_full_length_phrase(lhs_phrase_head));
+    
+        let orthos_by_hop_right = self.get_orthos_with_hops_overlapping(vec![phrase[1]]);
+        let rhs_by_hop = orthos_by_hop_right
+            .iter()
+            .filter(|o| o.hop_has_full_length_phrase(rhs_phrase_head));
+    
+        if lhs_by_hop.clone().next().is_none() || rhs_by_hop.clone().next().is_none() {
+            return vec![];
+        }
+    
+        let all_phrase_heads_left: HashSet<i64> = lhs_by_hop
+            .clone()
+            .flat_map(|o| {
+                let axis = o.axis_of_change_between_names_for_hop(phrase[0], phrase[1]);
+                let phrases = o.phrases(axis);
+                phrases
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+    
+        let all_phrase_heads_right: HashSet<i64> = rhs_by_hop
+            .clone()
+            .flat_map(|o| {
+                let axis = o.axis_of_change_between_names_for_hop(phrase[1], phrase[2]);
+                let phrases = o.phrases(axis);
+                phrases
+                    .iter()
+                    .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+    
+        let all_phrases =
+            phrase_exists_db_filter(self, all_phrase_heads_left, all_phrase_heads_right);
+
+            lhs_by_hop.map(|x| {
+                NewTodo {
+                    domain: "orthotopes".to_string(),
+                    other: ortho_to_orthotope(&x).info_hash
+                }
+            }).chain(rhs_by_hop.map(|f| {
+                NewTodo {
+                    domain: "orthotopes".to_string(),
+                    other: ortho_to_orthotope(&f).info_hash
+                }
+            })).chain(all_phrases.iter().map(|f| {
+                NewTodo {
+                    domain: "phrases".to_string(),
+                    other: *f
+                }
+            })).collect_vec()
+    }
+
+    fn get_friends_over_by_contents(&self, other: i64) -> Vec<NewTodo> {
+        let phrase = self.get_phrase(other);
+        let lhs_phrase_head = &phrase[..phrase.len() - 1];
+    let rhs_phrase_head = &phrase[1..];
+
+    let orthos_by_contents_left = self.get_orthos_with_contents_overlapping(vec![phrase[0]]);
+    let lhs_by_contents = orthos_by_contents_left
+        .iter()
+        .filter(|o| o.contents_has_full_length_phrase(lhs_phrase_head));
+
+    let orthos_by_contents_right = self.get_orthos_with_contents_overlapping(vec![phrase[1]]);
+    let rhs_by_contents = orthos_by_contents_right
+        .iter()
+        .filter(|o| o.contents_has_full_length_phrase(rhs_phrase_head));
+
+    if lhs_by_contents.clone().next().is_none() || rhs_by_contents.clone().next().is_none() {
+        return vec![];
+    }
+
+    let all_phrase_heads_left: HashSet<i64> = lhs_by_contents
+        .clone()
+        .flat_map(|o| {
+            let axes = o.axes_of_change_between_names_for_contents(phrase[0], phrase[1]);
+            axes.iter()
+                .flat_map(|axis| {
+                    let phrases = o.phrases(*axis);
+                    phrases
+                        .iter()
+                        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                        .collect::<Vec<_>>()
+                })
+                .collect_vec()
+        })
+        .collect();
+
+    let all_phrase_heads_right: HashSet<i64> = rhs_by_contents
+        .clone()
+        .flat_map(|o| {
+            let axes = o.axes_of_change_between_names_for_contents(phrase[1], phrase[2]);
+            axes.iter()
+                .flat_map(|axis| {
+                    let phrases = o.phrases(*axis);
+                    phrases
+                        .iter()
+                        .map(|p| vec_of_words_to_big_int(p.to_vec()))
+                        .collect::<Vec<_>>()
+                })
+                .collect_vec()
+        })
+        .collect();
+
+    let all_phrases =
+        phrase_exists_db_filter(self, all_phrase_heads_left, all_phrase_heads_right);
+
+        lhs_by_contents.map(|x| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(&x).info_hash
+            }
+        }).chain(rhs_by_contents.map(|f| {
+            NewTodo {
+                domain: "orthotopes".to_string(),
+                other: ortho_to_orthotope(&f).info_hash
+            }
+        })).chain(all_phrases.iter().map(|f| {
+            NewTodo {
+                domain: "phrases".to_string(),
+                other: *f
+            }
+        })).collect_vec()
+    }
+
+    fn lhs_friends_share_provenance(&self, lhs_friends: &[NewTodo], rhs_friends: &[NewTodo]) -> bool {
+        let lhs: HashSet<&NewTodo> = HashSet::from_iter(lhs_friends);
+        lhs.is_superset(&HashSet::from_iter(rhs_friends))
+    }
+
+    fn rhs_friends_share_provenance(&self, lhs_friends: &[NewTodo], rhs_friends: &[NewTodo]) -> bool {
+        let rhs: HashSet<&NewTodo> = HashSet::from_iter(rhs_friends);
+        rhs.is_superset(&HashSet::from_iter(lhs_friends))
+    }
 }
 
 pub fn get_hashes_of_pairs_with_words_in(
-    holder: &mut Holder,
+    holder: &Holder,
     first_words: HashSet<Word>,
     second_words: HashSet<Word>,
 ) -> HashSet<i64> {
