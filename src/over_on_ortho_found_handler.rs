@@ -4,8 +4,7 @@ use itertools::Itertools;
 use maplit::{btreeset, hashmap};
 
 use crate::{
-    ortho::Ortho, phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int,
-    Holder, Word,
+    phrase_ortho_handler::attempt_combine_over_with_phrases, vec_of_words_to_big_int, Holder, Word, ortho::Ortho,
 };
 
 pub(crate) fn over_forward(
@@ -61,10 +60,10 @@ pub(crate) fn over_forward(
         .collect::<HashSet<_>>();
 
     let actual_phrases: Vec<_> = holder
-        .get_phrases_matching(desired_phrases)
-        .iter()
-        .cloned()
-        .collect();
+            .get_phrases_matching(desired_phrases)
+            .iter()
+            .cloned()
+            .collect();
 
     let all_phrase_heads: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
@@ -72,8 +71,7 @@ pub(crate) fn over_forward(
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases =
-        holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads);
+    let speculative_potential_phrases = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads);
 
     let mut ans: Vec<Ortho> = vec![];
 
@@ -198,18 +196,17 @@ pub(crate) fn over_back(
         .collect::<HashSet<_>>();
 
     let actual_phrases: Vec<_> = holder
-        .get_phrases_matching(desired_phrases)
-        .iter()
-        .cloned()
-        .collect();
+            .get_phrases_matching(desired_phrases)
+            .iter()
+            .cloned()
+            .collect();
     let all_phrase_tails: HashSet<i64> = old_orthotope
         .all_full_length_phrases()
         .iter()
         .map(|p| vec_of_words_to_big_int(p.to_vec()))
         .collect();
 
-    let speculative_potential_phrases =
-        holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_tails);
+    let speculative_potential_phrases = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_tails);
 
     let mut phrase_to_ortho: std::collections::HashMap<
         &Vec<i32>,

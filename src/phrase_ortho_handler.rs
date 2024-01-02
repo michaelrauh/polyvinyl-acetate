@@ -2,7 +2,10 @@ use std::collections::{BTreeMap, HashSet};
 
 use itertools::{zip, Itertools};
 
-use crate::{ortho::Ortho, vec_of_words_to_big_int, Holder, Word};
+use crate::{
+    ortho::Ortho,
+    vec_of_words_to_big_int, Holder, Word,
+};
 
 pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> {
     let lhs_phrase_head = &phrase[..phrase.len() - 1];
@@ -47,12 +50,13 @@ pub(crate) fn over_by_origin(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Orth
         })
         .collect();
 
-    let all_phrases = {
-        let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
-        let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+    let all_phrases =
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
 
-        firsts.intersection(&seconds).cloned().collect()
-    };
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     let left_map = Itertools::into_group_map_by(lhs_by_origin.clone(), |o| o.get_dims());
     let right_map = Itertools::into_group_map_by(rhs_by_origin.clone(), |o| o.get_dims());
@@ -139,12 +143,13 @@ pub(crate) fn over_by_hop(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Ortho> 
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
 
-    let all_phrases = {
-        let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
-        let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+    let all_phrases =
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
 
-        firsts.intersection(&seconds).cloned().collect()
-    };
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     dims_left
         .intersection(&dims_right)
@@ -239,12 +244,13 @@ pub(crate) fn over_by_contents(holder: &mut Holder, phrase: Vec<Word>) -> Vec<Or
     let dims_left: HashSet<&BTreeMap<usize, usize>> = HashSet::from_iter(left_map.keys());
     let dims_right = HashSet::from_iter(right_map.keys());
 
-    let all_phrases = {
-        let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
-        let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
+    let all_phrases =
+        {
+            let firsts = holder.get_phrase_hash_with_phrase_head_matching(all_phrase_heads_left);
+            let seconds = holder.get_phrase_hash_with_phrase_tail_matching(all_phrase_heads_right);
 
-        firsts.intersection(&seconds).cloned().collect()
-    };
+            firsts.intersection(&seconds).cloned().collect()
+        };
 
     dims_left
         .intersection(&dims_right)

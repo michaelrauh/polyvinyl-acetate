@@ -61,7 +61,10 @@ pub fn handle_ortho_todo(todo: NewTodo, holder: &mut Holder) {
 }
 
 fn new_orthotopes_up_forward(holder: &mut Holder, old_orthotope: Ortho) -> Vec<NewOrthotope> {
-    let up_orthos = up_on_ortho_found_handler::up_forward(holder, old_orthotope);
+    let up_orthos = up_on_ortho_found_handler::up_forward(
+        holder,
+        old_orthotope,
+    );
 
     let orthos = up_orthos.iter();
 
@@ -70,7 +73,10 @@ fn new_orthotopes_up_forward(holder: &mut Holder, old_orthotope: Ortho) -> Vec<N
 }
 
 fn new_orthotopes_up_back(holder: &mut Holder, old_orthotope: Ortho) -> Vec<NewOrthotope> {
-    let up_orthos = up_on_ortho_found_handler::up_back(holder, old_orthotope);
+    let up_orthos = up_on_ortho_found_handler::up_back(
+        holder,
+        old_orthotope,
+    );
 
     let orthos = up_orthos.iter();
 
