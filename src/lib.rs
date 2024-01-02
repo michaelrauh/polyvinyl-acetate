@@ -43,7 +43,7 @@ pub struct Holder {
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
-    g: gremlin_client::process::traversal::GraphTraversalSource<gremlin_client::process::traversal::SyncTerminator>,
+    db: GremlinClient,
 }
 
 impl Holder {
@@ -62,7 +62,8 @@ impl Holder {
             orthos_by_hop: HashMap::default(),
             orthos_by_contents: HashMap::default(),
             orthos_by_origin: HashMap::default(),
-            g: traversal().with_remote(GremlinClient::connect("localhost").unwrap()),
+            db: GremlinClient::connect("localhost").unwrap(),
+
         }
     }
 
@@ -279,7 +280,8 @@ impl Holder {
     }
 
     fn get_book(&self, pk: GID) -> Book {
-        let b = self.g.v(pk.clone());
+        let g = traversal().with_remote(self.db.clone());
+        let b = g.v(pk.clone());
         let body: String = b.clone().values("body").next().unwrap().unwrap().get::<String>().unwrap().to_string();
         let title = b.values("title").next().unwrap().unwrap().get::<String>().unwrap().to_string();
 
@@ -516,7 +518,8 @@ impl Holder {
     }
 
     pub fn insert_book(&mut self, title: String, body: String) -> Book {
-        let res = self.g.add_v("book").property("title", title.clone()).property("body", body.clone()).next().unwrap().unwrap();
+        let g = traversal().with_remote(self.db.clone());
+        let res = g.add_v("book").property("title", title.clone()).property("body", body.clone()).next().unwrap().unwrap();
         let b = Book {
             id: res.id().clone(),
             title,
