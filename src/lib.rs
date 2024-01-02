@@ -27,7 +27,7 @@ use std::{
 
 type Word = i32;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Holder {
     books: HashMap<i64, Book>,
     vocabulary: HashMap<String, Word>,
@@ -46,6 +46,25 @@ pub struct Holder {
 }
 
 impl Holder {
+    pub fn new() -> Self {
+        Holder {
+            books: HashMap::default(),
+            vocabulary: HashMap::default(),
+            sentences: HashMap::default(),
+            todos: HashMap::default(),
+            pairs_by_first: HashMap::default(),
+            pairs_by_second: HashMap::default(),
+            pairs_by_hash: HashMap::default(),
+            phrases_by_head: HashMap::default(),
+            phrases_by_tail: HashMap::default(),
+            phrases_by_hash: HashMap::default(),
+            orthos_by_hash: HashMap::default(),
+            orthos_by_hop: HashMap::default(),
+            orthos_by_contents: HashMap::default(),
+            orthos_by_origin: HashMap::default(),
+        }
+    }
+
     pub fn get_stats(&self) {
         dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
         dbg!(&self.orthos_by_hash.len());

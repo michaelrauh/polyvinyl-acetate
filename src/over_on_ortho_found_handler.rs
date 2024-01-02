@@ -312,7 +312,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
-        let mut holder = Holder::default();
+        let mut holder = Holder::new();
         let actual = over_forward(&mut holder, left_ortho.clone());
 
         let expected = Ortho::zip_over(
@@ -336,7 +336,7 @@ mod tests {
         let left_ortho = Ortho::new(1, 2, 3, 4);
 
         let right_ortho = Ortho::new(2, 5, 4, 6);
-        let mut holder = Holder::default();
+        let mut holder = Holder::new();
         let actual = over_back(&mut holder, right_ortho.clone());
 
         let expected = Ortho::zip_over(

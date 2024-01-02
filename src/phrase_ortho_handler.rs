@@ -420,7 +420,7 @@ mod tests {
             },
             5,
         );
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(vec![expected], actual);
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn over_filters_mismatched_dims() {
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn over_filters_shift_axis_is_wrong_length() {
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn over_filters_if_the_phrase_wont_result() {
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_origin(&mut holder, vec![1, 2, 5, 7]);
 
         assert_eq!(actual.len(), 0);
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn over_by_origin_filters_if_a_phrase_is_missing_from_db() {
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_origin(&mut holder, vec![1, 2, 5]);
 
         assert_eq!(actual.len(), 0);
@@ -515,7 +515,7 @@ mod tests {
             },
             5,
         );
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_hop(&mut holder, vec![3, 4, 6]);
 
         assert_eq!(vec![expected], actual);
@@ -573,7 +573,7 @@ mod tests {
             7,
         );
 
-        let mut holder: Holder = Holder::default();
+        let mut holder: Holder = Holder::new();
         let actual = over_by_contents(&mut holder, vec![3, 6, 9]);
 
         assert_eq!(vec![expected], actual);
