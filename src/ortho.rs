@@ -199,7 +199,7 @@ impl Ortho {
         self.info.iter().map(|(a, b)| (a, *b)).collect()
     }
 
-    pub fn get_vocabulary(&self) -> impl Iterator<Item = i32> + '_ {
+    pub fn get_vocabulary(&self) -> impl Iterator<Item = Word> + '_ {
         self.info.iter().map(|(_, b)| *b)
     }
 

@@ -27,7 +27,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-type Word = i32;
+type Word = i64;
 
 pub struct Holder {
     vocabulary: HashMap<String, Word>,

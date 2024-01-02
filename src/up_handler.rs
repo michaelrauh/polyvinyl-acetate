@@ -169,7 +169,7 @@ fn attempt_up_for_pairs_of_matching_dimensionality_if_origin_mapping_exists(
 
 fn group_orthos_of_right_vocabulary_by_dimensionality(
     orthos: Vec<Ortho>,
-    vocabulary: HashSet<i32>,
+    vocabulary: HashSet<Word>,
 ) -> std::collections::HashMap<usize, Vec<Ortho>> {
     Itertools::into_group_map_by(
         orthos
@@ -179,7 +179,7 @@ fn group_orthos_of_right_vocabulary_by_dimensionality(
     )
 }
 
-fn total_vocabulary(orthos: &[Ortho]) -> HashSet<i32> {
+fn total_vocabulary(orthos: &[Ortho]) -> HashSet<Word> {
     orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
 }
 
