@@ -14,7 +14,7 @@ fn main() {
     let f = fs::read_to_string("input.txt").unwrap();
 
     let book = holder.insert_book("example".to_owned(), f);
-    holder.insert_todos("books", vec![book.id]);
+    holder.insert_todos_with_gid("books", vec![book.id]);
     let mut i = 0;
     loop {
         i += 1;

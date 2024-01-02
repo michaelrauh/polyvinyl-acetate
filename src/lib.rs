@@ -1,5 +1,7 @@
 pub mod models;
 
+use gremlin_client::{GremlinClient, GID};
+use gremlin_client::process::traversal::traversal;
 use itertools::Itertools;
 
 mod book_todo_handler;
@@ -27,12 +29,10 @@ use std::{
 
 type Word = i32;
 
-#[derive(Debug)]
 pub struct Holder {
-    books: HashMap<i64, Book>,
     vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
-    todos: HashMap<String, HashSet<i64>>,
+    todos: Vec<NewTodo>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
     pairs_by_hash: HashMap<i64, NewPair>,
@@ -43,15 +43,15 @@ pub struct Holder {
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
+    g: gremlin_client::process::traversal::GraphTraversalSource<gremlin_client::process::traversal::SyncTerminator>,
 }
 
 impl Holder {
     pub fn new() -> Self {
         Holder {
-            books: HashMap::default(),
             vocabulary: HashMap::default(),
             sentences: HashMap::default(),
-            todos: HashMap::default(),
+            todos: Vec::default(),
             pairs_by_first: HashMap::default(),
             pairs_by_second: HashMap::default(),
             pairs_by_hash: HashMap::default(),
@@ -62,11 +62,12 @@ impl Holder {
             orthos_by_hop: HashMap::default(),
             orthos_by_contents: HashMap::default(),
             orthos_by_origin: HashMap::default(),
+            g: traversal().with_remote(GremlinClient::connect("localhost").unwrap()),
         }
     }
 
     pub fn get_stats(&self) {
-        dbg!(&self.todos.iter().map(|(_k, v)| { v.len() }).sum::<usize>());
+        dbg!(&self.todos.len());
         dbg!(&self.orthos_by_hash.len());
     }
 
@@ -277,8 +278,12 @@ impl Holder {
             .collect()
     }
 
-    fn get_book(&self, pk: i64) -> Book {
-        self.books[&pk].clone()
+    fn get_book(&self, pk: GID) -> Book {
+        let b = self.g.v(pk.clone());
+        let body: String = b.clone().values("body").next().unwrap().unwrap().get::<String>().unwrap().to_string();
+        let title = b.values("title").next().unwrap().unwrap().get::<String>().unwrap().to_string();
+
+        Book { id: pk, title, body}
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -386,13 +391,15 @@ impl Holder {
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
-        let todos = self
-            .todos
-            .entry(domain.to_owned())
-            .or_insert(HashSet::default());
-        hashes.iter().for_each(|h| {
-            todos.insert(*h);
-        });
+        hashes.into_iter().for_each(|other| {
+            self.todos.push(NewTodo { domain: domain.to_owned(), other, gid: GID::Int32(5) })
+        })
+    }
+
+    pub fn insert_todos_with_gid(&mut self, domain: &str, hashes: Vec<GID>) {
+        hashes.into_iter().for_each(|other| {
+            self.todos.push(NewTodo { domain: domain.to_owned(), gid: other, other: 5 })
+        })
     }
 
     fn get_sentence(&self, pk: i64) -> String {
@@ -509,54 +516,17 @@ impl Holder {
     }
 
     pub fn insert_book(&mut self, title: String, body: String) -> Book {
+        let res = self.g.add_v("book").property("title", title.clone()).property("body", body.clone()).next().unwrap().unwrap();
         let b = Book {
-            id: string_to_signed_int(&title).try_into().unwrap(),
+            id: res.id().clone(),
             title,
             body,
         };
-        self.books.insert(b.id, b.clone());
         b
     }
 
     pub fn get_next_todo(&mut self) -> Option<NewTodo> {
-        let dfs = vec![
-            "books",
-            "sentences",
-            "pairs",
-            "pair_up",
-            "ex_nihilo_ffbb",
-            "ex_nihilo_fbbf",
-            "up_by_origin",
-            "up_by_hop",
-            "up_by_contents",
-            "phrases",
-            "phrase_by_origin",
-            "phrase_by_hop",
-            "phrase_by_contents",
-            "orthotopes",
-            "ortho_up",
-            "ortho_up_forward",
-            "ortho_up_back",
-            "ortho_over",
-            "ortho_over_forward",
-            "ortho_over_back",
-        ];
-
-        for domain in dfs {
-            if self.todos.get_mut(domain).is_some() {
-                let res_set: &mut HashSet<i64> = &mut self.todos.get_mut(domain).unwrap();
-                if res_set.iter().next().is_some() {
-                    let idx = res_set.iter().next().unwrap().clone();
-                    res_set.remove(&idx);
-
-                    return Some(NewTodo {
-                        domain: domain.to_owned(),
-                        other: idx,
-                    });
-                }
-            }
-        }
-        None
+        self.todos.pop()
     }
 }
 

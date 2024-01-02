@@ -6,7 +6,7 @@ use crate::{string_to_signed_int, Book, Holder};
 use itertools::Itertools;
 
 pub fn handle_book_todo(todo: NewTodo, holder: &mut Holder) {
-    let book = holder.get_book(todo.other);
+    let book = holder.get_book(todo.gid);
     let new_vocabulary = split_book_to_words(&book);
     insert_vocabulary(holder, &new_vocabulary);
     let new_sentences = split_book_to_sentences(&book);
@@ -83,7 +83,7 @@ mod tests {
         let book = Book {
             title: "title".to_owned(),
             body: "Multiple words.. \n\tTwo sentences! Now,:- three; Four.".to_owned(),
-            id: 5,
+            id: gremlin_client::GID::Int32(5),
         };
         let actual = split_book_to_sentences(&book);
         let actual_sentences: Vec<String> = actual.iter().map(|s| s.sentence.clone()).collect();

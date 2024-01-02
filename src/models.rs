@@ -1,3 +1,4 @@
+use gremlin_client::GID;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -11,7 +12,7 @@ pub struct NewBook {
 
 #[derive(Debug, Clone)]
 pub struct Book {
-    pub id: i64,
+    pub id: GID,
     pub title: String,
     pub body: String,
 }
@@ -20,6 +21,7 @@ pub struct Book {
 pub struct NewTodo {
     pub domain: String,
     pub other: i64,
+    pub gid: GID
 }
 
 #[derive(Serialize, Deserialize, Debug)]
