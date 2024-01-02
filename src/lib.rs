@@ -65,33 +65,33 @@ impl Holder {
         HashSet<i64>,
     ) {
 
-        let left_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(first_w); // a
-        let right_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(second_w); // b
+        let left_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(first_w); 
+        let right_orthos_by_origin: Vec<Ortho> = self.get_base_orthos_with_origin(second_w); 
 
         let (all_firsts, all_seconds, all_pairs) = {
             let first_words = {
                 let orthos: &[Ortho] = &left_orthos_by_origin;
                 orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
-            }; // c
+            }; 
             let second_words = {
                 let orthos: &[Ortho] = &right_orthos_by_origin;
                 orthos.iter().flat_map(|lo| lo.get_vocabulary()).collect()
-            }; // d
+            }; 
             let firsts: HashSet<(Word, Word, i64)> =
-                self.get_hashes_and_words_of_pairs_with_first_word(first_words); // c
+                self.get_hashes_and_words_of_pairs_with_first_word(first_words); 
             let seconds: HashSet<(Word, Word, i64)> =
-                self.get_hashes_and_words_of_pairs_with_second_word(second_words); // d
+                self.get_hashes_and_words_of_pairs_with_second_word(second_words); 
 
-            let domain: HashSet<(Word, Word, i64)> = firsts.union(&seconds).cloned().collect(); // c U d (or C ^ D)
-            let mut firsts = hashset! {}; // c U d
-            let mut seconds = hashset! {}; // c U d
-            let mut hashes = hashset! {}; // c U d
+            let domain: HashSet<(Word, Word, i64)> = firsts.union(&seconds).cloned().collect(); 
+            let mut firsts = hashset! {}; 
+            let mut seconds = hashset! {}; 
+            let mut hashes = hashset! {}; 
             domain.into_iter().for_each(|(f, s, h)| {
                 firsts.insert(f);
                 seconds.insert(s);
                 hashes.insert(h);
             });
-            (firsts, seconds, hashes) // c U d
+            (firsts, seconds, hashes) 
         };
         (
             left_orthos_by_origin,
@@ -100,49 +100,6 @@ impl Holder {
             all_seconds,
             all_pairs,
         )
-
-        // c U d rows (orthos are redundant)
-        // TABLE::
-        // left_ortho    |  right ortho   |   first    |    second     |   pair
-
-        // 2 documents (one for each word in pair)
-        // then c U d documents (one for each word in vocabulary of each ortho)
-        // DOCUMENT::
-        // word: (first):
-        //       orthos by origin:
-        //          ortho1,
-        //          ortho2...
-        //       pairs:
-        //           by first word:
-        //               pair1
-        //               pair2
-
-        // chapter one takes 55 mb ram and 3.5 minutes
-
-        // cut to fit strategy (relational):
-        // words -> orthos by origin -> vocabulary of orthos -> pairs by first and second
-        // 
-        // insert complexity
-        // pair found - insert into pairs
-        // ortho found - insert into ortho
-        // space complexity - little waste
-
-        // 2 documents needed
-        // cut to fit (document)
-        // word: 
-        //     ortho by origin:
-        //        o1:
-        //           vocabulary:
-        //              pairs_left:   
-        //                 p1, p2...
-        //     ortho by hop and contents
-        //
-        //   insert complexity:
-        //      pair found - insert in at the word level, but also find all vocabularies and insert pair there.
-        //      ortho found - insert for each word
-        //   space complexity: fairly massive. Multiply ortho by size and then multiply pairs by that
-
-
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
