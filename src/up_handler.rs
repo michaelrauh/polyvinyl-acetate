@@ -6,11 +6,7 @@ use crate::ortho::Ortho;
 
 use crate::{ints_to_big_int, up_helper, Holder, Word};
 
-pub fn up_by_origin(
-    holder: &mut Holder,
-    first_w: Word,
-    second_w: Word,
-) -> Vec<Ortho> {
+pub fn up_by_origin(holder: &mut Holder, first_w: Word, second_w: Word) -> Vec<Ortho> {
     let left_orthos_by_origin: Vec<Ortho> = holder.get_base_orthos_with_origin(first_w);
     let right_orthos_by_origin: Vec<Ortho> = holder.get_base_orthos_with_origin(second_w);
 
@@ -19,7 +15,8 @@ pub fn up_by_origin(
     }
 
     let (all_firsts, all_seconds, all_pairs) = {
-        let first_words = total_vocabulary(&left_orthos_by_origin);let second_words = total_vocabulary(&right_orthos_by_origin);
+        let first_words = total_vocabulary(&left_orthos_by_origin);
+        let second_words = total_vocabulary(&right_orthos_by_origin);
         let firsts: HashSet<(Word, Word, i64)> =
             holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
         let seconds: HashSet<(Word, Word, i64)> =
@@ -45,11 +42,7 @@ pub fn up_by_origin(
     attempt_up_for_pairs_of_matching_dimensionality(left_map, right_map, all_pairs)
 }
 
-pub fn up_by_hop(
-    holder: &mut Holder,
-    first_w: Word,
-    second_w: Word,
-) -> Vec<Ortho> {
+pub fn up_by_hop(holder: &mut Holder, first_w: Word, second_w: Word) -> Vec<Ortho> {
     let hop_left_orthos: Vec<Ortho> = {
         let other_hop = vec![first_w];
         holder.get_base_orthos_with_hops_overlapping(other_hop)
@@ -70,11 +63,7 @@ pub fn up_by_hop(
     )
 }
 
-pub fn up_by_contents(
-    holder: &mut Holder,
-    first_w: Word,
-    second_w: Word,
-) -> Vec<Ortho> {
+pub fn up_by_contents(holder: &mut Holder, first_w: Word, second_w: Word) -> Vec<Ortho> {
     let contents_left_orthos: Vec<Ortho> = {
         let other_contents = vec![first_w];
         holder.get_base_orthos_with_contents_overlapping(other_contents)
@@ -122,7 +111,8 @@ fn find_corresponding_non_origin_checked_orthos_and_attempt_up(
     hop_right_orthos: Vec<Ortho>,
 ) -> Vec<Ortho> {
     let (all_firsts, all_seconds, all_pairs) = {
-        let first_words = total_vocabulary(&hop_left_orthos);let second_words = total_vocabulary(&hop_right_orthos);
+        let first_words = total_vocabulary(&hop_left_orthos);
+        let second_words = total_vocabulary(&hop_right_orthos);
         let firsts: HashSet<(Word, Word, i64)> =
             holder.get_hashes_and_words_of_pairs_with_first_word(first_words);
         let seconds: HashSet<(Word, Word, i64)> =
@@ -195,7 +185,6 @@ fn total_vocabulary(orthos: &[Ortho]) -> HashSet<i32> {
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::ortho::Ortho;
     use crate::up_handler::{up_by_contents, up_by_hop, up_by_origin};
@@ -205,11 +194,7 @@ mod tests {
     #[test]
     fn it_creates_up_on_pair_add_when_origin_points_to_origin() {
         let mut holder: Holder = Holder::default();
-        let actual = up_by_origin(
-            &mut holder,
-            1,
-            5,
-        );
+        let actual = up_by_origin(&mut holder, 1, 5);
 
         let expected = Ortho::zip_up(
             &Ortho::new(1, 2, 3, 4),
@@ -227,11 +212,7 @@ mod tests {
     #[test]
     fn it_does_not_create_up_when_a_forward_is_missing() {
         let mut holder: Holder = Holder::default();
-        let actual = up_by_origin(
-            &mut holder,
-            1,
-            5,
-        );
+        let actual = up_by_origin(&mut holder, 1, 5);
 
         assert_eq!(actual, vec![]);
     }
@@ -239,11 +220,7 @@ mod tests {
     #[test]
     fn it_does_not_produce_up_if_that_would_create_a_diagonal_conflict() {
         let mut holder: Holder = Holder::default();
-        let actual = up_by_origin(
-            &mut holder,
-            1,
-            5,
-        );
+        let actual = up_by_origin(&mut holder, 1, 5);
 
         assert_eq!(actual, vec![]);
     }
@@ -251,11 +228,7 @@ mod tests {
     #[test]
     fn it_does_not_produce_up_for_non_base_dims_even_if_eligible() {
         let mut holder: Holder = Holder::default();
-        let actual = up_by_origin(
-            &mut holder,
-            1,
-            7,
-        );
+        let actual = up_by_origin(&mut holder, 1, 7);
 
         assert_eq!(actual, vec![]);
     }
@@ -263,11 +236,7 @@ mod tests {
     #[test]
     fn it_only_attempts_to_combine_same_dim_orthos() {
         let mut holder: Holder = Holder::default();
-        let actual = up_by_origin(
-            &mut holder,
-            1,
-            5,
-        );
+        let actual = up_by_origin(&mut holder, 1, 5);
 
         assert_eq!(actual, vec![]);
     }

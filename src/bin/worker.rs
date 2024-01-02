@@ -33,7 +33,8 @@ fn main() {
     }
 
     {
-        let holder = &holder;let words = HashSet::default();
+        let holder = &holder;
+        let words = HashSet::default();
         holder.get_vocabulary_slice_with_words(words)
     };
 }

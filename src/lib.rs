@@ -2,7 +2,6 @@ pub mod models;
 
 use itertools::Itertools;
 
-
 mod book_todo_handler;
 pub mod ortho;
 mod ortho_todo_handler;
@@ -272,7 +271,8 @@ impl Holder {
         // d <- c
         // c <- a
 
-        let ans: Vec<Ortho> = self.get_second_words_of_pairs_with_first_word(b)
+        let ans: Vec<Ortho> = self
+            .get_second_words_of_pairs_with_first_word(b)
             .into_iter()
             .flat_map(|d| {
                 self.get_first_words_of_pairs_with_second_word(d)
@@ -300,7 +300,8 @@ impl Holder {
         // d <- c
         // c <- a
         // a -> b
-        let ans: Vec<Ortho> = self.get_first_words_of_pairs_with_second_word(d)
+        let ans: Vec<Ortho> = self
+            .get_first_words_of_pairs_with_second_word(d)
             .into_iter()
             .flat_map(|c| {
                 self.get_first_words_of_pairs_with_second_word(c)
@@ -309,12 +310,12 @@ impl Holder {
                         self.get_second_words_of_pairs_with_first_word(a)
                             .into_iter()
                             .filter(|b_prime| b_prime == &b)
-                            .map(|_| { (a, b, c, d)})
+                            .map(|_| (a, b, c, d))
                             .collect_vec()
                     })
             })
             .filter(|(_a, b, c, _d)| b != c)
-            .map(|(a, b, c, d)| {Ortho::new(a, b, c, d)}  )
+            .map(|(a, b, c, d)| Ortho::new(a, b, c, d))
             .collect();
         ans
     }
@@ -540,10 +541,6 @@ impl Holder {
     }
 }
 
-
-
-
-
 pub fn string_to_signed_int(t: &str) -> i64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
@@ -576,7 +573,6 @@ pub fn ints_to_big_int(l: Word, r: Word) -> i64 {
     hasher.finish() as i64
 }
 
-
 pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
     let information = bincode::serialize(&ortho).expect("serialization should work");
     let origin = ortho.get_origin().to_owned();
@@ -593,5 +589,3 @@ pub fn ortho_to_orthotope(ortho: &Ortho) -> NewOrthotope {
         base,
     }
 }
-
-

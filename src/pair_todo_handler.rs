@@ -3,10 +3,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use crate::{models::NewOrthotope, up_handler, Holder, Word};
 use crate::{models::NewTodo, ortho::Ortho};
-use crate::{
-    models::NewOrthotope, up_handler, Holder, Word,
-};
 
 pub fn handle_pair_todo_up_by_origin(todo: NewTodo, holder: &mut Holder) {
     let pair = get_pair(holder, todo.other);
@@ -79,11 +77,7 @@ fn single_fbbf(holder: &mut Holder, first: Word, second: Word) -> Vec<Ortho> {
 }
 
 fn new_orthotopes_up_by_origin(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
-    let up_orthos = up_handler::up_by_origin(
-        holder,
-        pair.0,
-        pair.1,
-    );
+    let up_orthos = up_handler::up_by_origin(holder, pair.0, pair.1);
     let up_iter = up_orthos.iter();
 
     let res = up_iter.map(crate::ortho_to_orthotope).collect();
@@ -91,11 +85,7 @@ fn new_orthotopes_up_by_origin(holder: &mut Holder, pair: (Word, Word)) -> Vec<N
 }
 
 fn new_orthotopes_up_by_hop(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
-    let up_orthos = up_handler::up_by_hop(
-        holder,
-        pair.0,
-        pair.1,
-    );
+    let up_orthos = up_handler::up_by_hop(holder, pair.0, pair.1);
     let up_iter = up_orthos.iter();
 
     let res = up_iter.map(crate::ortho_to_orthotope).collect();
@@ -103,11 +93,7 @@ fn new_orthotopes_up_by_hop(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewO
 }
 
 fn new_orthotopes_up_by_contents(holder: &mut Holder, pair: (Word, Word)) -> Vec<NewOrthotope> {
-    let up_orthos = up_handler::up_by_contents(
-        holder,
-        pair.0,
-        pair.1,
-    );
+    let up_orthos = up_handler::up_by_contents(holder, pair.0, pair.1);
     let up_iter = up_orthos.iter();
 
     let res = up_iter.map(crate::ortho_to_orthotope).collect();
