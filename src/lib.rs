@@ -31,7 +31,6 @@ use std::{
 type Word = i64;
 
 pub struct Holder {
-    vocabulary: HashMap<String, Word>,
     sentences: HashMap<i64, String>,
     todos: Vec<NewTodo>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
@@ -52,7 +51,6 @@ pub struct Holder {
 impl Holder {
     pub fn new() -> Self {
         Holder {
-            vocabulary: HashMap::default(),
             sentences: HashMap::default(),
             todos: Vec::default(),
             pairs_by_first: HashMap::default(),
@@ -89,11 +87,27 @@ impl Holder {
     }
 
     pub fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
-        self.vocabulary
-            .iter()
-            .filter(|(_k, v)| firsts.contains(v))
-            .map(|(k, v)| (v.clone(), k.clone()))
-            .collect()
+        let ans = self
+        .g
+        .v(())
+        .has_label("word")
+        .has(("id", P::within(firsts.into_iter().collect_vec())))
+        .to_list()
+        .unwrap()
+        .iter()
+        .map(|v| {
+            let val = v
+                .property("value")
+                .unwrap()
+                .get::<String>()
+                .unwrap()
+                .to_owned();
+            let w = v.id().get::<i64>().unwrap().to_owned();
+            (w, val)
+        })
+        .collect::<HashMap<Word, String>>();
+
+    ans
     }
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
