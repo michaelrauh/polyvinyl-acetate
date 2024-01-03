@@ -385,6 +385,7 @@ impl Holder {
             .g
             .v(())
             .has_label("word")
+            .has(("value", P::within(to_insert.iter().map(|x| x.word.clone()).collect_vec()))) 
             .values("value")
             .to_list()
             .unwrap()
