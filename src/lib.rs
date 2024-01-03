@@ -1,7 +1,8 @@
 pub mod models;
 
-use gremlin_client::{GremlinClient, GID};
-use gremlin_client::process::traversal::traversal;
+use gremlin_client::structure::P;
+use gremlin_client::GID;
+use gremlin_client::{process::traversal::traversal, GremlinClient};
 use itertools::Itertools;
 
 mod book_todo_handler;
@@ -43,7 +44,9 @@ pub struct Holder {
     orthos_by_hop: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_contents: HashMap<Word, HashSet<NewOrthotope>>,
     orthos_by_origin: HashMap<Word, HashSet<Ortho>>,
-    g: gremlin_client::process::traversal::GraphTraversalSource<gremlin_client::process::traversal::SyncTerminator>,
+    g: gremlin_client::process::traversal::GraphTraversalSource<
+        gremlin_client::process::traversal::SyncTerminator,
+    >,
 }
 
 impl Holder {
@@ -280,10 +283,29 @@ impl Holder {
 
     fn get_book(&self, pk: GID) -> Book {
         let b = self.g.v(pk.clone());
-        let body: String = b.clone().values("body").next().unwrap().unwrap().get::<String>().unwrap().to_string();
-        let title = b.values("title").next().unwrap().unwrap().get::<String>().unwrap().to_string();
+        let body: String = b
+            .clone()
+            .values("body")
+            .next()
+            .unwrap()
+            .unwrap()
+            .get::<String>()
+            .unwrap()
+            .to_string();
+        let title = b
+            .values("title")
+            .next()
+            .unwrap()
+            .unwrap()
+            .get::<String>()
+            .unwrap()
+            .to_string();
 
-        Book { id: pk, title, body}
+        Book {
+            id: pk,
+            title,
+            body,
+        }
     }
 
     fn ffbb(&self, a: Word, b: Word) -> Vec<Ortho> {
@@ -345,24 +367,51 @@ impl Holder {
     }
 
     fn insert_vocabulary(&mut self, to_insert: Vec<models::NewWords>) {
-        // todo make sure indices are right. Back to back inserts should count on
-        let current: HashSet<String> = self.vocabulary.keys().cloned().collect::<HashSet<_>>();
-        let words_to_insert: HashSet<String> = to_insert.iter().map(|w| w.word.clone()).collect();
-        let new = words_to_insert.difference(&current).collect_vec();
-        let current_index = self.vocabulary.len();
-        let new_indices = current_index..(current_index + new.len());
+        let existing = self
+            .g
+            .v(())
+            .has_label("word")
+            .values("value")
+            .to_list()
+            .unwrap()
+            .iter()
+            .map(|v| v.get::<String>().unwrap().to_owned())
+            .collect::<HashSet<String>>();
 
-        words_to_insert.iter().zip(new_indices).for_each(|(k, v)| {
-            self.vocabulary.insert(k.clone(), v.try_into().unwrap());
+        to_insert.iter().for_each(|word| {
+            let w = &word.word;
+            if !existing.contains(w) {
+                self.g
+                    .add_v("word")
+                    .property("value", w.clone())
+                    .next()
+                    .unwrap();
+            }
         });
     }
 
     fn get_vocabulary(&self, words: HashSet<String>) -> HashMap<String, Word> {
-        self.vocabulary
+        let ans = self
+            .g
+            .v(())
+            .has_label("word")
+            .has(("value", P::within(words.into_iter().collect_vec())))
+            .to_list()
+            .unwrap()
             .iter()
-            .filter(|(k, _v)| words.contains(*k))
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
+            .map(|v| {
+                let val = v
+                    .property("value")
+                    .unwrap()
+                    .get::<String>()
+                    .unwrap()
+                    .to_owned();
+                let w = v.id().get::<i64>().unwrap().to_owned();
+                (val, w)
+            })
+            .collect::<HashMap<String, Word>>();
+
+        ans
     }
 
     fn get_pair(&self, key: i64) -> NewPair {
@@ -392,13 +441,21 @@ impl Holder {
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
         hashes.into_iter().for_each(|other| {
-            self.todos.push(NewTodo { domain: domain.to_owned(), other, gid: GID::Int32(5) })
+            self.todos.push(NewTodo {
+                domain: domain.to_owned(),
+                other,
+                gid: GID::Int32(5),
+            })
         })
     }
 
     pub fn insert_todos_with_gid(&mut self, domain: &str, hashes: Vec<GID>) {
         hashes.into_iter().for_each(|other| {
-            self.todos.push(NewTodo { domain: domain.to_owned(), gid: other, other: 5 })
+            self.todos.push(NewTodo {
+                domain: domain.to_owned(),
+                gid: other,
+                other: 5,
+            })
         })
     }
 
@@ -516,7 +573,14 @@ impl Holder {
     }
 
     pub fn insert_book(&mut self, title: String, body: String) -> Book {
-        let res = self.g.add_v("book").property("title", title.clone()).property("body", body.clone()).next().unwrap().unwrap();
+        let res = self
+            .g
+            .add_v("book")
+            .property("title", title.clone())
+            .property("body", body.clone())
+            .next()
+            .unwrap()
+            .unwrap();
         let b = Book {
             id: res.id().clone(),
             title,

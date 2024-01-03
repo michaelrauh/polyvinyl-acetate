@@ -21,7 +21,7 @@ pub struct Book {
 pub struct NewTodo {
     pub domain: String,
     pub other: i64,
-    pub gid: GID
+    pub gid: GID,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

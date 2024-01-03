@@ -16,7 +16,7 @@ bincode = "1.3.3"
 anyhow = "1.0"
 maplit = "1.0.2"
 itertools = "0.10.3"
-gremlin-client = "0.8"
+gremlin-client = "0.8.6"
 
 [dev-dependencies]
 criterion = "0.3"
