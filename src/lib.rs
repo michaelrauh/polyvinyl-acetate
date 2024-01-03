@@ -31,7 +31,6 @@ use std::{
 type Word = i64;
 
 pub struct Holder {
-    sentences: HashMap<i64, String>,
     todos: Vec<NewTodo>,
     pairs_by_first: HashMap<Word, HashSet<NewPair>>,
     pairs_by_second: HashMap<Word, HashSet<NewPair>>,
@@ -51,7 +50,6 @@ pub struct Holder {
 impl Holder {
     pub fn new() -> Self {
         Holder {
-            sentences: HashMap::default(),
             todos: Vec::default(),
             pairs_by_first: HashMap::default(),
             pairs_by_second: HashMap::default(),
@@ -88,26 +86,26 @@ impl Holder {
 
     pub fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
         let ans = self
-        .g
-        .v(())
-        .has_label("word")
-        .has(("id", P::within(firsts.into_iter().collect_vec())))
-        .to_list()
-        .unwrap()
-        .iter()
-        .map(|v| {
-            let val = v
-                .property("value")
-                .unwrap()
-                .get::<String>()
-                .unwrap()
-                .to_owned();
-            let w = v.id().get::<i64>().unwrap().to_owned();
-            (w, val)
-        })
-        .collect::<HashMap<Word, String>>();
+            .g
+            .v(())
+            .has_label("word")
+            .has(("id", P::within(firsts.into_iter().collect_vec())))
+            .to_list()
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let val = v
+                    .property("value")
+                    .unwrap()
+                    .get::<String>()
+                    .unwrap()
+                    .to_owned();
+                let w = v.id().get::<i64>().unwrap().to_owned();
+                (w, val)
+            })
+            .collect::<HashMap<Word, String>>();
 
-    ans
+        ans
     }
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
@@ -385,7 +383,10 @@ impl Holder {
             .g
             .v(())
             .has_label("word")
-            .has(("value", P::within(to_insert.iter().map(|x| x.word.clone()).collect_vec()))) 
+            .has((
+                "value",
+                P::within(to_insert.iter().map(|x| x.word.clone()).collect_vec()),
+            ))
             .values("value")
             .to_list()
             .unwrap()
@@ -441,17 +442,39 @@ impl Holder {
         self.orthos_by_hash[&key].to_owned()
     }
 
-    fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<i64> {
-        let mut new_sentences = Vec::default();
-        sentences.iter().for_each(|x| {
-            let k = x.sentence_hash;
-            let inserted_anew = self.sentences.insert(k, x.sentence.clone()).is_none();
+    fn insert_sentences(&mut self, sentences: &[models::NewSentence]) -> Vec<GID> {
+        let existing = self
+            .g
+            .v(())
+            .has_label("sentence")
+            .has((
+                "hash",
+                P::within(sentences.iter().map(|x| x.sentence_hash).collect_vec()),
+            ))
+            .values("hash")
+            .to_list()
+            .unwrap()
+            .iter()
+            .map(|v| v.get::<i64>().unwrap().to_owned())
+            .collect::<HashSet<i64>>();
 
-            if inserted_anew {
-                new_sentences.push(k);
-            }
-        });
-        new_sentences
+        let new_ids = sentences
+            .iter()
+            .filter(|s| !existing.contains(&s.sentence_hash))
+            .map(|sentence| {
+                self.g
+                    .add_v("sentence")
+                    .property("hash", sentence.sentence_hash)
+                    .property("sentence", &sentence.sentence)
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .id()
+                    .clone()
+            })
+            .collect_vec();
+
+        new_ids
     }
 
     pub fn insert_todos(&mut self, domain: &str, hashes: Vec<i64>) {
@@ -474,8 +497,17 @@ impl Holder {
         })
     }
 
-    fn get_sentence(&self, pk: i64) -> String {
-        self.sentences[&pk].clone()
+    fn get_sentence(&self, pk: GID) -> String {
+        self.g
+            .v(pk.clone())
+            .clone()
+            .values("sentence")
+            .next()
+            .unwrap()
+            .unwrap()
+            .get::<String>()
+            .unwrap()
+            .to_string()
     }
 
     fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {

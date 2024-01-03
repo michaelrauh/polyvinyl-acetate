@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use crate::models::{NewSentence, NewTodo, NewWords};
 use crate::{string_to_signed_int, Book, Holder};
 
+use gremlin_client::GID;
 use itertools::Itertools;
 
 pub fn handle_book_todo(todo: NewTodo, holder: &mut Holder) {
@@ -11,7 +12,7 @@ pub fn handle_book_todo(todo: NewTodo, holder: &mut Holder) {
     insert_vocabulary(holder, &new_vocabulary);
     let new_sentences = split_book_to_sentences(&book);
     let sentence_hashes = insert_sentences(holder, &new_sentences);
-    holder.insert_todos("sentences", sentence_hashes);
+    holder.insert_todos_with_gid("sentences", sentence_hashes);
 }
 
 fn insert_vocabulary(holder: &mut Holder, vocabulary: &HashSet<String>) {
@@ -45,7 +46,7 @@ fn split_book_to_words(book: &Book) -> HashSet<String> {
         .collect()
 }
 
-fn insert_sentences(holder: &mut Holder, sentences: &[NewSentence]) -> Vec<i64> {
+fn insert_sentences(holder: &mut Holder, sentences: &[NewSentence]) -> Vec<GID> {
     holder.insert_sentences(sentences)
 }
 

@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use gremlin_client::GID;
+
 use crate::models::{NewPair, NewPhrase, NewTodo};
 use crate::{ints_to_big_int, vec_of_words_to_big_int, Holder, Word};
 
 pub fn handle_sentence_todo(todo: NewTodo, holder: &mut Holder) {
-    let sentence = get_sentence(holder, todo.other);
+    let sentence = get_sentence(holder, todo.gid);
     let words = split_sentence(&sentence);
     let vocab = {
         let words = words.into_iter().collect();
@@ -118,7 +120,7 @@ fn create_pairs(holder: &mut Holder, sentence: &str, vocab: &HashMap<String, Wor
     holder.insert_todos("pairs", pairs);
 }
 
-fn get_sentence(holder: &mut Holder, pk: i64) -> String {
+fn get_sentence(holder: &mut Holder, pk: GID) -> String {
     holder.get_sentence(pk)
 }
 
