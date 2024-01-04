@@ -37,7 +37,7 @@ pub fn split_sentence_to_pairs(sentence: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-fn create_pair_entry(holder: &mut Holder, to_insert: Vec<NewPair>) -> Vec<i64> {
+fn create_pair_entry(holder: &mut Holder, to_insert: Vec<NewPair>) -> Vec<GID> {
     holder.insert_pairs(to_insert)
 }
 
@@ -117,7 +117,7 @@ fn create_pairs(holder: &mut Holder, sentence: &str, vocab: &HashMap<String, Wor
         .collect();
 
     let pairs = create_pair_entry(holder, new_pairs);
-    holder.insert_todos("pairs", pairs);
+    holder.insert_todos_with_gid("pairs", pairs);
 }
 
 fn get_sentence(holder: &mut Holder, pk: GID) -> String {

@@ -35,7 +35,8 @@ fn main() {
     {
         let holder = &holder;
         let words = HashSet::new();
-        holder.get_vocabulary_slice_with_words(words)
+        holder.get_vocabulary_slice_with_words(words);
+        holder.get_stats();
     };
 }
 

@@ -32,9 +32,6 @@ type Word = i64;
 
 pub struct Holder {
     todos: Vec<NewTodo>,
-    pairs_by_first: HashMap<Word, HashSet<NewPair>>,
-    pairs_by_second: HashMap<Word, HashSet<NewPair>>,
-    pairs_by_hash: HashMap<i64, NewPair>,
     phrases_by_head: HashMap<i64, HashSet<i64>>,
     phrases_by_tail: HashMap<i64, HashSet<i64>>,
     phrases_by_hash: HashMap<i64, Vec<Word>>,
@@ -51,9 +48,6 @@ impl Holder {
     pub fn new() -> Self {
         Holder {
             todos: Vec::default(),
-            pairs_by_first: HashMap::default(),
-            pairs_by_second: HashMap::default(),
-            pairs_by_hash: HashMap::default(),
             phrases_by_head: HashMap::default(),
             phrases_by_tail: HashMap::default(),
             phrases_by_hash: HashMap::default(),
@@ -71,22 +65,19 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_first_word(&self, firsts: Vec<Word>) -> HashSet<i64> {
-        firsts
+        self.g
+            .v(firsts)
+            .out_e("pair")
+            .properties("hash")
+            .to_list()
+            .unwrap()
             .iter()
-            .flat_map(|f| {
-                self.pairs_by_first
-                    .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|x| x.pair_hash)
-                    .collect::<HashSet<_>>()
-            })
+            .map(|p| p.get::<i64>().unwrap().to_owned())
             .collect()
     }
 
     pub fn get_vocabulary_slice_with_words(&self, firsts: HashSet<Word>) -> HashMap<Word, String> {
-        let ans = self
-            .g
+        self.g
             .v(())
             .has_label("word")
             .has(("id", P::within(firsts.into_iter().collect_vec())))
@@ -103,9 +94,7 @@ impl Holder {
                 let w = v.id().get::<i64>().unwrap().to_owned();
                 (w, val)
             })
-            .collect::<HashMap<Word, String>>();
-
-        ans
+            .collect::<HashMap<Word, String>>()
     }
 
     fn get_orthos_with_hops_overlapping(&self, hop: Vec<Word>) -> Vec<Ortho> {
@@ -165,27 +154,37 @@ impl Holder {
     }
 
     fn get_words_of_pairs_with_second_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-        from.iter()
-            .flat_map(|f| {
-                self.pairs_by_second
-                    .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word))
-                    .collect_vec()
+        let edges = self
+            .g
+            .v(from.into_iter().collect_vec())
+            .in_e("pair")
+            .to_list()
+            .unwrap();
+
+        edges
+            .iter()
+            .map(|e| {
+                let v1 = e.clone().out_v().id().get::<i64>().unwrap().to_owned();
+                let v2 = e.clone().in_v().id().get::<i64>().unwrap().to_owned();
+                (v1, v2)
             })
             .collect()
     }
 
     fn get_words_of_pairs_with_first_word_in(&self, from: HashSet<Word>) -> HashSet<(Word, Word)> {
-        from.iter()
-            .flat_map(|f| {
-                self.pairs_by_first
-                    .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word))
-                    .collect_vec()
+        let edges = self
+            .g
+            .v(from.into_iter().collect_vec())
+            .out_e("pair")
+            .to_list()
+            .unwrap();
+
+        edges
+            .iter()
+            .map(|e| {
+                let v1 = e.clone().out_v().id().get::<i64>().unwrap().to_owned();
+                let v2 = e.clone().in_v().id().get::<i64>().unwrap().to_owned();
+                (v1, v2)
             })
             .collect()
     }
@@ -194,14 +193,31 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
-        from.iter()
-            .flat_map(|f| {
-                self.pairs_by_first
-                    .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
-                    .collect_vec()
+        let edges = self
+            .g
+            .v(from.into_iter().collect_vec())
+            .out_e("pair")
+            .to_list()
+            .unwrap();
+
+        edges
+            .iter()
+            .map(|e| {
+                let id = e.id().get::<i64>().unwrap().to_owned();
+                let h = self
+                    .g
+                    .e(id)
+                    .properties("hash")
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .get::<i64>()
+                    .unwrap()
+                    .clone();
+
+                let v1 = e.clone().out_v().id().get::<i64>().unwrap().to_owned();
+                let v2 = e.clone().in_v().id().get::<i64>().unwrap().to_owned();
+                (v1, v2, h)
             })
             .collect()
     }
@@ -210,14 +226,31 @@ impl Holder {
         &self,
         from: HashSet<Word>,
     ) -> HashSet<(Word, Word, i64)> {
-        from.iter()
-            .flat_map(|f| {
-                self.pairs_by_second
-                    .get(f)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| (p.first_word, p.second_word, p.pair_hash))
-                    .collect_vec()
+        let edges = self
+            .g
+            .v(from.into_iter().collect_vec())
+            .in_e("pair")
+            .to_list()
+            .unwrap();
+
+        edges
+            .iter()
+            .map(|e| {
+                let id = e.id().get::<i64>().unwrap().to_owned();
+                let h = self
+                    .g
+                    .e(id)
+                    .properties("hash")
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .get::<i64>()
+                    .unwrap()
+                    .clone();
+
+                let v1 = e.clone().out_v().id().get::<i64>().unwrap().to_owned();
+                let v2 = e.clone().in_v().id().get::<i64>().unwrap().to_owned();
+                (v1, v2, h)
             })
             .collect()
     }
@@ -262,34 +295,36 @@ impl Holder {
     }
 
     fn get_hashes_of_pairs_with_second_word(&self, seconds: Vec<Word>) -> HashSet<i64> {
-        seconds
+        self.g
+            .v(seconds)
+            .in_e("pair")
+            .properties("hash")
+            .to_list()
+            .unwrap()
             .iter()
-            .flat_map(|s| {
-                self.pairs_by_second
-                    .get(s)
-                    .unwrap_or(&HashSet::default())
-                    .iter()
-                    .map(|p| p.pair_hash)
-                    .collect_vec()
-            })
+            .map(|p| p.get::<i64>().unwrap().to_owned())
             .collect()
     }
 
     fn get_second_words_of_pairs_with_first_word(&self, first: Word) -> HashSet<Word> {
-        self.pairs_by_first
-            .get(&first)
-            .unwrap_or(&HashSet::default())
+        self.g
+            .v(first)
+            .out("pair")
+            .to_list()
+            .unwrap()
             .iter()
-            .map(|p| p.second_word)
+            .map(|v| v.id().get::<i64>().unwrap().to_owned())
             .collect()
     }
 
     fn get_first_words_of_pairs_with_second_word(&self, second: Word) -> HashSet<Word> {
-        self.pairs_by_second
-            .get(&second)
-            .unwrap_or(&HashSet::default())
+        self.g
+            .v(second)
+            .in_("pair")
+            .to_list()
+            .unwrap()
             .iter()
-            .map(|p| p.first_word)
+            .map(|v| v.id().get::<i64>().unwrap().to_owned())
             .collect()
     }
 
@@ -430,8 +465,24 @@ impl Holder {
         ans
     }
 
-    fn get_pair(&self, key: i64) -> NewPair {
-        self.pairs_by_hash[&key].clone()
+    fn get_pair(&self, key: GID) -> NewPair {
+        let e = self.g.e(key);
+        let v1 = e.clone().out_v().next().unwrap().unwrap();
+        let v2 = e.clone().in_v().next().unwrap().unwrap();
+        let p = e
+            .properties("hash")
+            .next()
+            .unwrap()
+            .unwrap()
+            .get::<i64>()
+            .unwrap()
+            .to_owned();
+
+        NewPair {
+            first_word: v1.id().get::<i64>().unwrap().to_owned(),
+            second_word: v2.id().get::<i64>().unwrap().to_owned(),
+            pair_hash: p,
+        }
     }
 
     fn get_phrase(&self, key: i64) -> Vec<Word> {
@@ -510,26 +561,42 @@ impl Holder {
             .to_string()
     }
 
-    fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<i64> {
-        let mut res = vec![];
-        to_insert.iter().for_each(|new_pair| {
-            let inserted = self
-                .pairs_by_first
-                .entry(new_pair.first_word)
-                .or_default()
-                .insert(new_pair.clone());
-            if inserted {
-                res.push(new_pair.pair_hash);
-                self.pairs_by_hash
-                    .insert(new_pair.pair_hash, new_pair.clone());
-                self.pairs_by_second
-                    .entry(new_pair.second_word)
-                    .or_default()
-                    .insert(new_pair.clone());
-            }
-        });
+    fn insert_pairs(&mut self, to_insert: Vec<models::NewPair>) -> Vec<GID> {
+        let existing = self
+            .g
+            .e(())
+            .has_label("pair")
+            .has((
+                "hash",
+                P::within(to_insert.iter().map(|x| x.pair_hash).collect_vec()),
+            ))
+            .values("hash")
+            .to_list()
+            .unwrap()
+            .iter()
+            .map(|v| v.get::<i64>().unwrap().to_owned())
+            .collect::<HashSet<i64>>();
 
-        res
+        let new_ids = to_insert
+            .iter()
+            .filter(|p| !existing.contains(&p.pair_hash))
+            .map(|pair| {
+                let v1 = self.g.v(pair.first_word).next().unwrap().unwrap();
+                let v2 = self.g.v(pair.second_word).next().unwrap().unwrap();
+                self.g
+                    .add_e("pair")
+                    .from(&v1)
+                    .to(&v2)
+                    .property("hash", pair.pair_hash)
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .id()
+                    .clone()
+            })
+            .collect_vec();
+
+        new_ids
     }
 
     fn insert_phrases(&mut self, to_insert: Vec<models::NewPhrase>) -> Vec<i64> {

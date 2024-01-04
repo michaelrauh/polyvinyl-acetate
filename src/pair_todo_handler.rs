@@ -3,11 +3,13 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use gremlin_client::GID;
+
 use crate::{models::NewOrthotope, up_handler, Holder, Word};
 use crate::{models::NewTodo, ortho::Ortho};
 
 pub fn handle_pair_todo_up_by_origin(todo: NewTodo, holder: &mut Holder) {
-    let pair = get_pair(holder, todo.other);
+    let pair = get_pair(holder, todo.gid);
     let new_orthos = new_orthotopes_up_by_origin(holder, pair);
     let inserted_orthos = {
         let new_orthos = HashSet::from_iter(new_orthos);
@@ -17,7 +19,7 @@ pub fn handle_pair_todo_up_by_origin(todo: NewTodo, holder: &mut Holder) {
 }
 
 pub fn handle_pair_todo_up_by_contents(todo: NewTodo, holder: &mut Holder) {
-    let pair = get_pair(holder, todo.other);
+    let pair = get_pair(holder, todo.gid);
     let new_orthos = new_orthotopes_up_by_contents(holder, pair);
     let inserted_orthos = {
         let new_orthos = HashSet::from_iter(new_orthos);
@@ -27,7 +29,7 @@ pub fn handle_pair_todo_up_by_contents(todo: NewTodo, holder: &mut Holder) {
 }
 
 pub fn handle_pair_todo_up_by_hop(todo: NewTodo, holder: &mut Holder) {
-    let pair = get_pair(holder, todo.other);
+    let pair = get_pair(holder, todo.gid);
     let new_orthos = new_orthotopes_up_by_hop(holder, pair);
     let inserted_orthos = {
         let new_orthos = HashSet::from_iter(new_orthos);
@@ -37,7 +39,7 @@ pub fn handle_pair_todo_up_by_hop(todo: NewTodo, holder: &mut Holder) {
 }
 
 pub fn handle_pair_todo_ffbb(todo: NewTodo, holder: &mut Holder) {
-    let pair = get_pair(holder, todo.other);
+    let pair = get_pair(holder, todo.gid);
     let new_orthos = new_orthotopes_ffbb(holder, pair);
     let inserted_orthos = {
         let new_orthos = HashSet::from_iter(new_orthos);
@@ -47,7 +49,7 @@ pub fn handle_pair_todo_ffbb(todo: NewTodo, holder: &mut Holder) {
 }
 
 pub fn handle_pair_todo_fbbf(todo: NewTodo, holder: &mut Holder) {
-    let pair = get_pair(holder, todo.other);
+    let pair = get_pair(holder, todo.gid);
     let new_orthos = new_orthotopes_fbbf(holder, pair);
     let inserted_orthos = {
         let new_orthos = HashSet::from_iter(new_orthos);
@@ -57,15 +59,15 @@ pub fn handle_pair_todo_fbbf(todo: NewTodo, holder: &mut Holder) {
 }
 
 pub fn handle_pair_todo_up(todo: NewTodo, holder: &mut Holder) {
-    holder.insert_todos("up_by_origin", vec![todo.other]);
-    holder.insert_todos("up_by_hop", vec![todo.other]);
-    holder.insert_todos("up_by_contents", vec![todo.other]);
+    holder.insert_todos_with_gid("up_by_origin", vec![todo.gid.clone()]);
+    holder.insert_todos_with_gid("up_by_hop", vec![todo.gid.clone()]);
+    holder.insert_todos_with_gid("up_by_contents", vec![todo.gid]);
 }
 
 pub fn handle_pair_todo(todo: NewTodo, holder: &mut Holder) {
-    holder.insert_todos("ex_nihilo_ffbb", vec![todo.other]);
-    holder.insert_todos("ex_nihilo_fbbf", vec![todo.other]);
-    holder.insert_todos("pair_up", vec![todo.other]);
+    holder.insert_todos_with_gid("ex_nihilo_ffbb", vec![todo.gid.clone()]);
+    holder.insert_todos_with_gid("ex_nihilo_fbbf", vec![todo.gid.clone()]);
+    holder.insert_todos_with_gid("pair_up", vec![todo.gid]);
 }
 
 fn single_ffbb(holder: &mut Holder, first: Word, second: Word) -> Vec<Ortho> {
@@ -123,7 +125,7 @@ pub fn data_vec_to_signed_int(x: &[u8]) -> i64 {
     hasher.finish() as i64
 }
 
-fn get_pair(holder: &Holder, pk: i64) -> (Word, Word) {
+fn get_pair(holder: &Holder, pk: GID) -> (Word, Word) {
     let p = holder.get_pair(pk);
 
     (p.first_word, p.second_word)
